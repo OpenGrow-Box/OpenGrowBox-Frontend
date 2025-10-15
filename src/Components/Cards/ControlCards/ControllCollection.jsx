@@ -327,7 +327,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_tentmode_${currentRoom?.toLowerCase()}`]: 'Select a grow mode to activate automated control. Check the wiki for detailed mode descriptions.',
     [`ogb_holdvpdnight_${currentRoom?.toLowerCase()}`]: 'Enable to control VPD during nighttime. If disabled, all devices will turn off at night.',
     [`ogb_dryingmodes_${currentRoom?.toLowerCase()}`]: 'Select your preferred drying technique. Make sure Tent Mode is set to "Drying".',
-    [`ogb_workmode_${currentRoom?.toLowerCase()}`]: 'Set the current plant stage. Lights will adjust to the new min/max if dimmable.',
+    [`ogb_workmode_${currentRoom?.toLowerCase()}`]: 'Use this mode when working on your plants. It will dim the lights and reduce device activity until you deactivate it again.',
 
     [`ogb_leaftemp_offset_${currentRoom?.toLowerCase()}`]: 'Override the detected leaf temperature by automation if needed.',
     [`ogb_vpdtarget_${currentRoom?.toLowerCase()}`]: 'Set your target VPD. Works only in "Targeted VPD" Tent Mode.',
