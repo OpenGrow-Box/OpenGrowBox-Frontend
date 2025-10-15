@@ -6,7 +6,6 @@ import styled from 'styled-components'
 import GrowBenchmark from '../Components/Premium/GrowBenchmark'
 import GrowPlaner from '../Components/Premium/GrowPlaner'
 import GrowMananger from '../Components/Premium/GrowMananger'
-import AIStreamDisplay from '../Components/Premium/AIStreamDisplay'
 
 const Premium = () => {
   const { isPremium } = usePremium()

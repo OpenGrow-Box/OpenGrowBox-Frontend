@@ -3,6 +3,8 @@ import styled, { keyframes, css } from 'styled-components';
 import { FaDiscord, FaTelegram, FaBook } from 'react-icons/fa';
 import {ogbversions} from '../../config';
 import OGBIcon from '../../misc/OGBIcon'
+import DevBageHallOfFame from './DevBageHallOfFame';
+import { DEV_USERS } from '../../config';
 
 const SettingsFooter = () => {
   const currentYear = new Date().getFullYear();
@@ -51,6 +53,8 @@ const SettingsFooter = () => {
   };
 
   return (
+
+      <>
     <FooterContainer>
       <OGBCopyright onClick={handleWebPageClick}>
         <IconWrapper>
@@ -86,7 +90,12 @@ const SettingsFooter = () => {
           <VersionNumber>{appVersion}</VersionNumber>
         </VersionText>
       </Version>
+
+
     </FooterContainer>
+    <DevBageHallOfFame users={DEV_USERS} key={DEV_USERS.indexOf}/>
+    
+    </>
   );
 };
 

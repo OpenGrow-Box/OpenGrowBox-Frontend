@@ -8,7 +8,6 @@ import BottomBar from '../Components/Navigation/BottomBar';
 
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import OGBNotes from '../Components/GrowBook/OGBNotes';
-import PlantLiveViewer from '../Components/GrowBook/PlantLiveViewer';
 
 const GrowBook = () => {
   // Wir holen uns den globalen Sidebar-Zustand und die Home Assistant-Verbindung/Entitäten
