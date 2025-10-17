@@ -8,8 +8,8 @@ import TempCard from '../Cards/SliderCards/TempCard'
 import HumCard from '../Cards/SliderCards/HumCard'
 import DewCard from '../Cards/SliderCards/DewCard'
 
-import ECCard from '../Cards/SliderCards/ECCard'
-import PHCard from '../Cards/SliderCards/PHCard';
+import SoilCard from '../Cards/SliderCards/SoilCard'
+import WaterCard from '../Cards/SliderCards/WaterCard';
 
 import VPDCard from '../Cards/SliderCards/VPDCard'
 import DutyCycleCard from '../Cards/SliderCards/DutyCycleCard'
@@ -72,13 +72,13 @@ const DashboardSlider = () => {
 
   const slides = [
     <SlideContent key="slide1">
-      <PHCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <WaterCard pause={pause} resume={resume} isPlaying={isPlaying}/>
     </SlideContent>,
     <SlideContent key="slide2">
       <CO2Card pause={pause} resume={resume} isPlaying={isPlaying}/>
     </SlideContent>,
     <SlideContent key="slide3">
-        <VPDCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <VPDCard pause={pause} resume={resume} isPlaying={isPlaying}/>
       </SlideContent>,
     <SlideContent key="slide4">
       <TempCard pause={pause} resume={resume} isPlaying={isPlaying}/>
@@ -90,7 +90,7 @@ const DashboardSlider = () => {
       <DewCard pause={pause} resume={resume} isPlaying={isPlaying}/>
     </SlideContent>,
     <SlideContent key="slide7">
-      <ECCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <SoilCard pause={pause} resume={resume} isPlaying={isPlaying}/>
     </SlideContent>,
     <SlideContent key="slide8">
       <DutyCycleCard pause={pause} resume={resume} isPlaying={isPlaying}/>

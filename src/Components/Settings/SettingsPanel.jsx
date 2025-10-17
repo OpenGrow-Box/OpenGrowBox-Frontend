@@ -1,7 +1,6 @@
 import styled from 'styled-components';
 import { useGlobalState } from '../Context/GlobalContext';
 import SettingsFooter from './SettingsFooter';
-import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import ControlMode from './ControlMode';
 
 // Definiere deine Themes mit den entsprechenden CSS-Variablen
@@ -33,7 +32,7 @@ const SettingsPanel = () => {
           </ThemeButton>
         ))}
       </ThemeList>
-      {/* Weitere Einstellungen (z.B. Mobile Notification) können hier folgen */}
+
       <MenuControl>
         <ControlMode/>
 
@@ -101,16 +100,3 @@ const MenuFooter = styled.div`
   border-top: 1px solid grey;
 `;
 
-const MenuItem = styled.button`
-  padding: 8px 16px;
-  color: var(--main-text-color);
-  border: none;
-  cursor: pointer;
-  transition: background 0.3s;
-  border-radius: 25px;
-  background:  var(--main-bg-card-color);
-  box-shadow: var(--main-shadow-art);
-  &:hover {
-    background-color: var(--primary-button-color);
-  }
-`;

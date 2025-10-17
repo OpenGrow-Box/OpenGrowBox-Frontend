@@ -4,7 +4,7 @@ import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 
-const ECCard = ({ pause, resume, isPlaying }) => {
+const SoilCard = ({ pause, resume, isPlaying }) => {
   const { entities } = useHomeAssistant();
   const [ecSensors, setEcSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
@@ -22,6 +22,12 @@ const ECCard = ({ pause, resume, isPlaying }) => {
             !key.toLowerCase().includes('wifi') &&
             !key.toLowerCase().includes('mqtt') &&
             !key.toLowerCase().includes('connect') &&
+            !key.toLowerCase().includes('batter') &&
+            !key.toLowerCase().includes('power') &&
+            !key.toLocaleLowerCase().includes('_temperature') &&
+            !key.toLocaleLowerCase().includes('_lux') &&
+            !key.toLocaleLowerCase().includes('_lumen') &&
+            !key.toLocaleLowerCase().includes('_illuminance') &&
             !isNaN(parseFloat(entity.state))
         )
         .map(([key, entity]) => {
@@ -112,7 +118,7 @@ const ECCard = ({ pause, resume, isPlaying }) => {
   );
 };
 
-export default ECCard;
+export default SoilCard;
 
 const CardContainer = styled.div`
   position: relative;

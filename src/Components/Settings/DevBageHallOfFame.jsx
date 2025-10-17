@@ -1,5 +1,4 @@
 'use client';
-import React from 'react';
 import styled from 'styled-components';
 import { FaTrophy } from 'react-icons/fa';
 
@@ -8,7 +7,7 @@ const DevBageHallOfFame = ({ users = [] }) => {
     <HallOfFameCard>
       <Title>
         <TrophyIcon />
-        Dev Hall of Fame
+        Hall of Fame
       </Title>
       <NameList>
         {users.length > 0 ? (

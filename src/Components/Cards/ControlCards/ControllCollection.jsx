@@ -3,6 +3,8 @@ import SelectCard from './SelectCard';
 import SliderCard from './SliderCard';
 import SwitchCard from './SwitchCard';
 import TimeCard from './TimeCard';
+import TextCard from './TextCard';
+
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
 
 
@@ -14,17 +16,17 @@ const dynamicFilters = {
     conditions: {
       'Drying': {
         includeKeywords: ['drying'],
-        excludeKeywords: ['vpd', 'plant', 'stage', 'light', 'co2', "m2", "leaf", 'feed', 'hydro'],
+        excludeKeywords: ['vpd', 'plant', 'stage', 'light', 'co2', "m2", "leaf", 'feed', 'hydro',"crop"],
         additionalTooltips: {}
       },
       'VPD Perfection': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro'],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light"],
         additionalTooltips: {}
       },
       'PID Control': {
         includeKeywords: ['pid', 'proportional', 'integral', 'derivative'],
-        excludeKeywords: ['drying', 'mpc',  'hydro','target'],
+        excludeKeywords: ['drying', 'mpc',  'hydro','target',"crop","dampening","ambient"],
         additionalTooltips: {
           'ogb_pid_kp_': 'Proportional gain for PID controller',
           'ogb_pid_ki_': 'Integral gain for PID controller',
@@ -33,7 +35,7 @@ const dynamicFilters = {
       },
       'MPC Control': {
         includeKeywords: ['mpc', 'model', 'predictive'],
-        excludeKeywords: ['drying', 'mpc', 'hydro','target'],
+        excludeKeywords: ['drying', 'mpc', 'hydro','target',"crop","dampening","ambient"],
         additionalTooltips: {
           'ogb_mpc_horizon_': 'Prediction horizon for MPC controller',
           'ogb_mpc_control_': 'Control horizon for MPC controller'
@@ -62,6 +64,28 @@ const dynamicFilters = {
         additionalTooltips: {}
       },
       'YES': {
+        includeKeywords: ["light"],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      }
+    }
+  },
+
+  light_control_mode: {
+    selectEntity: 'ogb_light_controltype_',
+    activeInGroups: ['Lights'], 
+    conditions: {
+      'Default': {
+        includeKeywords: ["light"],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'GLJ': {
+        includeKeywords: ["light"],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'DLI': {
         includeKeywords: ["light"],
         excludeKeywords: [],
         additionalTooltips: {}
@@ -112,7 +136,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["temperatureweight","humidityweight"],
         excludeKeywords: [],
         additionalTooltips: {
 
@@ -120,7 +144,7 @@ const dynamicFilters = {
       },
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ["temperature","humidity"],
+        excludeKeywords: ["temperatureweight","humidityweight"],
         additionalTooltips: {}
       }
     }
@@ -131,13 +155,13 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["maxhum","minhum","mintemp","maxtemp"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ["temp","hum"],
+        excludeKeywords: ["maxhum","minhum","mintemp","maxtemp"],
         additionalTooltips: {
 
         }
@@ -206,10 +230,9 @@ const dynamicFilters = {
     selectEntity: 'ogb_hydro_mode_',
     activeInGroups: ['Hydro Settings'], 
     conditions: {
-      // NEXT IMPLEMENTATION 
       'Crop-Steering': {
-        includeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot'],
-        excludeKeywords: ['pump', 'leaf', 'duration', 'intervall', 'cycle', 'Retrive','drying'],
+        includeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot',],
+        excludeKeywords: ['pump', 'leaf', 'duration', 'intervall', 'cycle', 'Retrive','drying','plan','tolerance','plant','medium'],
         additionalTooltips: {
           'ogb_crop_dry_back_': 'Set the dry-back percentage for crop steering cycles',
           'ogb_crop_wet_time_': 'Set duration for wet phase in crop steering',
@@ -218,27 +241,105 @@ const dynamicFilters = {
       },
       'Hydro': {
         includeKeywords: ['hydro', 'pump', 'duration', 'intervall', 'cycle', 'Retrive'],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf'],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','plant','medium'],
         additionalTooltips: {
           'ogb_hydropumpduration_': 'Duration the hydro pump stays active',
           'ogb_hydropumpintervall_': 'Interval between hydro pump cycles'
         }
       },
       'Plant-Watering': {
-        includeKeywords: ['hydro', 'pump', 'duration', 'intervall', 'cycle', 'Retrive'],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf'],
+        includeKeywords: ['hydro', 'pump', 'duration', 'intervall',  'Retrive'],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','cycle','medium'],
         additionalTooltips: {
           'ogb_waterpump_device_select_': 'Select water pump for simple watering'
         }
       },
-      'OFF': {
+      'Disabled': {
         includeKeywords: ["hydro"],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf', 'duration', 'intervall', "cycle", "Retrive"],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf', 'duration', 'intervall', "cycle", "Retrive","Plant",'medium'],
+        additionalTooltips: {}
+      },
+      'Config': {
+        includeKeywords: ["hydro"],
+        excludeKeywords: [],
         additionalTooltips: {}
       }
     }
   },
+
+  hydro_retrive: {
+    selectEntity: 'ogb_hydro_retrive_',
+    activeInGroups: ['Hydro Settings'], 
+    conditions: {
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: { }
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ["retriveduration","retriveintervall"],
+        additionalTooltips: { }
+      }
+
+    }
+  },
   
+  crop_steering_mode: {
+    selectEntity: 'ogb_cropsteering_mode_',
+    activeInGroups: ['Hydro Settings'], 
+    conditions: {
+      'Disabled': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p0','p1','p2','p3',"phases"],
+        additionalTooltips: { }
+      },
+      'Manual': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p0','p1','p2','p3'],
+        additionalTooltips: { }
+      },
+      'Automatic': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p0','p1','p2','p3'],
+        additionalTooltips: { }
+      },
+      'Config': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: [],
+        additionalTooltips: { }
+      },
+
+    }
+  },
+  
+  crop_steering_phase: {
+    selectEntity: 'ogb_cropsteering_phases_',
+    activeInGroups: ['Hydro Settings'], 
+    conditions: {
+      'P0': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p1','p2','p3'],
+        additionalTooltips: { }
+      },
+      'P1': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p0','p2','p3'],
+        additionalTooltips: { }
+      },
+      'P2': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p0','p1','p3',],
+        additionalTooltips: { }
+      },
+      'P3': {
+        includeKeywords: ['Phases'],
+        excludeKeywords: ['p0','p1','p2',],
+        additionalTooltips: { }
+      },
+    }
+  },
+
   feed_plan: {
     selectEntity: 'ogb_feed_plan_',
     activeInGroups: ['Feed Settings'],
@@ -270,6 +371,11 @@ const dynamicFilters = {
         includeKeywords: ['feed'],
         excludeKeywords: ['target','nutrient','tolerance'],
         additionalTooltips: {}
+      },
+      'Config': {
+        includeKeywords: ['feed'],
+        excludeKeywords: [],
+        additionalTooltips: {}
       }
     }
   },
@@ -278,7 +384,7 @@ const dynamicFilters = {
 
 const groupMappings = {
   'Main Control': {
-    includeKeywords: ['vpd', 'plant', 'mode', 'leaf', 'ambient', 'area'],
+    includeKeywords: ['vpd', 'plant', 'mode', 'leaf', 'ambient'],
     excludeKeywords: ['proportional', 'derivativ', 'integral', 'light', 'food', 'days', 'hydro', 'Count', 'Borrow'],
   },
   'Lights': {
@@ -290,7 +396,7 @@ const groupMappings = {
     excludeKeywords: ['Device'],
   },
   'Hydro Settings': {
-    includeKeywords: ['pump', 'water', 'Hydro'],
+    includeKeywords: ['pump', 'water', 'hydro',"cropsteering","medium"],
     excludeKeywords: ['Device','nutrient'],
   },
   'Feed Settings': {
@@ -298,12 +404,12 @@ const groupMappings = {
     excludeKeywords: ['Device', 'water', 'hydro'],
   },
   'Special Settings': {
-    includeKeywords: [''],
-    excludeKeywords: [''],
+    includeKeywords: ['area','console'],
+    excludeKeywords: [],
   },
   'Targets': {
     includeKeywords: ['weight', 'min', 'max'],
-    excludeKeywords: ['co2', 'Light', 'Inhaust'],
+    excludeKeywords: ['co2', 'Light', 'crop'],
   },
   'Drying': {
     includeKeywords: ['drying'],
@@ -372,7 +478,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_ventilation_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for ventilation. Requires Ventilation Min/Max enabled.',
     [`ogb_ventilation_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for ventilation. Requires Ventilation Min/Max enabled.',
 
-    [`ogb_hydro_mode_${currentRoom?.toLowerCase()}`]: 'Enable for plant watering or hydro systems. Watering defaults to always cycling.',
+    [`ogb_hydro_mode_${currentRoom?.toLowerCase()}`]: 'Enable for watering systems based on different Mediums.',
     [`ogb_hydro_cycle_${currentRoom?.toLowerCase()}`]: 'Enable to use interval and duration for water cycling.',
     [`ogb_hydropumpduration_${currentRoom?.toLowerCase()}`]: 'Set how long the pump stays active. Requires Hydro Mode and cycling enabled.',
     [`ogb_hydropumpintervall_${currentRoom?.toLowerCase()}`]: 'Set pump pause interval. Requires Hydro Mode and cycling enabled.',
@@ -381,7 +487,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_hydroretriveintervall_${currentRoom?.toLowerCase()}`]: 'Set pump pause interval for Retrive.',
     [`ogb_hydroretriveduration_${currentRoom?.toLowerCase()}`]: 'Set how long the pump stays active in Retrive',
 
-    [`ogb_feed_plan_${currentRoom?.toLowerCase()}`]: 'Select your tank Feed/Plant Feed plan',
+    [`ogb_feed_plan_${currentRoom?.toLowerCase()}`]: 'Select your Tank/Resevior Feed plan',
 
     [`ogb_feed_ec_target_${currentRoom?.toLowerCase()}`]: 'Set your EC Target',
     [`ogb_feed_ph_target_${currentRoom?.toLowerCase()}`]: 'Set your PH Target',
@@ -411,6 +517,16 @@ const ControllCollection = ({ option }) => {
     [`ogb_grow_area_m2_${currentRoom?.toLowerCase()}`]: 'Enter your m2 Space where you growing in',
     [`ogb_ambientcontrol_${currentRoom?.toLowerCase()}`]: 'Will be take care of the state of your Ambient( "NOT WORKING RIGHT NOW")',
     [`ogb_vpd_devicedampening_${currentRoom?.toLowerCase()}`]: 'Enable Device Cooldowns for any device see Wiki to check the cooldowns.',
+  
+    [`ogb_light_controltype_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING', 
+        
+    [`ogb_cropsteering_mode_${currentRoom?.toLowerCase()}`]: 'Select your wokring CropSteering Mode, Use Config to Setup and Change to Manual to Activate your Config or Run Automatic',
+    [`ogb_cropsteering_phases_${currentRoom?.toLowerCase()}`]: 'Switch between Phases - Automatic-Mode does it allone.',
+  
+      [`ogb_console_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING & NERDY', 
+  
+  
+  
   };
 
   // 🎯 Dynamische Filter-Logik - NUR FÜR AKTUELLE GRUPPE
@@ -513,7 +629,7 @@ const ControllCollection = ({ option }) => {
           min: entity.attributes?.min || 0,
           max: entity.attributes?.max || 100,
           step: entity.attributes?.step || 1,
-          state: entity?.state || 50,
+          state: entity?.state || "",
           unit: entity.attributes?.unit_of_measurement || '',
           tooltip,
         };
@@ -561,6 +677,15 @@ const ControllCollection = ({ option }) => {
     getActiveDynamicFilters
   ).filter((entity) => entity.entity_id.startsWith('switch.'));
 
+  const textEntities = filterEntitiesByKeywords(
+    entities,
+    includedKeywords,
+    excludedKeywords,
+    currentRoom,
+    getActiveDynamicFilters
+  ).filter((entity) => entity.entity_id.startsWith('text.'));
+
+
   return (
     <div>
       {currentControl !== 'Home' ? (
@@ -573,10 +698,15 @@ const ControllCollection = ({ option }) => {
           {dropdownEntities.length > 0 && (
             <SelectCard entities={dropdownEntities} />
           )}
+          {textEntities.length > 0 && (
+            <TextCard entities={textEntities} />
+          )}
           {sliderEntities.length > 0 && (
             <SliderCard entities={sliderEntities} />
           )}
-          {timeEntities.length > 0 && <TimeCard entities={timeEntities} />}
+          {timeEntities.length > 0 && (
+            <TimeCard entities={timeEntities} />
+          )}
         </>
       )}
     </div>

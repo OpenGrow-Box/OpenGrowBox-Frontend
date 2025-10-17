@@ -4,7 +4,7 @@ import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 
-const PHCard = ({pause,resume,isPlaying}) => {
+const WaterCard = ({pause,resume,isPlaying}) => {
   const { entities } = useHomeAssistant();
   const [phSensors, setPHSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null); // State für den ausgewählten Sensor
@@ -36,6 +36,9 @@ const PHCard = ({pause,resume,isPlaying}) => {
           !id.includes('phone') &&
           !id.includes('mqtt') &&
           !id.includes('connect') &&
+          !id.includes('soil') &&
+          !id.includes('erde') &&
+          !id.includes('medium') &&
           !isNaN(rawValue) &&
           rawValue !== 0
         );
@@ -143,7 +146,7 @@ const PHCard = ({pause,resume,isPlaying}) => {
   );
 };
 
-export default PHCard;
+export default WaterCard;
 
 const CardContainer = styled.div``;
 
