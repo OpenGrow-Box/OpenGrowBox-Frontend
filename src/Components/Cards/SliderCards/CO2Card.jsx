@@ -15,7 +15,7 @@ const CO2Card = ({pause,resume,isPlaying}) => {
         .filter(
           ([key, entity]) =>
             key.startsWith('sensor.') &&
-            (key.toLowerCase().includes('_co2') || key.toLowerCase().includes('_carbon')) &&
+            (key.toLowerCase().includes('_co2') || key.toLowerCase().includes('_carbondioxide')) &&
             !isNaN(parseFloat(entity.state))
         )
         .map(([key, entity]) => ({

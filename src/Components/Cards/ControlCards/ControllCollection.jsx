@@ -232,7 +232,7 @@ const dynamicFilters = {
     conditions: {
       'Crop-Steering': {
         includeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot',],
-        excludeKeywords: ['pump', 'leaf', 'duration', 'intervall', 'cycle', 'Retrive','drying','plan','tolerance','plant','medium'],
+        excludeKeywords: ['pump', 'leaf', 'duration',  'cycle', 'Retrive','drying','plan','tolerance','plant','medium'],
         additionalTooltips: {
           'ogb_crop_dry_back_': 'Set the dry-back percentage for crop steering cycles',
           'ogb_crop_wet_time_': 'Set duration for wet phase in crop steering',
@@ -385,7 +385,7 @@ const dynamicFilters = {
 const groupMappings = {
   'Main Control': {
     includeKeywords: ['vpd', 'plant', 'mode', 'leaf', 'ambient'],
-    excludeKeywords: ['proportional', 'derivativ', 'integral', 'light', 'food', 'days', 'hydro', 'Count', 'Borrow'],
+    excludeKeywords: ['proportional', 'derivativ', 'integral', 'light', 'food', 'days', 'hydro', 'Count', 'Borrow',"determination"],
   },
   'Lights': {
     includeKeywords: ['light', 'sun'],
@@ -404,7 +404,7 @@ const groupMappings = {
     excludeKeywords: ['Device', 'water', 'hydro'],
   },
   'Special Settings': {
-    includeKeywords: ['area','console'],
+    includeKeywords: ['area','determination','medium','console'],
     excludeKeywords: [],
   },
   'Targets': {
@@ -523,9 +523,9 @@ const ControllCollection = ({ option }) => {
     [`ogb_cropsteering_mode_${currentRoom?.toLowerCase()}`]: 'Select your wokring CropSteering Mode, Use Config to Setup and Change to Manual to Activate your Config or Run Automatic',
     [`ogb_cropsteering_phases_${currentRoom?.toLowerCase()}`]: 'Switch between Phases - Automatic-Mode does it allone.',
   
-      [`ogb_console_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING & NERDY', 
-  
-  
+    [`ogb_console_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING & NERDY', 
+    [`ogb_mediumtype_${currentRoom?.toLowerCase()}`]: 'Set Your Medium and Summary like COCOx3', 
+    
   
   };
 

@@ -10,7 +10,7 @@ const LoadingIndicator = () => (
     <div className="loading-spinner">
       <FaLeaf className="loading-icon" />
     </div>
-    <LoadingText>Daten werden geladen...</LoadingText>
+    <LoadingText>Loading Grow Data...</LoadingText>
   </LoadingContainer>
 );
 

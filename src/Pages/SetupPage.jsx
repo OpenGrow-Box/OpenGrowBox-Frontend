@@ -77,7 +77,7 @@ const SetupPage = () => {
     <Wrapper>
       <GradientDefs />
       <Header>
-        Welcome to OpenGrowBox
+        Welcome to OpenGrowBox a
       </Header>
       <SubText>
         Please enter your Home Assistant Long-Lived Access Token to proceed.

@@ -17,7 +17,7 @@ import Settings from './Pages/Settings';
 import Home from './Pages/Home';
 import Interface from './Pages/Interface'
 import Premium from './Pages/Premium';
-
+import FourOFour from './Pages/Four0Four'
 import ThemeGlobalStyle from './Pages/ThemeGlobalStyle';
 
 import StrainDB from './Components/Premium/StrainDB';
@@ -56,7 +56,8 @@ export default function App() {
                           <Route path="/strainDB" element={<StrainDB />} />
                           <Route path="/settings" element={<Settings />} />
                           <Route path="/growbook" element={<GrowBook />} />
-                          <Route path="/setup" element={<SetupPage />} />
+                          <Route path="/config" element={<SetupPage />} />
+                          <Route path="/*" element={<FourOFour/>}/>
                         </Routes>
                       </MainContent>
                     </AppContainer>
