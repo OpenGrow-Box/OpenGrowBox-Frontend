@@ -3,8 +3,9 @@ import styled, { keyframes } from 'styled-components';
 import ReactECharts from 'echarts-for-react';
 import { useGlobalState } from '../Context/GlobalContext';
 import { FaLeaf } from 'react-icons/fa';
+import { formatTime,formatDateTime } from '../../misc/formatDateTime';
 
-const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2000, title = 'Sensor Trends (24h)', unit = '' }) => {
+const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2500, title = 'Sensor Trends (24h)', unit = '' }) => {
   const getDefaultDate = (offset = 0) => {
     const date = new Date(Date.now() + offset);
     const localISOTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
@@ -94,9 +95,7 @@ const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2000, title = 
             },
             formatter: params => {
               const point = params[0];
-              const time = new Date(point.axisValue).toLocaleString('de-DE', {
-                day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit'
-              });
+              const time = formatTime(point.axisValue)
               return `
                 <div style="color:white; font-size: 12px;">
                   <strong>${time}</strong><br/>
@@ -128,8 +127,8 @@ const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2000, title = 
               fontSize: 10,
               margin: 15,
               formatter: value => {
-                const date = new Date(value);
-                return date.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+                const date = formatDateTime(value);
+                return date;
               }
             },
             splitLine: {

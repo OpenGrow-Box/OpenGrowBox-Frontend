@@ -4,6 +4,7 @@ import ReactECharts from 'echarts-for-react';
 
 import { useGlobalState } from '../Context/GlobalContext';
 import { FaLeaf, FaTimes } from 'react-icons/fa';
+import { formatDateTime, formatTime } from '../../misc/formatDateTime';
 
 const LoadingIndicator = () => (
   <LoadingContainer>
@@ -14,7 +15,7 @@ const LoadingIndicator = () => (
   </LoadingContainer>
 );
 
-const HistoryChart = ({ sensorId, onClose, minThreshold = 400, maxThreshold = 1200 }) => {
+const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 2500 }) => {
   
   const getDefaultDate = (offset = 0) => {
     const date = new Date(Date.now() + offset);
@@ -121,16 +122,11 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 400, maxThreshold = 12
           },
           formatter: params => {
             const point = params[0];
-            const time = new Date(point.axisValue).toLocaleString('de-DE', {
-              day: '2-digit', 
-              month: '2-digit', 
-              hour: '2-digit', 
-              minute: '2-digit'
-            });
+            const time = formatDateTime(point.axisValue);
             const status = point.data.value < minThreshold 
-              ? 'Kritisch' 
+              ? 'Critical' 
               : point.data.value > maxThreshold 
-                ? 'Hoch' 
+                ? 'High' 
                 : 'Optimal';
             
             return `
@@ -173,10 +169,7 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 400, maxThreshold = 12
             fontSize: 11,
             fontWeight: '500',
             formatter: value =>
-              new Date(value).toLocaleTimeString([], { 
-                hour: '2-digit', 
-                minute: '2-digit' 
-              }),
+              formatTime(value)
           },
         },
         yAxis: {

@@ -2,7 +2,8 @@ import { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import LoginModal from '../Premium/LoginModal';
-import {formatDateTime} from '../../misc/formatTimeDate'
+
+import { formatDateTime } from '../../misc/formatDateTime';
 import { usePremium } from '../Context/OGBPremiumContext';
 import { DEV_CONFIG } from '../../config';
 
@@ -60,11 +61,7 @@ const getDaysUntilLaunch = () => {
 };
 
 const formatLaunchDate = () => {
-  return FIXED_LAUNCH_CONFIG.LAUNCH_DATE.toLocaleDateString('de-DE', {
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric'
-  });
+  return formatDateTime(FIXED_LAUNCH_CONFIG.LAUNCH_DATE);
 };
 
 const getCountdownTime = () => {

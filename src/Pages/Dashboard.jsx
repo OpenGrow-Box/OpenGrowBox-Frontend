@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
-import DashboardSlider from '../Components/Dashboard/DashboardSlider';
+
 import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import RoomSelectCard from '../Components/Cards/RoomSelectCard';

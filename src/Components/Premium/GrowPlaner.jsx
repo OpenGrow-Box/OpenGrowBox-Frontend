@@ -4,6 +4,8 @@ import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { usePremium } from '../Context/OGBPremiumContext';
 
 function generateRandomPlanName() {
+
+
   const firstParts = [
     'Bud', 'Green', 'Loud', 'Sticky', 'Dank', 'Cloud', 'Tricho', 'Resin', 'Herb',
     'Terp', 'Nug', 'Leaf', 'Smoke', 'Grow', 'Kief', '420', 'Chronic', 'THC', 'CBD'
@@ -24,9 +26,10 @@ function generateRandomPlanName() {
   const useCombo = Math.random() < 0.3;
   const combo = useCombo ? ' ' + combos[Math.floor(Math.random() * combos.length)] : '';
 
+
+
   return `${part1}${part2}${combo}`;
 }
-
 
 // --- DATA STRUCTURE ---
 const defaultWeek = (weekNumber, previousWeek = null) => ({
@@ -44,6 +47,7 @@ const defaultWeek = (weekNumber, previousWeek = null) => ({
   co2: previousWeek?.co2 || 400,
   co2Control: previousWeek?.co2Control || false,
   feedControl: previousWeek?.feedControl || false,
+  FullAutomatic: previousWeek?.FullAutomatic || false,
   EC: previousWeek?.EC || 1.2,
   PH: previousWeek?.PH || 6.0,
   A: previousWeek?.A || 5,
@@ -62,8 +66,19 @@ const GrowPlaner = () => {
   const [strainName, setStrainName] = useState(generateRandomPlanName());
   const [growPlanName, addGrowPlanName] = useState(`${strainName} Plan`);
   const [isOpen, setIsOpen] = useState(false);
-  const { getGrowPlan, addGrowPlan, delGrowPlan } = usePremium();
+  const { getGrowPlans, addGrowPlan } = usePremium();
   const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
+
+  const [confirmAction, setConfirmAction] = useState(null); // "delete" | "activate" | null
+  const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    const fetchData = async () => {
+      await getGrowPlans();
+    };
+    
+    fetchData();
+  }, [entities, roomKey]);
 
   useEffect(() => {
     const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
@@ -74,6 +89,19 @@ const GrowPlaner = () => {
 
   const title = useMemo(() => `${strainName || 'Unnamed'} - Grow Planer`, [strainName]);
   const currentWeek = useMemo(() => weeks[selectedWeekIndex], [weeks, selectedWeekIndex]);
+
+  const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+    <ModalBackdrop>
+      <ModalBox>
+        <ModalMessage>{message}</ModalMessage>
+        <ModalButtons>
+          <ModalButton onClick={onConfirm}>✅ Yes</ModalButton>
+          <ModalButtonCancel onClick={onCancel}>❌ No</ModalButtonCancel>
+        </ModalButtons>
+      </ModalBox>
+    </ModalBackdrop>
+  );
+
 
   const addWeek = useCallback(() => {
     setWeeks((prev) => {
@@ -114,9 +142,40 @@ const GrowPlaner = () => {
   }, [start_date, growPlanName, strainName, weeks, roomKey, isPublic]);
 
   const handleApplyGrowPlan = useCallback(() => {
+
     const jsonString = JSON.stringify({ strainName, growPlanName, roomKey, start_date, weeks, isPublic }, null, 2);
     addGrowPlan(jsonString);
+    
+    setStartDate('');
+    setWeeks([defaultWeek(1)]);
+    setSelectedWeekIndex(0);
+    const newStrainName = generateRandomPlanName();
+    setStrainName(newStrainName);
+    addGrowPlanName(`${newStrainName} Plan`);
+    setIsPublic(false);
+    setIsOpen(false)
   }, [start_date, growPlanName, weeks, strainName, roomKey, addGrowPlan, isPublic]);
+  
+  const confirmActivate = () => {
+    setConfirmAction('activate');
+    setShowConfirm(true);
+    
+  };
+
+  function validateTime(inputTime) {
+    // inputTime kann ein Date-Objekt oder ein ISO-Zeitstring sein
+    const now = new Date();
+    const timeToCheck = new Date(inputTime);
+
+    // Prüfen, ob das Datum gültig ist
+    if (isNaN(timeToCheck.getTime())) {
+      return false; // ungültiges Datum
+    }
+
+    // true, wenn die Zeit jetzt oder in der Zukunft liegt
+    return timeToCheck >= now;
+  }
+
 
   return (
     <>
@@ -124,7 +183,7 @@ const GrowPlaner = () => {
         <Header onClick={() => setIsOpen((prev) => !prev)}>
           <TitleSection>
             <Title>{title}</Title>
-            <Subtitle> {weeks.length > 1 ? <>Weeks:{weeks.length} </> : <>Plan Your Grow</>} </Subtitle>
+            <Subtitle> {weeks.length > 1 ? <> Planed Weeks:{weeks.length} </> : <>Plan Your Grow</>} </Subtitle>
           </TitleSection>
 
           <ToggleIcon $isOpen={isOpen}>
@@ -146,10 +205,37 @@ const GrowPlaner = () => {
                 <StyledButton onClick={() => setIsModalOpen(true)}>
                   📋 Show JSON
                 </StyledButton>
-                <ApplyButton onClick={() => handleApplyGrowPlan(true)}>
-                  ✨ Apply Grow Plan
+                <ApplyButton 
+                  onClick={confirmActivate} 
+                  disabled={!validateTime(start_date)}
+                >
+                  ✨ Save Grow-Plan
                 </ApplyButton>
+
+
               </ActionButtonsWrapper>
+                  {showConfirm && (
+                    <ConfirmModal
+                      message={
+                        confirmAction === 'activate'
+                          ? `Do you really want to send your Plans "${growPlanName}" -- Did you Checked all Settings??`
+                          : `Do you really want to delete "${growPlanName|| growPlanName}"?`
+                      }
+                      onConfirm={async () => {
+                        setShowConfirm(false);
+                        if (confirmAction === 'activate') {
+                          handleApplyGrowPlan(true);
+                        } else if (confirmAction === 'delete') {
+                          return
+                        }
+                        setConfirmAction(null);
+                      }}
+                      onCancel={() => {
+                        setShowConfirm(false);
+                        setConfirmAction(null);
+                      }}
+                    />
+                  )}
 
               <CompactSection>
                 <CardHeader>
@@ -166,11 +252,13 @@ const GrowPlaner = () => {
               <InputsWrapper>
                 <InputGroup>
                   <Label>🗓 Start Date</Label>
-                  <StyledInput
-                    type="date"
-                    value={start_date}
-                    onChange={(e) => setStartDate(e.target.value)}
-                  />
+                    <StyledInput
+                      type="date"
+                      value={start_date}
+                      onChange={(e) => setStartDate(e.target.value)}
+                      required
+                    />
+
                 </InputGroup>
                 <InputGroup>
                   <Label>🌿 Grow Plan Name</Label>
@@ -261,6 +349,11 @@ const GrowPlaner = () => {
                 <CardHeader>
                   <CardTitle>🌡️ Climate Control</CardTitle>
                   <ToggleGroup>
+                    <ModernToggle
+                      checked={currentWeek.nightVPDHold}
+                      onChange={() => toggleSwitch('FullAutomatic')}
+                      label="OGBCTRL"
+                    />
                     <ModernToggle
                       checked={currentWeek.nightVPDHold}
                       onChange={() => toggleSwitch('nightVPDHold')}
@@ -410,11 +503,10 @@ export default GrowPlaner;
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-  width: 100%;
 
+  width: 90vw;
   margin: 0 auto;
   padding: 1rem;
-  border: 1px solid var(--secondary-accent);
   border-radius: 1rem;
   background: var(--main-bg-card-color);
   color: var(--main-text-color);
@@ -422,28 +514,22 @@ const Container = styled.div`
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #f1f5f9;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  
+
+  ${({ $isOpen }) => `
+    max-height: ${$isOpen ? 'none' : '8rem'};
+    overflow: ${$isOpen ? 'visible' : 'hidden'};
+  `}
+
   @media (min-width: 768px) {
     padding: 2rem;
     border-radius: 24px;
-    width: 70%;
-    max-width: 1200px;
-  }
-  
-  @media (min-width: 1024px) {
-    width: 90%;
-    max-width: 900px;;
-  }
-  
-  ${({ $isOpen }) => `
-    max-height: ${$isOpen ? 'none' : '6rem'};
-    overflow: ${$isOpen ? 'visible' : 'hidden'};
-  `}
-  
-  @media (min-width: 768px) {
     ${({ $isOpen }) => `
       max-height: ${$isOpen ? '92vh' : '7rem'};
     `}
+  }
+
+  @media (min-width: 1600px) {
+    max-width: 1500px; /* optional, verhindert zu große Container auf Ultrawidescreens */
   }
 `;
 
@@ -456,7 +542,7 @@ const Header = styled.header`
   margin-bottom: 1rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  
+
   &:hover {
     border-bottom-color: rgba(56, 189, 248, 0.4);
   }
@@ -464,7 +550,7 @@ const Header = styled.header`
 
 const TitleSection = styled.div`
   display: flex;
-  flex-direction: column;
+  flex-direction: row;
   gap: 0.5rem;
   
   @media (min-width: 768px) {
@@ -575,11 +661,18 @@ const Label = styled.label`
   font-size: 0.75rem;
   font-weight: 600;
   color: #94a3b8;
-  
+
+  ${({ $isRequired }) =>
+    $isRequired &&
+    `
+      color: #ef4444; /* kräftiges Rot für required */
+    `}
+
   @media (min-width: 768px) {
     font-size: 0.875rem;
   }
 `;
+
 
 const StyledInput = styled.input`
   background: rgba(30, 41, 59, 0.8);
@@ -602,6 +695,7 @@ const StyledInput = styled.input`
     padding: 0.75rem 1rem;
   }
 `;
+
 
 const StyledButton = styled.button`
   background: linear-gradient(135deg, #1e293b, #334155);
@@ -669,10 +763,19 @@ const ApplyButton = styled(StyledButton)`
   background: linear-gradient(135deg, #7c3aed, #a855f7);
   border-color: rgba(168, 85, 247, 0.3);
   
-  &:hover {
+  &:hover:not(:disabled) {
     background: linear-gradient(135deg, #8b5cf6, #c084fc);
     border-color: rgba(168, 85, 247, 0.6);
     box-shadow: 0 8px 20px rgba(168, 85, 247, 0.3);
+  }
+  
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
+    background: linear-gradient(135deg, #4c1d95, #6b21a8);
+    border-color: rgba(168, 85, 247, 0.15);
+    transform: none;
+    box-shadow: none;
   }
 `;
 
@@ -1071,4 +1174,55 @@ const CopyButton = styled(StyledButton)`
     border-color: rgba(5, 150, 105, 0.6);
     box-shadow: 0 8px 20px rgba(5, 150, 105, 0.3);
   }
+`;
+
+
+
+const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+`;
+
+const ModalBox = styled.div`
+  background: #1c1c1c;
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+`;
+
+const ModalMessage = styled.p`
+  margin-bottom: 20px;
+  font-size: 1rem;
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+`;
+
+const ModalButton = styled.button`
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  &:hover { background: #43a047; }
+`;
+
+const ModalButtonCancel = styled(ModalButton)`
+  background: #f44336;
+  &:hover { background: #d32f2f; }
 `;

@@ -14,7 +14,7 @@ const DEV_CONFIG = {
 const DEV_USERS =[
   {name:"0xW3bJun6l3"},
   {name:"OpenGrowBox"},
-
+  {name:"SZip"},
 ]
 
 

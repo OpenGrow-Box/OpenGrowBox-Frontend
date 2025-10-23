@@ -554,8 +554,7 @@ const ControllCollection = ({ option }) => {
           activeFilters.includeKeywords.push(...selectedCondition.includeKeywords);
           activeFilters.excludeKeywords.push(...selectedCondition.excludeKeywords);
           Object.assign(activeFilters.additionalTooltips, selectedCondition.additionalTooltips);
-          
-          console.log(`🎯 Active Filter in "${option}": ${filterKey} = ${selectEntity.state}`);
+
         }
       }
     });

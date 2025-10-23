@@ -142,7 +142,6 @@ export const OGBPremiumProvider = ({ children }) => {
           }
           break;
 
-
         case "DevLoginSuccess":
           setDevTestUser(data)
           break;
@@ -151,15 +150,8 @@ export const OGBPremiumProvider = ({ children }) => {
           resetStates();
           break;
 
-        case "OAuth URL generated":
-          // Redirect user to OAuth provider
-          if (data?.oauth_url) {
-            console.log('Redirecting to OAuth URL:', data.oauth_url);
-            window.location.href = data.oauth_url;
-          }
-          break;
-
         case "Profile retrieved":
+
           setUserProfile(data.user);
           setSubscription(data.subscription_data);
           setIsPremium(data.is_premium);
@@ -169,10 +161,10 @@ export const OGBPremiumProvider = ({ children }) => {
           break;
 
         case "GrowPlans retrieved":
+          console.log(data)
           setGrowPlans(data || []);
           setPrivateGrowPlans(data?.PrivatePlans || []);
           setPublicGrowPlans(data?.PublicPlans || []);
-          setStrainGrowPlan(data?.CurrentStrain || "");
           setActiveGrowPlan(data?.ActivePlan || [])
           break;
 
@@ -418,7 +410,6 @@ export const OGBPremiumProvider = ({ children }) => {
     const isMax = ogbMaxSessions > 0 && ogbSessions >= ogbMaxSessions;
     return isMax;
   };
-
 
   const getProfile = async () => {
     try {

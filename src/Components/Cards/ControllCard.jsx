@@ -6,6 +6,7 @@ import { ImTarget } from "react-icons/im";
 import ControllCollection from './ControlCards/ControllCollection';
 import { GiHamburger, GiWateringCan } from "react-icons/gi";
 import OGBIcon from '../../misc/OGBIcon'
+import VPDTargets from './VPDTargets';
 
 
 const ControllCard = () => {
@@ -41,6 +42,7 @@ const ControllCard = () => {
         </IconWrapper>
 
       </OptionContainer>
+      <VPDTargets/>
       <SelectContainer>
         <ControllCollection option={currentOption} />
       </SelectContainer>

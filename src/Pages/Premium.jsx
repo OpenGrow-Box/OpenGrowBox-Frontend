@@ -3,15 +3,13 @@ import { usePremium } from '../Components/Context/OGBPremiumContext'
 import BottomBar from '../Components/Navigation/BottomBar'
 import DashboardTitle from '../Components/Dashboard/DashboardTitle'
 import styled from 'styled-components'
-import GrowBenchmark from '../Components/Premium/GrowBenchmark'
 import GrowPlaner from '../Components/Premium/GrowPlaner'
 import GrowMananger from '../Components/Premium/GrowMananger'
 
 const Premium = () => {
   const { isPremium } = usePremium()
   const [loading, setLoading] = useState(true)
-
-  
+ 
   useEffect(() => {
     let elapsed = 0
     const interval = setInterval(() => {
@@ -52,16 +50,14 @@ const Premium = () => {
           </LoadingWrapper>
         ) : isPremium ? (
           <PremContainer>
-            <LeftPremContainer>
+            <PremiumMainContainer>
 
               <GrowMananger/>
               <GrowPlaner/>
 
             
-            </LeftPremContainer>
-            <RightPremContainer>
+            </PremiumMainContainer>
 
-            </RightPremContainer>
 
 
           </PremContainer>
@@ -110,9 +106,7 @@ const ContainerHeader = styled.div`
 
 const PremContainer = styled.section`
   display: flex;
-  gap:1rem;
-  top: 1;
-  justify-content: space-between;
+
 
     @media (max-width: 1024px) {
         transition: color 0.3s ease;
@@ -132,13 +126,13 @@ const PremContainer = styled.section`
 
 `
 
-const LeftPremContainer = styled.div`
+const PremiumMainContainer = styled.div`
 display:flex;
 flex-direction:column;
 gap:1rem;
 width:100%;
 height: 100%;
-min-width:180px;
+
 
     @media (max-width: 1024px) {
         transition: color 0.3s ease;
@@ -153,29 +147,6 @@ min-width:180px;
         transition: color 0.3s ease;
     }
 
-`
-const RightPremContainer = styled.div`
-display:flex;
-flex-direction:column;
-gap:1rem;
-width:60vw;
-height:92%;;
-min-width:180px;
-
-
-    @media (max-width: 1024px) {
-        transition: color 0.3s ease;
-
-    }
-
-    @media (max-width: 768px) {
-        width:100%;
-        transition: color 0.3s ease;
-    }
-
-    @media (max-width: 480px) {
-        transition: color 0.3s ease;
-    }
 `
 
 const DeniedBox = styled.div`

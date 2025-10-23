@@ -5,18 +5,15 @@ import { usePremium } from '../Context/OGBPremiumContext';
 
 const GrowManager = () => {
   const { entities, currentRoom } = useHomeAssistant();
-  const { growPlans,delGrowPlan, publicGrowPlans, privateGrowPlans, activateGrowPlan, activeGrowPlan } = usePremium(); // activeGrowPlan statt currentActivePlan
+  const { growPlans, publicGrowPlans, activateGrowPlan, activeGrowPlan,delGrowPlan } = usePremium(); // activeGrowPlan statt currentActivePlan
 
   const [isOpen, setIsOpen] = useState(false);
   const [strainName, setStrainName] = useState('');
 
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-  //const [allPlans, setAllPlans] = useState([]);
-  const [activePlan, setActivePlan] = useState(null); // Initial null statt activeGrowPlan
-  //const [matchingPrivatePlans,setMatchingPrivatePlans] = useState([])
-  //const [matchingPublicPlans,setMatchingPublicPlans] = useState([])
-  
+
+  const [activePlan, setActivePlan] = useState(null);
   
   // Editing states
   const [isEditing, setIsEditing] = useState(false);
@@ -25,9 +22,11 @@ const GrowManager = () => {
   const [editedStrainName, setEditedStrainName] = useState('');
 
   const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
-  
-  
-  
+
+  const [confirmAction, setConfirmAction] = useState(null); 
+  const [showConfirm, setShowConfirm] = useState(false);
+
+
   // Get strain name from Home Assistant entity
   useEffect(() => {
     const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
@@ -41,50 +40,21 @@ const GrowManager = () => {
     setActivePlan(activeGrowPlan || null);
   }, [activeGrowPlan]);
 
+  const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+    <ModalBackdrop>
+      <ModalBox>
+        <ModalMessage>{message}</ModalMessage>
+        <ModalButtons>
+          <ModalButton onClick={onConfirm}>✅ Yes</ModalButton>
+          <ModalButtonCancel onClick={onCancel}>❌ No</ModalButtonCancel>
+        </ModalButtons>
+      </ModalBox>
+    </ModalBackdrop>
+  );
+
+
   // Update plans when context data changes
-  const { allPlans, matchingPublicPlans, matchingPrivatePlans } = useMemo(() => {
-    const norm = (s) => (s ?? '').trim().toLowerCase();
-
-    const allPlansRaw = [
-      ...(growPlans || []),
-      ...(privateGrowPlans || []),
-      ...(publicGrowPlans || []),
-    ];
-
-    const normalized = allPlansRaw.map((plan, idx) => {
-      const sName = plan.strainName ?? plan.strain_name ?? '';
-      const displayName = plan.plan_name ?? plan.name ?? 'Unnamed';
-      return {
-        ...plan,
-        id: String(plan.id ?? plan.uuid ?? `${displayName}-${idx}`),
-        strainName: sName,
-        _strainNorm: norm(sName),
-        _displayName: displayName,
-        start_date: plan.start_date ?? '',
-        is_public: Boolean(plan.is_public),
-      };
-    });
-
-    const strainNorm = norm(strainName);
-    const isFiltering = Boolean(strainNorm);
-
-    const matching = normalized.filter(p => isFiltering ? p._strainNorm === strainNorm : true);
-
-    const ordered = isFiltering ? matching : normalized;
-
-    const publicMatch = ordered.filter(p => p.is_public);
-    const privateMatch = ordered.filter(p => !p.is_public);
-
-    return {
-      allPlans: ordered,
-      matchingPublicPlans: publicMatch,
-      matchingPrivatePlans: privateMatch,
-    };
-  }, [growPlans, privateGrowPlans, publicGrowPlans, strainName]);
-
-
-
-    const title = useMemo(() => `${strainName || 'Unnamed'} - Grow Manager`, [strainName]);
+  const title = useMemo(() => `${strainName || 'Unnamed'} - Grow Manager`, [strainName]);
 
   const handlePlanChange = (e) => {
     const planId = String(e.target.value);
@@ -101,80 +71,90 @@ const GrowManager = () => {
   };
 
 
-    const handleEditToggle = () => {
-    if (!isEditing && selectedPlan) {
-        // Initialize edit values when starting to edit
-        setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
-        setEditedStartDate(selectedPlan.start_date || '');
-        setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
-    }
-    setIsEditing(!isEditing);
-    };
+  const handleEditToggle = () => {
+  if (!isEditing && selectedPlan) {
+      // Initialize edit values when starting to edit
+      setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
+      setEditedStartDate(selectedPlan.start_date || '');
+      setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
+  }
+  setIsEditing(!isEditing);
+  };
 
-    const handleCancelEdit = () => {
-    setIsEditing(false);
-    // Reset to original values
-    if (selectedPlan) {
-        setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
-        setEditedStartDate(selectedPlan.start_date || '');
-        setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
-    }
-    };
+  const handleCancelEdit = () => {
+  setIsEditing(false);
+  // Reset to original values
+  if (selectedPlan) {
+      setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
+      setEditedStartDate(selectedPlan.start_date || '');
+      setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
+  }
+  };
 
-    const handlePlanActivation = async () => {
+  const handlePlanActivation = async () => {
     if (!selectedPlan) return;
 
-
-
     const planToActivate = {
-        ...selectedPlan,
-        growPlanName: editedPlanName || selectedPlan.plan_name || selectedPlan.name,
-        start_date: editedStartDate || selectedPlan.start_date,
-        strainName: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name,
-        strain_name: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name
+      ...selectedPlan,
+      growPlanName: editedPlanName || selectedPlan.plan_name || selectedPlan.name,
+      start_date: editedStartDate || selectedPlan.start_date,
+      strainName: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name,
+      strain_name: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name
     };
 
     if (!planToActivate.start_date) {
       window.alert("You need to set a Start Date");
       return;
     }
-    await activateGrowPlan(planToActivate, currentRoom);
-
-
 
     try {
-        if(!planToActivate.start_date)return;
-            await activateGrowPlan(planToActivate, currentRoom); // currentRoom explizit übergeben
-        console.log('Plan activation successful');
-        // Der activePlan State wird automatisch über den useEffect aktualisiert
-        // wenn activeGrowPlan im Context sich ändert
+      await activateGrowPlan(planToActivate, currentRoom);
+      console.log('Plan activation successful');
+      setIsEditing(false);
     } catch (error) {
-        console.error('Plan activation failed:', error);
-        // Hier könntest du eine Error-State setzen oder Toast anzeigen
+      console.error('Plan activation failed:', error);
     }
+  };
 
-    setIsEditing(false);
-    };
-
-    const handlePlanDelete = async () => {
+  const handlePlanDelete = async () => {
     if (!selectedPlan) return;
 
-    const isActive = activePlan && selectedPlan.id === activePlan.id;
-
-    if (isActive) {
-        const confirmDelete = window.confirm('This is your active plan. Are you sure you want to delete it?');
-        if (!confirmDelete) return;
-    }
-
     try {
-        await delGrowPlan(selectedPlan, currentRoom);
-        console.log('Plan deletion successful');
-        setSelectedPlan(null);
-        setIsEditing(false);
+      await delGrowPlan(selectedPlan, currentRoom);
+      console.log('Plan deletion successful');
+      
+      // Clear selected plan and reset editing state
+      setSelectedPlan(null);
+      setIsEditing(false);
+      setEditedPlanName('');
+      setEditedStartDate('');
+      setEditedStrainName('');
     } catch (error) {
-        console.error('Plan deletion failed:', error);
+      console.error('Plan deletion failed:', error);
     }
-    };
+  };
+
+  const confirmActivate = () => {
+    if (!selectedPlan) return;
+    setConfirmAction('activate');
+    setShowConfirm(true);
+  };
+
+  const confirmDelete = () => {
+    if (!selectedPlan) return;
+    
+    // Check if this is the active plan
+    const isActive = activePlan && selectedPlan.id === activePlan.id;
+    
+    if (isActive) {
+      window.alert('You cannot delete the currently active plan. Please activate a different plan first.');
+      return;
+    }
+    
+    setConfirmAction('delete');
+    setShowConfirm(true);
+  };
+
 
   // Get current date in YYYY-MM-DD format for date input
   const getCurrentDate = () => {
@@ -183,16 +163,16 @@ const GrowManager = () => {
 
   return (
     <Container $isOpen={isOpen}>
-      <Header onClick={() => setIsOpen((prev) => !prev)}>
-        <TitleSection>
-          <Title>{title}</Title>
-            <Subtitle>Your Total Plans: {allPlans.length}</Subtitle>
-            <Subtitle>Total Public Plans (matching): {matchingPublicPlans.length}</Subtitle>
-        </TitleSection>
-        <ToggleIcon $isOpen={isOpen}>
-          <ChevronIcon />
-        </ToggleIcon>
-      </Header>
+    <Header onClick={() => setIsOpen((prev) => !prev)}>
+      <TitleSection>
+        <Title>{title}</Title>
+        <Subtitle>Your Plans: {growPlans.length}</Subtitle>
+        <Subtitle>Public Plans: {publicGrowPlans.length}</Subtitle>
+      </TitleSection>
+      <ToggleIcon $isOpen={isOpen}>
+        <ChevronIcon />
+      </ToggleIcon>
+    </Header>
 
       {isOpen && (
         <Content>
@@ -421,29 +401,43 @@ const GrowManager = () => {
                     </WeeksContainer>
                   )}
                                 
-                <ButtonGroup>
-                {isEditing ? (
-                    <>
-                    <ActivateButton onClick={handlePlanActivation}>
-                        Activate Plan
-                    </ActivateButton>
-                    <CancelButton onClick={handleCancelEdit}>
-                        Cancel
-                    </CancelButton>
-                    </>
-                ) : (
-                    <>
-                    <ActivateButton onClick={handlePlanActivation}>
-                        Activate Plan
-                    </ActivateButton>
-                    {!selectedPlan.is_public && (
-                        <DeleteButton onClick={handlePlanDelete}>
-                        Delete Plan
-                        </DeleteButton>
+                  <ButtonGroup>
+                    {isEditing ? (
+                      <>
+                        <ActivateButton onClick={confirmActivate}>Activate Plan</ActivateButton>
+                        <CancelButton onClick={handleCancelEdit}>Cancel</CancelButton>
+                      </>
+                    ) : (
+                      <>
+                        <ActivateButton onClick={confirmActivate}>Activate Plan</ActivateButton>
+                        {!selectedPlan.is_public && (
+                          <DeleteButton onClick={confirmDelete}>Delete Plan</DeleteButton>
+                        )}
+                      </>
                     )}
-                    </>
-                )}
-                </ButtonGroup>
+                  </ButtonGroup>
+                    {showConfirm && (
+                      <ConfirmModal
+                        message={
+                          confirmAction === 'activate'
+                            ? `Do you really want to activate "${editedPlanName}" starting on ${editedStartDate || 'no date set'}?`
+                            : `Do you really want to delete "${selectedPlan?.plan_name || selectedPlan?.name}"?`
+                        }
+                        onConfirm={async () => {
+                          setShowConfirm(false);
+                          if (confirmAction === 'activate') {
+                            await handlePlanActivation();
+                          } else if (confirmAction === 'delete') {
+                            await handlePlanDelete();
+                          }
+                          setConfirmAction(null);
+                        }}
+                        onCancel={() => {
+                          setShowConfirm(false);
+                          setConfirmAction(null);
+                        }}
+                      />
+                    )}
 
                 </PlanDetails>
               )}
@@ -452,47 +446,47 @@ const GrowManager = () => {
         </Content>
       )}
     </Container>
+    
   );
 };
 
 export default GrowManager;
 
 // --- STYLED COMPONENTS ---
-
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-  width: 100%;
-  max-width: 780px;
-  min-width: 320px;
+
+  width: 90vw;
   margin: 0 auto;
   padding: 1rem;
-  border: 1px solid var(--secondary-accent);
   border-radius: 1rem;
   background: var(--main-bg-card-color);
   color: var(--main-text-color);
   box-shadow: var(--main-shadow-art);
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #f1f5f9;
-  transition: all 0.4s ease;
-  
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
+  ${({ $isOpen }) => `
+    max-height: ${$isOpen ? 'none' : '8rem'};
+    overflow: ${$isOpen ? 'visible' : 'hidden'};
+  `}
+
   @media (min-width: 768px) {
     padding: 2rem;
     border-radius: 24px;
-    width: 70%;
-    max-width: 1200px;
-  }
-  
-  @media (min-width: 1024px) {
-    width: 90%;
-    max-width: 900px;
+    ${({ $isOpen }) => `
+      max-height: ${$isOpen ? '92vh' : '7rem'};
+    `}
   }
 
-  ${({ $isOpen }) => `
-    max-height: ${$isOpen ? 'none' : '7rem'};
-    overflow: ${$isOpen ? 'visible' : 'hidden'};
-  `}
+  @media (min-width: 1600px) {
+    max-width: 1500px; /* optional, verhindert zu große Container auf Ultrawidescreens */
+  }
 `;
+
+
 
 const Header = styled.header`
   display: flex;
@@ -510,14 +504,15 @@ const Header = styled.header`
 
 const TitleSection = styled.div`
   display: flex;
-  flex-direction: column;
-  
-  gap: 0.5rem;
+  flex-direction: row;
+  font-size: 2rem;
+  font-weight: 800;
+  gap: 2rem;
 
   @media (min-width: 768px) {
     flex-direction: row;
     align-items: center;
-    gap: 2rem;
+    gap: 1rem;
   }
 `;
 
@@ -530,20 +525,23 @@ const Title = styled.h1`
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-
+  margin-right:5rem;
   @media (min-width: 768px) {
     font-size: 2rem;
+      margin-right:2rem;
   }
+
 `;
 
 const Subtitle = styled.p`
-  font-size: 0.55rem;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.6);
-  
+  margin: 0;
   @media (min-width: 768px) {
     font-size: 0.875rem;
   }
 `;
+
 
 const ToggleIcon = styled.span`
   font-size: 1.25rem;
@@ -850,12 +848,15 @@ const ControlBadge = styled.div`
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: 1rem;
+  gap:3rem;
+
   flex-wrap: wrap;
 `;
 
 const ActivateButton = styled.button`
   background-color: #4ade80;
+  margin-top:1rem;
+    flex:1;
   color: white;
   padding: 0.6rem 1.2rem;
   font-size: 1rem;
@@ -885,9 +886,11 @@ const ActivateButton = styled.button`
 
 const DeleteButton = styled.button`
   background-color: #f87171;
+  margin-top:1rem;
   color: white;
   padding: 0.6rem 1.2rem;
   font-size: 1rem;
+    flex:1;
   font-weight: 600;
   border: none;
   border-radius: 0.75rem;
@@ -934,4 +937,53 @@ const CancelButton = styled.button`
     background-color: #374151;
     transform: scale(0.98);
   }
+`;
+
+const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+`;
+
+const ModalBox = styled.div`
+  background: #1c1c1c;
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+`;
+
+const ModalMessage = styled.p`
+  margin-bottom: 20px;
+  font-size: 1rem;
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+`;
+
+const ModalButton = styled.button`
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  &:hover { background: #43a047; }
+`;
+
+const ModalButtonCancel = styled(ModalButton)`
+  background: #f44336;
+  &:hover { background: #d32f2f; }
 `;

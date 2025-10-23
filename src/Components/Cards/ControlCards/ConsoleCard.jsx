@@ -1,33 +1,34 @@
 import React, { useState, useRef, useEffect } from "react";
 import styled from "styled-components";
-import { FaTerminal, FaChevronRight, FaExclamationTriangle } from "react-icons/fa";
+import { FaTerminal, FaChevronRight, FaWifi, FaCircle } from "react-icons/fa";
+import { MdSignalWifiOff } from "react-icons/md";
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
-
 // ---------- Styles ----------
 const ConsoleWrapper = styled.div`
-  background-color: #0d0d0d;
+  background-color: #0a0a0a;
   color: #00ff7f;
   font-family: "Fira Code", "Courier New", monospace;
   border-radius: 12px;
-  box-shadow: 0 0 20px rgba(0, 255, 127, 0.2);
+  box-shadow: 0 0 30px rgba(0, 255, 127, 0.15);
   overflow: hidden;
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 800px;
-  height: 400px;
+  max-width: 900px;
+  height: 500px;
+  border: 1px solid rgba(0, 255, 127, 0.2);
 `;
 
 const Header = styled.div`
-  background: linear-gradient(90deg, #111 0%, #1a1a1a 100%);
-  padding: 12px 18px;
+  background: linear-gradient(90deg, #0f0f0f 0%, #1a1a1a 100%);
+  padding: 14px 20px;
   display: flex;
   align-items: center;
-  gap: 12px;
+  gap: 14px;
   color: #00ff7f;
   font-weight: 600;
   font-size: 16px;
-  border-bottom: 2px solid #00ff7f33;
+  border-bottom: 1px solid rgba(0, 255, 127, 0.3);
   position: relative;
   
   &::after {
@@ -36,23 +37,73 @@ const Header = styled.div`
     bottom: 0;
     left: 0;
     right: 0;
-    height: 2px;
+    height: 1px;
     background: linear-gradient(90deg, transparent, #00ff7f, transparent);
+    opacity: 0.5;
   }
+`;
+
+const HeaderTitle = styled.span`
+  font-weight: 600;
+  font-size: 16px;
+`;
+
+const StatusIndicator = styled.div`
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`;
+
+const StatusBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background-color: rgba(26, 26, 26, 0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 255, 127, 0.2);
+`;
+
+const StatusDot = styled(FaCircle)`
+  width: 8px;
+  height: 8px;
+  color: ${props => props.$online ? '#4ade80' : '#f87171'};
+  animation: ${props => props.$online ? 'pulse 2s infinite' : 'none'};
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
+  }
+`;
+
+const StatusText = styled.span`
+  font-size: 12px;
+  color: ${props => props.$online ? '#4ade80' : '#f87171'};
+  font-weight: 500;
+`;
+
+const RoomBadge = styled.div`
+  font-size: 12px;
+  opacity: 0.7;
+  padding: 6px 12px;
+  background-color: rgba(26, 26, 26, 0.5);
+  border-radius: 6px;
+  border: 1px solid rgba(0, 255, 127, 0.2);
 `;
 
 const ConsoleOutput = styled.div`
   flex-grow: 1;
-  padding: 18px;
+  padding: 20px;
   overflow-y: auto;
   font-size: 14px;
-  line-height: 1.6;
-  background: #0d0d0d;
+  line-height: 1.7;
+  background: #0a0a0a;
   scrollbar-width: thin;
-  scrollbar-color: #00ff7f44 #1a1a1a;
+  scrollbar-color: rgba(0, 255, 127, 0.3) #1a1a1a;
 
   &::-webkit-scrollbar {
-    width: 8px;
+    width: 10px;
   }
 
   &::-webkit-scrollbar-track {
@@ -60,23 +111,27 @@ const ConsoleOutput = styled.div`
   }
 
   &::-webkit-scrollbar-thumb {
-    background: linear-gradient(180deg, #00ff7f44, #00ff7f66);
-    border-radius: 4px;
-    border: 1px solid #1a1a1a;
+    background: linear-gradient(180deg, rgba(0, 255, 127, 0.3), rgba(0, 255, 127, 0.5));
+    border-radius: 5px;
+    border: 2px solid #1a1a1a;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: linear-gradient(180deg, rgba(0, 255, 127, 0.5), rgba(0, 255, 127, 0.7));
   }
 
   div {
-    margin-bottom: 4px;
-    word-break: break-all;
+    margin-bottom: 3px;
+    word-break: break-word;
   }
 `;
 
 const InputWrapper = styled.div`
   display: flex;
   align-items: center;
-  background-color: #0a0a0a;
-  border-top: 2px solid #00ff7f33;
-  padding: 12px 18px;
+  background-color: #0f0f0f;
+  border-top: 1px solid rgba(0, 255, 127, 0.3);
+  padding: 14px 20px;
   position: relative;
   
   &::before {
@@ -85,22 +140,19 @@ const InputWrapper = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 2px;
-    background: linear-gradient(90deg, #00ff7f33, transparent);
+    height: 1px;
+    background: linear-gradient(90deg, rgba(0, 255, 127, 0.3), transparent);
   }
 `;
 
 const Prompt = styled.span`
   color: #00ff7f;
-  margin-right: 10px;
+  margin-right: 12px;
   display: flex;
   align-items: center;
+  gap: 8px;
   font-weight: 600;
   font-size: 14px;
-  
-  svg {
-    margin-right: 6px;
-  }
 `;
 
 const Input = styled.input`
@@ -114,7 +166,7 @@ const Input = styled.input`
   caret-color: #00ff7f;
   
   &::placeholder {
-    color: #00ff7f66;
+    color: rgba(0, 255, 127, 0.4);
   }
   
   &:focus {
@@ -122,44 +174,37 @@ const Input = styled.input`
   }
 `;
 
-const CommandLine = styled.span`
-  color: #66d9ef;
-  font-weight: 500;
-`;
-
-const ResponseLine = styled.span`
-  color: #ae81ff;
-`;
-
-const ErrorLine = styled.span`
-  color: #ff6b6b;
-  font-weight: 500;
-`;
-
-const SuccessLine = styled.span`
-  color: #00ff7f;
-  font-weight: 500;
-`;
-
 // ---------- Component ----------
 const ConsoleCard = () => {
   const [lines, setLines] = useState([
-    "[SYSTEM] Welcome to OGB Console v1.0.0 🧠",
-    "[INFO] Type '/help' to see available commands.",
-    "[INFO] Connection status: " + (localStorage.getItem('ha_connected') === 'true' ? "🟢 ONLINE" : "🔴 OFFLINE"),
+    "[SYSTEM] Welcome to OGB Console v1.0.1 🧠",
+    "[INFO] Type 'help' to see available commands.",
     "",
   ]);
   const [input, setInput] = useState("");
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [isConnected, setIsConnected] = useState(false);
   const outputRef = useRef(null);
-  const { connection, currentRoom } = useHomeAssistant();
+  
+  // Simuliere Connection Status (ersetze mit echter HomeAssistant Connection)
+  const {connection,currentRoom} = useHomeAssistant()
 
   // Load history from localStorage
   useEffect(() => {
     const stored = localStorage.getItem("console_history");
     if (stored) setHistory(JSON.parse(stored));
-  }, []);
+    
+    // Check connection status
+    const checkConnection = () => {
+      const haConnected = localStorage.getItem('ha_connected') === 'true';
+      setIsConnected(haConnected || connection !== null);
+    };
+    
+    checkConnection();
+    const interval = setInterval(checkConnection, 2000);
+    return () => clearInterval(interval);
+  }, [connection]);
 
   // Backend Events
   useEffect(() => {
@@ -171,16 +216,7 @@ const ConsoleCard = () => {
         if (room !== currentRoom) return;
 
         const timestamp = new Date().toLocaleTimeString();
-        let formattedMessage;
-        
-        if (type === "error") {
-          formattedMessage = `[${timestamp}] <ErrorLine>[ERROR] ${message}</ErrorLine>`;
-        } else if (type === "success") {
-          formattedMessage = `[${timestamp}] <SuccessLine>[SUCCESS] ${message}</SuccessLine>`;
-        } else {
-          formattedMessage = `[${timestamp}] <ResponseLine>[RESPONSE] ${message}</ResponseLine>`;
-        }
-        
+        const formattedMessage = formatMessage(timestamp, message, type);
         setLines((prev) => [...prev, formattedMessage]);
       },
       "ogb_console_response"
@@ -189,26 +225,42 @@ const ConsoleCard = () => {
     return () => unsubscribe.then((unsub) => unsub());
   }, [connection, currentRoom]);
 
+  const formatMessage = (timestamp, message, type = "info") => {
+    const prefix = type === "error" ? "[ERROR]" : 
+                   type === "success" ? "[SUCCESS]" : 
+                   "[RESPONSE]";
+    
+    return `<timestamp>[${timestamp}]</timestamp> <${type}>${prefix}</${type}> ${message}`;
+  };
+
   const commands = {
     "help": [
-      "┌────────────────────┐",
-      "│ AVAILABLE COMMANDS │",
-      "├────────────────────*",
-      "│ help      - Show this help menu            ",
-      "│ history   - Display command history        ",
-      "│ clearhistory - Clear command history       ",
-      "│ clear     - Clear console output           ",
-      "│ version   - Show console version           ",
-      "│ test      - Send test event to HA          ",
-      "│ gcd <capability> <minutes> - Set cooldown  ",
-      "└────────────────────────────*",
-      "| Grow Smarter , Grow Better *",
-      "└────────────────────────────*",
+      "<help>┌───────────────────┐</help>",
+      "<help>│AVAILABLE COMMANDS │</help>",
+      "<help>├───────────────────┤</help>",
+      "<help>│ help          Show this help menu               </help>",
+      "<help>│ history       Display command history           </help>",
+      "<help>│ clearhistory  Clear command history             </help>",
+      "<help>│ clear         Clear console output              </help>",
+      "<help>│ version       Show console version              </help>",
+      "<help>│ status        Show connection status            </help>",
+      "<help>│ gcd           Show all Device cooldowns         </help>",
+      "<help>│ gcd 'cap' 'm' Set Device capability cooldown    </help>",
+      "<help>├──────────────────────────────┤</help>",
+      "<help>│ Tip: Grow Smart, Grow Better │</help>",
+      "<help>└──────────────────────────────┘</help>",
+      "",
     ],
     "version": [
-      "OGB Console v1.0.0 🚀",
-      "Built with ❤️ for Home Assistant",
-      "Type 'help' for commands",
+      "<success>🚀 OGB Console v1.0.1</success>",
+      "<info>Built with ❤️ for Home Assistant</info>",
+      "<info>Type 'help' for available commands</info>",
+      "",
+    ],
+    "status": () => [
+      `<info>Connection Status: ${isConnected ? '<success>🟢 ONLINE</success>' : '<e>🔴 OFFLINE</e>'}</info>`,
+      `<info>Current Room: <success>${currentRoom || 'global'}</success></info>`,
+      `<info>Commands in History: <success>${history.length}</success></info>`,
       "",
     ],
   };
@@ -216,7 +268,7 @@ const ConsoleCard = () => {
   const sendConsoleEvent = async (command) => {
     if (!connection) {
       const timestamp = new Date().toLocaleTimeString();
-      setLines((prev) => [...prev, `[${timestamp}] <ErrorLine>[ERROR] No Home Assistant connection!</ErrorLine>`]);
+      setLines((prev) => [...prev, formatMessage(timestamp, "No Home Assistant connection!", "error")]);
       return;
     }
     
@@ -235,75 +287,71 @@ const ConsoleCard = () => {
       });
       
       const timestamp = new Date().toLocaleTimeString();
-      setLines((prev) => [...prev, `[${timestamp}] <SuccessLine>[SUCCESS] Command sent to HA</SuccessLine>`]);
+      setLines((prev) => [...prev, formatMessage(timestamp, "Command sent to HA", "success")]);
     } catch (error) {
       const timestamp = new Date().toLocaleTimeString();
-      setLines((prev) => [...prev, `[${timestamp}] <ErrorLine>[ERROR] ${error.message}</ErrorLine>`]);
+      setLines((prev) => [...prev, formatMessage(timestamp, error.message, "error")]);
     }
   };
 
-  // ---------- Command Handler ----------
   const handleCommand = (cmd) => {
     const trimmed = cmd.trim();
     if (!trimmed) return;
 
     const timestamp = new Date().toLocaleTimeString();
-    const commandLine = `[${timestamp}] <CommandLine>ogb$ ${trimmed}</CommandLine>`;
+    const commandLine = `<timestamp>[${timestamp}]</timestamp> <command>ogb$ ${trimmed}</command>`;
     
-    // Clear console
     if (trimmed === "clear") {
-      setLines([`<SuccessLine>[${timestamp}] Console cleared!</SuccessLine>`]);
+      setLines([`<success>[${timestamp}] Console cleared!</success>`]);
       return;
     }
 
-    // Clear History
     if (trimmed === "clearhistory") {
       setHistory([]);
       localStorage.removeItem("console_history");
-      setLines((prev) => [...prev, commandLine, `<SuccessLine>[${timestamp}] History cleared!</SuccessLine>`]);
+      setLines((prev) => [...prev, commandLine, `<success>[${timestamp}] History cleared!</success>`]);
       setHistoryIndex(-1);
       return;
     }
 
-    // Save to history (except clear history)
     const newHistory = [...history, trimmed];
     setHistory(newHistory);
     localStorage.setItem("console_history", JSON.stringify(newHistory));
     setHistoryIndex(-1);
 
-    // Show history
     if (trimmed === "history") {
       const historyLines = newHistory.length > 0 
-        ? newHistory.map((h, i) => `[${timestamp}] <CommandLine>${i + 1}. ${h}</CommandLine>`)
-        : [`[${timestamp}] <SuccessLine>No command history!</SuccessLine>`];
+        ? newHistory.map((h, i) => `<timestamp>[${timestamp}]</timestamp> <command>${i + 1}. ${h}</command>`)
+        : [`<success>[${timestamp}] No command history!</success>`];
       
       setLines((prev) => [...prev, commandLine, ...historyLines]);
       return;
     }
 
-    // Help / Version
-    if (commands[trimmed]) {
-      setLines((prev) => [...prev, commandLine, ...commands[trimmed], ""]);
-      // Handle /test command
-      if (trimmed === "test") {
-        sendConsoleEvent("test_event");
-      }
+    const cmdData = commands[trimmed];
+    if (cmdData) {
+      const cmdLines = typeof cmdData === 'function' ? cmdData() : cmdData;
+      setLines((prev) => [...prev, commandLine, ...cmdLines]);
       return;
     }
 
-    // Default: send to Home Assistant
     setLines((prev) => [...prev, commandLine]);
     sendConsoleEvent(trimmed);
   };
 
   const handleSubmit = (e) => {
-    e.preventDefault();
+    e?.preventDefault();
     handleCommand(input);
     setInput("");
   };
 
-  // Arrow keys for history navigation
   const handleKeyDown = (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      handleSubmit();
+      return;
+    }
+    
     if (e.key === "ArrowUp") {
       e.preventDefault();
       if (history.length === 0) return;
@@ -319,34 +367,46 @@ const ConsoleCard = () => {
     }
   };
 
-  // Auto-scroll to bottom
   useEffect(() => {
     if (outputRef.current) {
       outputRef.current.scrollTop = outputRef.current.scrollHeight;
     }
   }, [lines]);
 
-  // Render lines with styled components
   const renderLine = (line) => {
-    return line.replace(
-      /<CommandLine>(.*?)<\/CommandLine>/g, '<span style="color: #66d9ef; font-weight: 500;">$1</span>'
-    ).replace(
-      /<ResponseLine>(.*?)<\/ResponseLine>/g, '<span style="color: #ae81ff;">$1</span>'
-    ).replace(
-      /<ErrorLine>(.*?)<\/ErrorLine>/g, '<span style="color: #ff6b6b; font-weight: 500;">$1</span>'
-    ).replace(
-      /<SuccessLine>(.*?)<\/SuccessLine>/g, '<span style="color: #00ff7f; font-weight: 500;">$1</span>'
-    );
+    return line
+      .replace(/<timestamp>(.*?)<\/timestamp>/g, '<span style="color: #9ca3af; font-size: 11px;">$1</span>')
+      .replace(/<command>(.*?)<\/command>/g, '<span style="color: #22d3ee; font-weight: 600;">$1</span>')
+      .replace(/<response>(.*?)<\/response>/g, '<span style="color: #c084fc;">$1</span>')
+      .replace(/<e>(.*?)<\/error>/g, '<span style="color: #f87171; font-weight: 600;">$1</span>')
+      .replace(/<success>(.*?)<\/success>/g, '<span style="color: #4ade80; font-weight: 600;">$1</span>')
+      .replace(/<info>(.*?)<\/info>/g, '<span style="color: #60a5fa;">$1</span>')
+      .replace(/<help>(.*?)<\/help>/g, '<span style="color: #10b981; font-family: monospace;">$1</span>');
   };
 
   return (
     <ConsoleWrapper>
       <Header>
         <FaTerminal size={20} />
-        <span>OGB Console v1.0.0</span>
-        <span style={{ marginLeft: 'auto', fontSize: '12px', opacity: 0.7 }}>
-          {currentRoom || 'global'}
-        </span>
+        <HeaderTitle>OGB Console v1.0.1</HeaderTitle>
+        
+        <StatusIndicator>
+          <StatusBadge>
+            <StatusDot $online={isConnected} />
+            {isConnected ? (
+              <FaWifi size={16} style={{ color: '#4ade80' }} />
+            ) : (
+              <MdSignalWifiOff size={16} style={{ color: '#f87171' }} />
+            )}
+            <StatusText $online={isConnected}>
+              {isConnected ? 'ONLINE' : 'OFFLINE'}
+            </StatusText>
+          </StatusBadge>
+          
+          <RoomBadge>
+            {currentRoom || 'global'}
+          </RoomBadge>
+        </StatusIndicator>
       </Header>
       
       <ConsoleOutput ref={outputRef}>
@@ -355,22 +415,20 @@ const ConsoleCard = () => {
         ))}
       </ConsoleOutput>
       
-      <form onSubmit={handleSubmit}>
-        <InputWrapper>
-          <Prompt>
-            <FaChevronRight size={14} />
-            <span>ogb$</span>
-          </Prompt>
-          <Input
-            type="text"
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={handleKeyDown}
-            placeholder="Enter command... (↑↓ for history)"
-            autoFocus
-          />
-        </InputWrapper>
-      </form>
+      <InputWrapper>
+        <Prompt>
+          <FaChevronRight size={12} />
+          <span>ogb$</span>
+        </Prompt>
+        <Input
+          type="text"
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={handleKeyDown}
+          placeholder="Enter command... (↑↓ for history)"
+          autoFocus
+        />
+      </InputWrapper>
     </ConsoleWrapper>
   );
 };
