@@ -572,21 +572,32 @@ const InputLabel = styled.label`
   opacity: 0.9;
 `;
 
+
 const StyledInput = styled.input`
-  padding: 0.7rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: rgba(30, 41, 59, 0.8);
+  color: #f1f5f9;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  padding: 0.75rem;
   border-radius: 10px;
-  font-size: 0.9rem;
-  font-weight: 500;
-  background: rgba(255, 255, 255, 0.9);
-  color: #333;
+  font-size: 0.875rem;
+  width: 100%;
   transition: all 0.3s ease;
-  
+
   &:focus {
     outline: none;
-    border-color: #4ade80;
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
-    background: rgba(255, 255, 255, 1);
+    border-color: #38bdf8;
+    background: rgba(30, 41, 59, 1);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+  }
+
+  /* Browser Datepicker Icon – weiß machen */
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 1;
+  }
+
+  @media (min-width: 768px) {
+    padding: 0.75rem 1rem;
   }
 `;
 

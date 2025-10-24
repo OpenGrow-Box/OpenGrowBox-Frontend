@@ -109,7 +109,7 @@ const InfoContainer = styled.div`
 `;
 
 const Label = styled.p`
-  font-size: 1rem;
+  font-size: 0.9rem;
   font-weight: bold;
   margin-bottom: 0.5rem;
 `;

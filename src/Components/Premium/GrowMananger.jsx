@@ -5,7 +5,7 @@ import { usePremium } from '../Context/OGBPremiumContext';
 
 const GrowManager = () => {
   const { entities, currentRoom } = useHomeAssistant();
-  const { growPlans,delGrowPlan, publicGrowPlans, privateGrowPlans, activateGrowPlan, activeGrowPlan } = usePremium(); // activeGrowPlan statt currentActivePlan
+  const { growPlans,delGrowPlan, publicGrowPlans, privateGrowPlans, activateGrowPlan, activeGrowPlan,getGrowPlans } = usePremium(); // activeGrowPlan statt currentActivePlan
 
   const [isOpen, setIsOpen] = useState(false);
   const [strainName, setStrainName] = useState('');
@@ -13,10 +13,7 @@ const GrowManager = () => {
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const [activePlan, setActivePlan] = useState(null); // Initial null statt activeGrowPlan
-  //const [matchingPrivatePlans,setMatchingPrivatePlans] = useState([])
-  //const [matchingPublicPlans,setMatchingPublicPlans] = useState([])
-  
+  const [activePlan, setActivePlan] = useState(null); 
   
   // Editing states
   const [isEditing, setIsEditing] = useState(false);
@@ -24,22 +21,40 @@ const GrowManager = () => {
   const [editedStartDate, setEditedStartDate] = useState('');
   const [editedStrainName, setEditedStrainName] = useState('');
 
+  const [confirmAction, setConfirmAction] = useState(null); // "delete" | "activate" | null
+  const [showConfirm, setShowConfirm] = useState(false);
+
+
   const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
-  
-  
-  
+    useEffect(() => {
+      getGrowPlans()
+  }, []);
+
   // Get strain name from Home Assistant entity
   useEffect(() => {
     const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
     if (strainSensor) {
       setStrainName(strainSensor.state);
     }
-  }, [entities, roomKey]);
+  }, []);
 
   // Update activePlan when activeGrowPlan from context changes
   useEffect(() => {
     setActivePlan(activeGrowPlan || null);
   }, [activeGrowPlan]);
+
+  const ConfirmModal = ({ message, onConfirm, onCancel }) => (
+    <ModalBackdrop>
+      <ModalBox>
+        <ModalMessage>{message}</ModalMessage>
+        <ModalButtons>
+          <ModalButton onClick={onConfirm}>✅ Yes</ModalButton>
+          <ModalButtonCancel onClick={onCancel}>❌ No</ModalButtonCancel>
+        </ModalButtons>
+      </ModalBox>
+    </ModalBackdrop>
+  );
+
 
   // Update plans when context data changes
   const { allPlans, matchingPublicPlans, matchingPrivatePlans } = useMemo(() => {
@@ -81,24 +96,21 @@ const GrowManager = () => {
     };
   }, [growPlans, privateGrowPlans, publicGrowPlans, strainName]);
 
-
-
     const title = useMemo(() => `${strainName || 'Unnamed'} - Grow Manager`, [strainName]);
 
-  const handlePlanChange = (e) => {
-    const planId = String(e.target.value);
-    const plan = allPlans.find(p => String(p.id) === planId);
-    if (!plan) return;
+    const handlePlanChange = (e) => {
+      const planId = String(e.target.value);
+      const plan = allPlans.find(p => String(p.id) === planId);
+      if (!plan) return;
 
-    setSelectedPlan(plan);
+      setSelectedPlan(plan);
 
-    // Initialize visible fields
-    setEditedPlanName(plan.plan_name || plan.name || plan._displayName || '');
-    setEditedStartDate(plan.start_date || '');
-    setEditedStrainName(plan.strainName || plan.strain_name || '');
-    setIsEditing(false);
-  };
-
+      // Initialize visible fields
+      setEditedPlanName(plan.plan_name || plan.name || plan._displayName || '');
+      setEditedStartDate(plan.start_date || '');
+      setEditedStrainName(plan.strainName || plan.strain_name || '');
+      setIsEditing(false);
+    };
 
     const handleEditToggle = () => {
     if (!isEditing && selectedPlan) {
@@ -170,15 +182,28 @@ const GrowManager = () => {
         console.log('Plan deletion successful');
         setSelectedPlan(null);
         setIsEditing(false);
+        await getGrowPlans();
+        
     } catch (error) {
         console.error('Plan deletion failed:', error);
     }
     };
 
-  // Get current date in YYYY-MM-DD format for date input
-  const getCurrentDate = () => {
-    return new Date().toISOString().split('T')[0];
-  };
+    // Get current date in YYYY-MM-DD format for date input
+    const getCurrentDate = () => {
+      return new Date().toISOString().split('T')[0];
+    };
+
+    const confirmActivate = () => {
+      setConfirmAction('activate');
+      setShowConfirm(true);
+      
+    };
+
+    const confirmDelete = () => {
+      setConfirmAction('delte');
+      setShowConfirm(true);
+    };
 
   return (
     <Container $isOpen={isOpen}>
@@ -236,7 +261,7 @@ const GrowManager = () => {
                 <PlanDetails>
                   <PlanHeader>
                     <HeaderRow>
-                      <strong>Selected Plan:</strong> {selectedPlan.plan_name || selectedPlan.name}
+                      Selected Plan: <strong>{selectedPlan.plan_name || selectedPlan.name}</strong>
                       <EditToggleButton onClick={handleEditToggle}>
                         {isEditing ? '✏️ Save' : '✏️ Edit'}
                       </EditToggleButton>
@@ -272,6 +297,7 @@ const GrowManager = () => {
                       )}
                     </InfoRow>
                     
+
                     <InfoRow>
                       <strong>Start Date:</strong>
                       {isEditing ? (
@@ -282,14 +308,14 @@ const GrowManager = () => {
                           min={getCurrentDate()}
                         />
                       ) : (
-                       <span>{editedStartDate || selectedPlan.start_date || 'Not set'}</span>
+                      <span>{editedStartDate || selectedPlan.start_date || 'Not set'}</span>
                       )}
                     </InfoRow>
                     
                     <InfoRow>
                       <strong>Total Weeks:</strong> {selectedPlan.total_weeks || selectedPlan.weeks?.length || 'Unknown'}
                     </InfoRow>
-                    <InfoRow>
+                   <InfoRow>
                       <strong>Room:</strong> {selectedPlan.room || currentRoom}
                     </InfoRow>
                     {selectedPlan.is_active_strain && (
@@ -298,6 +324,8 @@ const GrowManager = () => {
                       </InfoRow>
                     )}
                   </PlanInfo>
+
+
 
                   {selectedPlan.weeks && selectedPlan.weeks.length > 0 && (
                     <WeeksContainer>
@@ -423,27 +451,63 @@ const GrowManager = () => {
                 <ButtonGroup>
                 {isEditing ? (
                     <>
-                    <ActivateButton onClick={handlePlanActivation}>
-                        Activate Plan
-                    </ActivateButton>
                     <CancelButton onClick={handleCancelEdit}>
                         Cancel
                     </CancelButton>
                     </>
                 ) : (
                     <>
-                    <ActivateButton onClick={handlePlanActivation}>
+                    <ActivateButton onClick={confirmActivate}>
                         Activate Plan
                     </ActivateButton>
                     {!selectedPlan.is_public && (
-                        <DeleteButton onClick={handlePlanDelete}>
+                        <DeleteButton onClick={confirmDelete}>
                         Delete Plan
                         </DeleteButton>
                     )}
                     </>
                 )}
                 </ButtonGroup>
+                  {showConfirm && (
+                    <ConfirmModal
+                      message={
+                        confirmAction === 'activate'
+                          ?     <>
+                            <p>Do you really want to activate this plan?</p>
 
+                            <h3>{selectedPlan.plan_name}</h3>
+
+                            <p>
+                              Duration: <strong>{selectedPlan.weeks.length} weeks</strong>
+                            </p>
+                            <p>
+                              Start: <strong>{selectedPlan.start_date}</strong>
+                            </p>
+                            <p>Please make sure all settings are correct.</p>
+                          </>
+                                                :     <>
+                            <p>Do you really want to delete this plan?</p>
+
+                            <h3>{selectedPlan.plan_name}</h3>
+
+                            <p><strong>This action cannot be undone.</strong></p>
+                            <p><strong>Your plan is smoked away then.</strong></p>
+                          </>
+                      }
+                      onConfirm={async () => {
+                        setShowConfirm(false);
+                        if (confirmAction === 'activate') {
+                          handlePlanActivation();
+                        }else{
+                           handlePlanDelete()
+                        }
+                      }}
+                      onCancel={() => {
+                        setShowConfirm(false);
+                        setConfirmAction(null);
+                      }}
+                    />
+                  )}
                 </PlanDetails>
               )}
             </>
@@ -461,8 +525,7 @@ export default GrowManager;
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-
-  width: 90vw;
+  min-width: 95%;
   margin: 0 auto;
   padding: 1rem;
   border-radius: 1rem;
@@ -472,24 +535,35 @@ const Container = styled.div`
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #f1f5f9;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;  /* HINZUGEFÜGT */
+  @media (min-width: 768px) {
+    padding: 2rem;
+    border-radius: 24px;
+    width: 70%;
+    max-width: 1200px;
+  }
+  
+  @media (min-width: 1024px) {
+    width: 90%;
+    max-width: 900px;
+  }
 
   ${({ $isOpen }) => `
     max-height: ${$isOpen ? 'none' : '8rem'};
     overflow: ${$isOpen ? 'visible' : 'hidden'};
   `}
-
   @media (min-width: 768px) {
     padding: 2rem;
     border-radius: 24px;
     ${({ $isOpen }) => `
-      max-height: ${$isOpen ? '92vh' : '7rem'};
+      max-height: ${$isOpen ? '50%' : '7rem'};
     `}
   }
-
   @media (min-width: 1600px) {
     max-width: 1500px; /* optional, verhindert zu große Container auf Ultrawidescreens */
   }
-`;
+
+  `;
 
 const Header = styled.header`
   display: flex;
@@ -507,9 +581,8 @@ const Header = styled.header`
 
 const TitleSection = styled.div`
   display: flex;
-  flex-direction: column;
-  
-  gap: 0.5rem;
+  flex-direction: row;
+  gap: 2rem;
 
   @media (min-width: 768px) {
     flex-direction: row;
@@ -534,7 +607,7 @@ const Title = styled.h1`
 `;
 
 const Subtitle = styled.p`
-  font-size: 0.55rem;
+  font-size: 0.73rem;
   color: rgba(255, 255, 255, 0.6);
   
   @media (min-width: 768px) {
@@ -564,6 +637,8 @@ const ChevronIcon = () => (
 const Content = styled.div`
   padding: 1rem;
   border-top: 1px solid rgba(255, 255, 255, 0.1);
+  position: relative; 
+  z-index: 1; 
 `;
 
 const PlansHeader = styled.div`
@@ -576,7 +651,7 @@ const PlansHeader = styled.div`
 `;
 
 const StrainInfo = styled.div`
-  font-size: 0.875rem;
+  font-size: 1rem;
   color: rgba(255, 255, 255, 0.7);
   
   strong {
@@ -608,6 +683,13 @@ const Select = styled.select`
   margin-bottom: 1rem;
   font-size: 0.875rem;
 
+  /* Verhindert, dass die Options nach oben scrollen */
+  option {
+    background: #1e293b;
+    color: #f1f5f9;
+    padding: 0.5rem;
+  }
+
   &:focus {
     outline: none;
     border-color: #38bdf8;
@@ -630,6 +712,7 @@ const PlanHeader = styled.div`
 
 const HeaderRow = styled.div`
   display: flex;
+  font-size:1.3rem;
   justify-content: space-between;
   align-items: center;
   flex-wrap: wrap;
@@ -653,29 +736,46 @@ const EditToggleButton = styled.button`
 `;
 
 const PlanInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem 2rem;
+  width: 100%;
+
+  @media (max-width: 700px) {
+  grid-template-columns: repeat(2, 1fr);
+  }
 `;
 
+
 const InfoRow = styled.div`
-  font-size: 0.875rem;
-  line-height: 1.5;
-  display: flex;
-  flex-direction: column;
-  gap: 0.5rem;
-  
-  @media (min-width: 768px) {
-    flex-direction: row;
-    align-items: center;
-  }
-  
+  display: grid;
+  grid-template-columns: 120px 1fr;
+  gap: 0.75rem;
+  width: 100%;
+  align-items: center;
+  font-size: 0.9rem;
+
   strong {
-    color: rgba(255, 255, 255, 0.9);
-    min-width: 120px;
-    display: inline-block;
+    text-align: left;
+    color: #e2e8f0;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+
+  span,
+  input {
+    text-align: left;
+    color: #cbd5e1;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    strong {
+      text-align: left;
+    }
   }
 `;
+
 
 const EditInput = styled.input`
   background: #1e293b;
@@ -685,7 +785,13 @@ const EditInput = styled.input`
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
   flex: 1;
-  max-width: 300px;
+  max-width: 8.5rem;
+
+  /* Browser Datepicker Icon – weiß machen */
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 1;
+  }
 
   &:focus {
     outline: none;
@@ -847,13 +953,15 @@ const ControlBadge = styled.div`
 
 const ButtonGroup = styled.div`
   display: flex;
-  gap: 1rem;
+  margin-top:2rem;
+  gap: 5rem;
   flex-wrap: wrap;
 `;
 
 const ActivateButton = styled.button`
+  flex:1;  
   background-color: #4ade80;
-  color: white;
+  color: black;
   padding: 0.6rem 1.2rem;
   font-size: 1rem;
   font-weight: 600;
@@ -881,8 +989,9 @@ const ActivateButton = styled.button`
 `;
 
 const DeleteButton = styled.button`
+  flex:1;
   background-color: #f87171;
-  color: white;
+  color: black;
   padding: 0.6rem 1.2rem;
   font-size: 1rem;
   font-weight: 600;
@@ -931,4 +1040,54 @@ const CancelButton = styled.button`
     background-color: #374151;
     transform: scale(0.98);
   }
+`;
+
+
+const ModalBackdrop = styled.div`
+  position: fixed;
+  inset: 0;
+  background: rgba(0,0,0,0.5);
+  backdrop-filter: blur(3px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+`;
+
+const ModalBox = styled.div`
+  background: #1c1c1c;
+  color: #fff;
+  border-radius: 12px;
+  padding: 24px;
+  width: 90%;
+  max-width: 400px;
+  text-align: center;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+`;
+
+const ModalMessage = styled.p`
+  margin-bottom: 20px;
+  font-size: 1rem;
+`;
+
+const ModalButtons = styled.div`
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+`;
+
+const ModalButton = styled.button`
+  background: #4caf50;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 8px;
+  cursor: pointer;
+  font-weight: 600;
+  &:hover { background: #43a047; }
+`;
+
+const ModalButtonCancel = styled(ModalButton)`
+  background: #f44336;
+  &:hover { background: #d32f2f; }
 `;

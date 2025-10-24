@@ -1,7 +1,7 @@
 import { useEffect, useState, useMemo } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import styled from 'styled-components';
-
+import OGBIcon from '../../misc/OGBIcon'
 const GlobalOverview = () => {
   const { entities, currentRoom } = useHomeAssistant();
   const [remainingDays, setRemainingDays] = useState('');
@@ -31,7 +31,7 @@ const GlobalOverview = () => {
   return (
     <Container>
       <Header>
-        <Icon>🌱</Icon>
+        <Icon>    <OGBIcon style={{ width: '1.2em', height: '1.2em' }} /> </Icon>
         <Title>Grow Overview</Title>
       </Header>
       
@@ -78,6 +78,7 @@ const Container = styled.div`
 const Header = styled.div`
   display: flex;
   align-items: center;
+  justify-content:center;
   gap: 0.75rem;
   padding: 1.25rem 1.5rem 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);

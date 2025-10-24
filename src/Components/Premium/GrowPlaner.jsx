@@ -73,14 +73,6 @@ const GrowPlaner = () => {
   const [showConfirm, setShowConfirm] = useState(false);
 
   useEffect(() => {
-    const fetchData = async () => {
-      await getGrowPlans();
-    };
-    
-    fetchData();
-  }, [entities, roomKey]);
-
-  useEffect(() => {
     const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
     if (strainSensor) {
       setStrainName(strainSensor.state);
@@ -145,11 +137,12 @@ const GrowPlaner = () => {
 
     const jsonString = JSON.stringify({ strainName, growPlanName, roomKey, start_date, weeks, isPublic }, null, 2);
     addGrowPlan(jsonString);
-    
+
     setStartDate('');
     setWeeks([defaultWeek(1)]);
     setSelectedWeekIndex(0);
     const newStrainName = generateRandomPlanName();
+        getGrowPlans();
     setStrainName(newStrainName);
     addGrowPlanName(`${newStrainName} Plan`);
     setIsPublic(false);
@@ -504,7 +497,7 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
 
-  width: 90vw;
+  width: 96%;
   margin: 0 auto;
   padding: 1rem;
   border-radius: 1rem;
@@ -683,14 +676,20 @@ const StyledInput = styled.input`
   font-size: 0.875rem;
   width: 100%;
   transition: all 0.3s ease;
-  
+
   &:focus {
     outline: none;
     border-color: #38bdf8;
     background: rgba(30, 41, 59, 1);
     box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
   }
-  
+
+  /* Browser Datepicker Icon – weiß machen */
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    opacity: 1;
+  }
+
   @media (min-width: 768px) {
     padding: 0.75rem 1rem;
   }

@@ -54,6 +54,7 @@ const dynamicFilters = {
     }
   },
 
+
   light_control: {
     selectEntity: 'ogb_lightcontrol_',
     activeInGroups: ['Lights'], 
@@ -71,6 +72,19 @@ const dynamicFilters = {
     }
   },
 
+  light_control: {
+    selectEntity: 'ogb_lightledtype_',
+    activeInGroups: ['Lights'], 
+    conditions: {
+      'manual': {
+        includeKeywords: ["factor"],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      }
+    }
+  },
+
+
   light_control_mode: {
     selectEntity: 'ogb_light_controltype_',
     activeInGroups: ['Lights'], 
@@ -82,7 +96,7 @@ const dynamicFilters = {
       },
       'GLJ': {
         includeKeywords: ["light"],
-        excludeKeywords: [],
+        excludeKeywords: ["sun","off","minmax"],
         additionalTooltips: {}
       },
       'DLI': {
@@ -525,7 +539,10 @@ const ControllCollection = ({ option }) => {
   
     [`ogb_console_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING & NERDY', 
     [`ogb_mediumtype_${currentRoom?.toLowerCase()}`]: 'Set Your Medium and Summary like COCOx3', 
-    
+      
+    [`ogb_lightledtype_${currentRoom?.toLowerCase()}`]: 'Set Light Type for DLI/PPFD Calculations',
+    [`ogb_luxtoppfdfactor_${currentRoom?.toLowerCase()}`]: 'Set your Manual Factor Works only for Led Type Manual', 
+
   
   };
 
