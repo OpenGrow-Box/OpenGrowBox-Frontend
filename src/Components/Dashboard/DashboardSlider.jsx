@@ -17,6 +17,8 @@ import LightIntensity from '../Cards/SliderCards/LightIntensity'
 import { SliderContext } from '../../misc/SliderContext'
 import PPFDCard from '../Cards/SliderCards/PPFD_DLI';
 import TankLevelCard from '../Cards/SliderCards/TankLevelCard';
+import AllTemps from '../Cards/SliderCards/AllTempsCard';
+import AllHums from '../Cards/SliderCards/AllHumsCard';
 
 const DashboardSlider = () => {
 
@@ -104,6 +106,12 @@ const DashboardSlider = () => {
     <SlideContent key="slide11">
       <TankLevelCard pause={pause} resume={resume} isPlaying={isPlaying}/>
     </SlideContent>,
+    <SlideContent key="slide12">
+      <AllTemps pause={pause} resume={resume} isPlaying={isPlaying}/>
+    </SlideContent>,
+      <SlideContent key="slide13">
+      <AllHums pause={pause} resume={resume} isPlaying={isPlaying}/>
+    </SlideContent>,
   ];
 
   return (
@@ -118,13 +126,13 @@ const DashboardSlider = () => {
         </IconWrapper>
       </SliderMenu>
 
+
+
+      {/* Framer Motion Slide Animation */}
       <ArrowContainer>
         <ArrowButton onClick={handlePrev}>&#10094;</ArrowButton>
         <ArrowButton onClick={handleNext}>&#10095;</ArrowButton>
       </ArrowContainer>
-
-      {/* Framer Motion Slide Animation */}
-
       <SlideWrapper
         as={motion.div}
         key={currentIndex}  // Damit die Animation bei Indexwechsel erneut ausgeführt wird
@@ -164,9 +172,9 @@ const SliderMenu = styled.div`
 
 const SlideWrapper = styled.div`
   display: flex;
-  padding: 0.5rem;
+  padding: 0.1rem;
   min-width: 95%;
-  min-height: 10vh;
+  min-height: 15vh;
   max-height: 30vh;
 
 `;

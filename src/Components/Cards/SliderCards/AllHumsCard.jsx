@@ -1,75 +1,71 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
-import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize } from './sensorClassifier';
 
+const AllHums = ({ pause, resume, isPlaying }) => {
+  const { entities,currentRoom } = useHomeAssistant();
+  const [allHumSensors, setHumSensors] = useState([]);
+  const [selectedSensor, setSelectedSensor] = useState(null);
 
-const CO2Card = ({pause,resume,isPlaying}) => {
-  const { entities } = useHomeAssistant();
-  const [co2Sensors, setCo2Sensors] = useState([]);
-  const [selectedSensor, setSelectedSensor] = useState(null); // State für ausgewählten Sensor (Modal)
+
+useEffect(() => {
+
+  const normalizedSensors = classifyAndNormalize(entities)
+    .filter(s => 
+      s.category === "humidity" &&
+      s.context === "air"
+      //s.name?.toLowerCase().includes(currentRoom.toLowerCase()) // <- hier prüfen wir den Namen
+    );
+
+  setHumSensors(normalizedSensors);
+}, [entities, currentRoom]);
 
 
-  useEffect(() => {
-    const normalizedSensors = classifyAndNormalize(entities)
-      .filter(s => 
-        (s.category === "co2") && 
-        s.context === "air"  // ← Hier der zusätzliche Filter!
-      );
 
-    setCo2Sensors(normalizedSensors);
-  }, [entities]);
-
-  // Funktion, die die Farbe basierend auf dem CO₂-Wert bestimmt
   const getColorForValue = (value) => {
-    if (value < 400) return '#34d399';
-    if (value >= 400 && value <= 800) return '#34d399';
-    if (value > 800 && value <= 1200) return '#fbbf24';
-    if (value > 1200 && value <= 1500) return '#ff0000';
-    return '#ff000';
+    if (value < 30) return '#60a5fa'; // Blau (zu trocken)
+    if (value >= 30 && value <= 60) return '#34d399'; // Grün (optimal)
+    if (value > 60 && value <= 80) return '#fbbf24'; // Gelb (leicht feucht)
+    if (value > 80 && value <= 90) return '#fb923c'; // Orange (sehr feucht)
+    return '#ef4444'; // Rot (extrem feucht)
   };
 
   const handleDataBoxClick = (sensorId) => {
-    pause(); 
+    pause();
     setSelectedSensor(sensorId);
   };
 
   const closeHistoryChart = () => {
     setSelectedSensor(null);
-    if(isPlaying){
-      resume(); 
+    if (isPlaying) {
+      resume();
     }
   };
 
-  
   return (
     <CardContainer>
-      <Header>
-        <h4>CO₂</h4>
-      </Header>
+      <Header><h4>ALL HUMIDITYS </h4></Header>
       <Content>
-        {co2Sensors.map((sensor) => (
-          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.entity_id)}>
+        {allHumSensors.map((sensor) => (
+          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value) }}>
-                {sensor.value}
+              <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
+                {sensor.value.toFixed(2)}
               </Value>
               <Unit>{sensor.unit}</Unit>
             </ValueWrapper>
           </DataBox>
         ))}
-        {co2Sensors.length === 0 && <NoData>No CO₂ sensors found.</NoData>}
+        {allHumSensors.length === 0 && <NoData>No sensors found.</NoData>}
       </Content>
 
-      {/* Bedingtes Rendern des Modal */}
       {selectedSensor && (
         <ModalOverlay onClick={closeHistoryChart}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <HistoryChart sensorId={selectedSensor} onClose={closeHistoryChart} />
-
           </ModalContent>
         </ModalOverlay>
       )}
@@ -77,7 +73,7 @@ const CO2Card = ({pause,resume,isPlaying}) => {
   );
 };
 
-export default CO2Card;
+export default AllHums;
 
 const CardContainer = styled.div`
   position: relative;
@@ -122,7 +118,6 @@ const Unit = styled.div``;
 
 const NoData = styled.div``;
 
-// Modal-Styling
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -146,4 +141,3 @@ const ModalContent = styled.div`
   align-items: center;
   justify-content: center;
 `;
-

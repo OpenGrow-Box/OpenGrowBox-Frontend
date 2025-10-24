@@ -1,60 +1,23 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
-import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
+import { classifyAndNormalize } from './sensorClassifier';
 
 const SoilCard = ({ pause, resume, isPlaying }) => {
   const { entities } = useHomeAssistant();
   const [ecSensors, setEcSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
+
   useEffect(() => {
-    const updateCard = () => {
-      const sensors = Object.entries(entities)
-        .filter(
-          ([key, entity]) =>
-            key.startsWith('sensor.') &&
-            (key.toLowerCase().includes('soil') ||
-              key.toLowerCase().includes('boden') ||
-              key.toLowerCase().includes('_moisture') ||
-              key.toLowerCase().includes('_conductivity')) &&
-            !key.toLowerCase().includes('wifi') &&
-            !key.toLowerCase().includes('mqtt') &&
-            !key.toLowerCase().includes('connect') &&
-            !key.toLowerCase().includes('batter') &&
-            !key.toLowerCase().includes('power') &&
-            !key.toLocaleLowerCase().includes('_temperature') &&
-            !key.toLocaleLowerCase().includes('_lux') &&
-            !key.toLocaleLowerCase().includes('_lumen') &&
-            !key.toLocaleLowerCase().includes('_illuminance') &&
-            !isNaN(parseFloat(entity.state))
-        )
-        .map(([key, entity]) => {
-          const rawValue = parseFloat(entity.state);
-          const unit = entity.attributes?.unit_of_measurement || '%';
+    const normalizedSensors = classifyAndNormalize(entities)
+      .filter(s => 
+        (s.category === "moisture" || s.category === "ec" || s.category === "ph") && 
+        s.context === "soil"  // ← Hier der zusätzliche Filter!
+      );
 
-          let value = rawValue;
-          let displayUnit = unit;
-
-          // Konvertierung nur für Leitfähigkeit
-          if (unit === 'µS/cm') {
-            value = rawValue / 1000;
-            displayUnit = 'mS/cm';
-          }
-
-          return {
-            id: key,
-            value,
-            unit: displayUnit,
-            friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-          };
-        });
-
-      setEcSensors(sensors);
-    };
-
-    updateCard();
+    setEcSensors(normalizedSensors);
   }, [entities]);
 
   // Farb-Logik nach Einheit
@@ -62,9 +25,9 @@ const SoilCard = ({ pause, resume, isPlaying }) => {
     if (unit === '%' || unit.toLowerCase().includes('moisture')) {
       // Feuchtigkeit
       if (value < 20) return '#60a5fa'; // sehr trocken
-      if (value >= 20 && value <= 40) return 'rgba(230, 212, 12, 0.85)'; // niedrig
+      if (value >= 20 && value <= 40) return 'rgba(197, 230, 12, 0.85)'; // niedrig
       if (value > 40 && value <= 70) return 'rgba(85, 230, 12, 0.85)'; // optimal
-      if (value > 70 && value <= 90) return 'rgba(197, 230, 12, 0.85)'; // hoch
+      if (value > 70 && value <= 90) return 'rgba(230, 212, 12, 0.85)'; // hoch 
       return '#ef4444'; // extrem nass
     } else {
       // EC-Wert

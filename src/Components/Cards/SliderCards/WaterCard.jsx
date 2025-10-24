@@ -1,64 +1,29 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
-import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
+import { classifyAndNormalize } from './sensorClassifier';
+
+
 
 const WaterCard = ({pause,resume,isPlaying}) => {
   const { entities } = useHomeAssistant();
-  const [phSensors, setPHSensors] = useState([]);
+  const [waterSensors, setWaterensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null); // State für den ausgewählten Sensor
 
   useEffect(() => {
-    const updatePHCard = () => {
-      const sensors = Object.entries(entities)
-      .filter(([key, entity]) => {
-        const rawValue = parseFloat(entity.state);
-        const id = key.toLowerCase();
+    const normalizedSensors = classifyAndNormalize(entities)
+      .filter(s => 
+        (s.category === "ph" || s.category === "ec" || s.category === "tds" || s.category === "oxidation" ||
+          s.category === "salinity" || s.category === "temperature"
 
-        // Allowed sensor patterns
-        const patterns = [
-          /water/,                // Matches anywhere
-          /wasser/,               // Matches anywhere
-          /_ph($|[^a-z])/,        // Exact _ph
-          /_sal($|[^a-z])/,       // Exact _sal
-          /_oxidation($|[^a-z])/, // Exact _oxidation
-          /_orp($|[^a-z])/,       // Exact _orp
-          /_tds($|[^a-z])/,       // Exact _tds
-          /_ec($|[^a-z])/,        // Exact _ec
-        ];
+         ) && 
+        s.context === "water"  // ← Hier der zusätzliche Filter!
+      );
 
-        const matchesSensorType = patterns.some((pattern) => pattern.test(id));
-
-        return (
-          key.startsWith('sensor.') &&
-          matchesSensorType &&
-          !id.includes('phone') &&
-          !id.includes('mqtt') &&
-          !id.includes('connect') &&
-          !id.includes('soil') &&
-          !id.includes('erde') &&
-          !id.includes('medium') &&
-          !isNaN(rawValue) &&
-          rawValue !== 0
-        );
-      })
-        .map(([key, entity]) => {
-          const rawValue = parseFloat(entity.state);
-          const unit = entity.attributes?.unit_of_measurement || 'mS/cm';
-          return {
-            id: key,
-            value: rawValue,
-            unit: unit,
-            friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-          };
-        });
-
-      setPHSensors(sensors);
-    };
-
-    updatePHCard();
+    setWaterensors(normalizedSensors);
   }, [entities]);
+
 
   const getColorForValue = (value, unit) => {
     const unitLower = unit.toLowerCase();
@@ -119,7 +84,7 @@ const WaterCard = ({pause,resume,isPlaying}) => {
     <CardContainer>
       <Header><h4>WATER</h4></Header>
       <Content>
-        {phSensors.map((sensor) => (
+        {waterSensors.map((sensor) => (
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
@@ -130,7 +95,7 @@ const WaterCard = ({pause,resume,isPlaying}) => {
             </ValueWrapper>
           </DataBox>
         ))}
-        {phSensors.length === 0 && <NoData>No Water sensors found.</NoData>}
+        {waterSensors.length === 0 && <NoData>No Water sensors found.</NoData>}
       </Content>
 
       {/* Bedingtes Rendern des Modals */}

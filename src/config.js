@@ -1,6 +1,6 @@
 const ogbversions = {
-    backend:"v1.3.3",
-    frontend:"v1.7.0",
+    backend:"v1.4.1",
+    frontend:"v1.0.8",
     premapi:"v0.0.1"
 }
 const DEV_CONFIG = {

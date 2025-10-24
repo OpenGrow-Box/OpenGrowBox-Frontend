@@ -542,7 +542,8 @@ const ControllCollection = ({ option }) => {
       
     [`ogb_lightledtype_${currentRoom?.toLowerCase()}`]: 'Set Light Type for DLI/PPFD Calculations',
     [`ogb_luxtoppfdfactor_${currentRoom?.toLowerCase()}`]: 'Set your Manual Factor Works only for Led Type Manual', 
-
+    
+    [`ogb_vpd_determination_${currentRoom?.toLowerCase()}`]: 'Select your Time when new VPD get Calculated', 
   
   };
 

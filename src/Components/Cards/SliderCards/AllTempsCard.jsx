@@ -5,71 +5,66 @@ import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize } from './sensorClassifier';
 
-
-const CO2Card = ({pause,resume,isPlaying}) => {
+const AllTemps = ({ pause, resume, isPlaying }) => {
   const { entities } = useHomeAssistant();
-  const [co2Sensors, setCo2Sensors] = useState([]);
-  const [selectedSensor, setSelectedSensor] = useState(null); // State für ausgewählten Sensor (Modal)
+  const [allTempSensors, setAllTempSensors] = useState([]);
+  const [selectedSensor, setSelectedSensor] = useState(null);
 
 
   useEffect(() => {
     const normalizedSensors = classifyAndNormalize(entities)
       .filter(s => 
-        (s.category === "co2") && 
+        (s.category === "temperature" ) && 
         s.context === "air"  // ← Hier der zusätzliche Filter!
       );
 
-    setCo2Sensors(normalizedSensors);
+    setAllTempSensors(normalizedSensors);
   }, [entities]);
 
-  // Funktion, die die Farbe basierend auf dem CO₂-Wert bestimmt
+
   const getColorForValue = (value) => {
-    if (value < 400) return '#34d399';
-    if (value >= 400 && value <= 800) return '#34d399';
-    if (value > 800 && value <= 1200) return '#fbbf24';
-    if (value > 1200 && value <= 1500) return '#ff0000';
-    return '#ff000';
+    if (value < 10) return '#34d399'; // Grün für sehr niedrige Werte unter 10°C
+    if (value >= 10 && value <= 18) return '#00aaff'; // Blau für Werte zwischen 10 und 18°C
+    if (value > 18 && value <= 25) return '#fbbf24'; // Gelb
+    if (value > 25 && value <= 35) return '#fb923c'; // Orange
+    if (value > 35 && value <= 40) return '#ef4444'; // Rot
+    return '#7f1d1d'; // Dunkelrot für sehr hohe Werte über 40°C
   };
 
   const handleDataBoxClick = (sensorId) => {
-    pause(); 
+    pause();
     setSelectedSensor(sensorId);
   };
 
   const closeHistoryChart = () => {
     setSelectedSensor(null);
-    if(isPlaying){
-      resume(); 
+    if (isPlaying) {
+      resume();
     }
   };
 
-  
   return (
     <CardContainer>
-      <Header>
-        <h4>CO₂</h4>
-      </Header>
+      <Header><h4>ALL TEMPERATURES</h4></Header>
       <Content>
-        {co2Sensors.map((sensor) => (
-          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.entity_id)}>
+        {allTempSensors.map((sensor) => (
+          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value) }}>
-                {sensor.value}
+              <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
+                {sensor.value.toFixed(2)}
               </Value>
               <Unit>{sensor.unit}</Unit>
             </ValueWrapper>
           </DataBox>
         ))}
-        {co2Sensors.length === 0 && <NoData>No CO₂ sensors found.</NoData>}
+        {allTempSensors.length === 0 && <NoData>No sensors found.</NoData>}
       </Content>
 
-      {/* Bedingtes Rendern des Modal */}
       {selectedSensor && (
         <ModalOverlay onClick={closeHistoryChart}>
           <ModalContent onClick={(e) => e.stopPropagation()}>
             <HistoryChart sensorId={selectedSensor} onClose={closeHistoryChart} />
-
           </ModalContent>
         </ModalOverlay>
       )}
@@ -77,7 +72,7 @@ const CO2Card = ({pause,resume,isPlaying}) => {
   );
 };
 
-export default CO2Card;
+export default AllTemps;
 
 const CardContainer = styled.div`
   position: relative;
@@ -122,7 +117,6 @@ const Unit = styled.div``;
 
 const NoData = styled.div``;
 
-// Modal-Styling
 const ModalOverlay = styled.div`
   position: fixed;
   top: 0;
@@ -146,4 +140,3 @@ const ModalContent = styled.div`
   align-items: center;
   justify-content: center;
 `;
-
