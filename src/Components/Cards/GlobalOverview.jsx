@@ -2,8 +2,10 @@ import { useEffect, useState, useMemo } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import styled from 'styled-components';
 import OGBIcon from '../../misc/OGBIcon'
+import { usePremium } from '../Context/OGBPremiumContext';
 const GlobalOverview = () => {
   const { entities, currentRoom } = useHomeAssistant();
+  const{isPremium,activeGrowPlan} = usePremium();
   const [remainingDays, setRemainingDays] = useState('');
   const [strainName, setStrainName] = useState('');
 
@@ -47,6 +49,20 @@ const GlobalOverview = () => {
           <Label>Harvest in</Label>
           <Value highlight isReady={!remainingDays || parseFloat(remainingDays) <= 0}>{formatDaysDisplay(remainingDays)}</Value>
         </DaysCard>
+
+        {isPremium === true ? 
+        (<>
+        <GrowPlanCard>
+          <Label>Grow Plan:</Label>
+          <Value>{activeGrowPlan.plan_name || 'No Plan Aktiv'}</Value>
+        </GrowPlanCard>
+        <Divider />
+        <GrowPlanWeekCard>
+          <Label>Week:</Label>
+          <Value>{activeGrowPlan.active_week || 'No Plan Aktiv'}</Value>
+        </GrowPlanWeekCard>
+
+        </>):(<></>)}
       </Content>
     </Container>
   );
@@ -80,18 +96,18 @@ const Header = styled.div`
   align-items: center;
   justify-content:center;
   gap: 0.75rem;
-  padding: 1.25rem 1.5rem 0.75rem;
+  padding: 0.8rem 1.2rem 0.55rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.08);
 `;
 
 const Icon = styled.div`
-  font-size: 1.5rem;
+  font-size: 1.2rem;
   filter: drop-shadow(0 2px 4px rgba(74, 222, 128, 0.3));
 `;
 
 const Title = styled.h3`
   margin: 0;
-  font-size: 1.1rem;
+  font-size: 1.2rem;
   font-weight: 600;
   color: var(--main-text-color);
   letter-spacing: 0.5px;
@@ -103,12 +119,44 @@ const Content = styled.div`
   align-items: center;
   padding: 1.25rem 1.5rem;
   gap: 1.5rem;
+
+
 `;
 
 const StrainCard = styled.div`
   background: rgba(74, 222, 128, 0.08);
   border: 1px solid rgba(74, 222, 128, 0.2);
-  padding: 1rem;
+  padding: 0.5rem;
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+
+  
+  &:hover {
+    background: rgba(74, 222, 128, 0.12);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+  }
+`;
+
+const GrowPlanCard = styled.div`
+  background: rgba(74, 222, 128, 0.08);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  padding: 0.5rem;
+  border-radius: 8px;
+  text-align: center;
+  transition: all 0.3s ease;
+  
+  &:hover {
+    background: rgba(74, 222, 128, 0.12);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+  }
+`;
+const GrowPlanWeekCard = styled.div`
+  background: rgba(255, 125, 0, 0.10);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  padding: 0.5rem;
   border-radius: 8px;
   text-align: center;
   transition: all 0.3s ease;
@@ -120,6 +168,8 @@ const StrainCard = styled.div`
   }
 `;
 
+
+
 const DaysCard = styled.div`
   background: ${props => props.isReady ? 
     'rgba(239, 68, 68, 0.08)' : 
@@ -127,7 +177,7 @@ const DaysCard = styled.div`
   border: 1px solid ${props => props.isReady ? 
     'rgba(239, 68, 68, 0.2)' : 
     'rgba(59, 130, 246, 0.2)'};
-  padding: 1rem;
+  padding: 0.5rem;
   border-radius: 8px;
   text-align: center;
   transition: all 0.3s ease;

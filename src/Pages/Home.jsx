@@ -12,6 +12,8 @@ import DeviceCard from '../Components/Cards/ControlCards/DeviceCard';
 import DashboardSlider from '../Components/Dashboard/DashboardSlider';
 import DashboardStats from '../Components/Dashboard/DashboardStats';
 import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
+import HeatMap from '../Components/Cards/HeatMap';
+import OtherSensors from '../Components/Cards/OtherSensors';
 
 const Home = () => {
   const { roomOptions } = useHomeAssistant();
@@ -62,6 +64,38 @@ const Home = () => {
                 />
               )}
             </TabButton>
+
+            <TabButton
+              active={activeTab === 'heatmap'}
+              onClick={() => setActiveTab('heatmap')}
+            >
+              <MdTerminal size={20} />
+              <span>Heat Map</span>
+              {activeTab === 'heatmap' && (
+                <ActiveIndicator
+                  layoutId="activeTab"
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </TabButton>
+
+
+            <TabButton
+              active={activeTab === 'others'}
+              onClick={() => setActiveTab('others')}
+            >
+              <MdTerminal size={20} />
+              <span>Others</span>
+              {activeTab === 'others' && (
+                <ActiveIndicator
+                  layoutId="activeTab"
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </TabButton>
+      
           </TabContainer>
 
           <TabContent>
@@ -76,7 +110,8 @@ const Home = () => {
                 >
                   <DeviceCard />
                 </motion.div>
-              ) : (
+              ) : (<></>)}
+              {activeTab === 'terminal' ? (
                 <motion.div
                   key="terminal"
                   initial={{ opacity: 0, x: -20 }}
@@ -86,7 +121,29 @@ const Home = () => {
                 >
                   <ConsoleCard />
                 </motion.div>
-              )}
+              ) : (<></>)}              
+              {activeTab === 'heatmap' ? (
+                <motion.div
+                  key="heatmap"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <HeatMap />
+                </motion.div>
+              ) : (<></>)}
+              {activeTab === 'others' ? (
+                <motion.div
+                  key="others"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <OtherSensors />
+                </motion.div>
+              ) : (<></>)}       
             </AnimatePresence>
           </TabContent>
 

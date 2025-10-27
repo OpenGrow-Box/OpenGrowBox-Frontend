@@ -2,36 +2,42 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatDateTime } from '../../misc/formatDateTime';
+import { TbTemperatureCelsius,TbPercentage } from "react-icons/tb";
+
 const LogItem = ({ room, date, info }) => {
   // Parse the info if it's a string
   const parsedInfo = typeof info === 'string' ? JSON.parse(info) : info;
   
   // Determine log type for styling
-    const getLogType = (data) => {
-      // Wenn data ein Array ist → erstes Element nehmen
-      const entry = Array.isArray(data) ? data[0] : data;
+  const getLogType = (data) => {
+    // Wenn data ein Array ist → erstes Element nehmen
+    const entry = Array.isArray(data) ? data[0] : data;
 
-      // msg sicher extrahieren
-      const msg = entry?.message?.toLowerCase() || '';
+    // msg sicher extrahieren
+    const msg = entry?.message?.toLowerCase() || '';
 
-      //console.log(data, msg);
+    console.log(data, msg);
 
-      if (entry.controllerType === "PID") return 'pid-controller';
-      if (entry.action) return 'action';
-      if (msg.includes('vpd')) return 'vpd';
-      if (entry.NightVPDHold !== undefined) return 'night-vpd';
-      if (msg.includes('humidity')) return 'humidity';
-      if (msg.includes('temperature')) return 'temperature';
-      if (entry.VPD !== undefined) return 'sensor';
+    if (entry.medium === true) return 'medium-stats';
+    
+    if (entry.controllerType === "PID") return 'pid-controller';
+    if (entry.controllerType === "MPC") return 'pid-controller';
 
-      if (entry.Device || entry.Action || entry.Cycle !== undefined) return 'device';
-      
-      return 'default';
-    };
 
+    if (entry.action) return 'action';
+    if (msg.includes('vpd')) return 'vpd';
+    if (entry.NightVPDHold !== undefined) return 'night-vpd';
+    if (msg.includes('humidity')) return 'humidity';
+    if (msg.includes('temperature')) return 'temperature';
+    if (entry.VPD !== undefined) return 'sensor';
+
+    if (entry.Device || entry.Action || entry.Cycle !== undefined) return 'device';
+    
+    return 'default';
+  };
 
   const logType = getLogType(parsedInfo);
-
+  console.log(logType)
   function calculateUptimeFromTimestamp(timestampMs) {
     const now = Date.now(); // aktuelle Zeit in Millisekunden
     const uptimeSeconds = Math.floor((now - timestampMs) / 1000); // Differenz in Sekunden
@@ -207,6 +213,16 @@ const LogItem = ({ room, date, info }) => {
   };
 
   // Get device icon based on device type
+  const getMediumIcon = (medium) => {
+
+
+    if (deviceLower.includes('pump') || deviceLower.includes('water')) return '💧';
+    if (deviceLower.includes('fan') || deviceLower.includes('venti')) return '𖣘';
+
+    return '⚙️';
+  };
+
+  // Get device icon based on device type
   const getDeviceIcon = (device) => {
     const deviceLower = device.toLowerCase();
     if (deviceLower.includes('pump') || deviceLower.includes('water')) return '💧';
@@ -345,12 +361,57 @@ const LogItem = ({ room, date, info }) => {
     return null;
   };
 
+  const formatMediumData = (data) => {
+    if (!data.medium) return null;
+
+    const safe = (v, unit = "") =>
+      (v === undefined || v === null || v === "" ? "NO DATA" : `${v}${unit ? " " + unit : ""}`);
+
+    return (
+      <MediumContainer>
+        <MediumTitle>Medium Information</MediumTitle>
+        
+        <MediumItem>
+          Medium Type:
+          <MediumValue>{safe(data.medium_type.toUpperCase())}</MediumValue>
+        </MediumItem>
+
+        <MediumItem>
+          Binded Sensors:
+          <MediumValue>{safe(data.medium_sensors_total)} Sensors</MediumValue>
+        </MediumItem>
+
+        <MediumItem>
+          Moisture:
+          <MediumValue>{safe(data.medium_moisture, "%")}</MediumValue>
+        </MediumItem>
+
+        <MediumItem>
+          Temperature:
+          <MediumValue>{safe(data.medium_temp, "°C")}</MediumValue>
+        </MediumItem>
+
+        <MediumItem>
+          EC:
+          <MediumValue>{safe(data.medium_ec, "mS/cm")}</MediumValue>
+        </MediumItem>
+
+        <MediumItem>
+          pH:
+          <MediumValue>{safe(data.medium_ph)}</MediumValue>
+        </MediumItem>
+      </MediumContainer>
+    );
+  };
+
+
   const sensorData = formatSensorData(parsedInfo);
   const actionData = formatActionData(parsedInfo);
   const deviceData = formatDeviceAction(parsedInfo);
   const deviationData = formatDeviationData(parsedInfo);
   const nightVPDData = formatNightVPDData(parsedInfo);
-  
+  const mediumData = formatMediumData(parsedInfo);
+  console.log(mediumData)
   return (
     <LogItemContainer logType={logType}>
       <LogHeader logType={logType}>
@@ -366,7 +427,8 @@ const LogItem = ({ room, date, info }) => {
         {deviceData && deviceData}
         {nightVPDData && nightVPDData}
         {deviationData && deviationData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && (
+        {mediumData && mediumData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -456,7 +518,7 @@ const GrowLogs = () => {
         date: formatDateTime(event.time_fired),
         info: JSON.stringify(event.data)
       };
-      setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 199)]); // Keep only last 200 logs for performance
+      setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 50)]); // Keep only last 200 logs for performance
     };
 
     const subscribe = async () => {
@@ -556,6 +618,9 @@ const LogItemContainer = styled.div`
   background: ${props => {
     switch(props.logType) {
       case 'pid-controller': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
+      
+      case 'medium-stats': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
+      
       case 'sensor': return 'linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(253, 187, 45, 0.1) 100%)';
       case 'action': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 154, 0, 0.1) 100%)';
       case 'device': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)';
@@ -916,8 +981,6 @@ const ActionPriority = styled.div`
   color: ${({ priority }) => priorityColors[priority] || "orange"};
 `;
 
-
-
 const DeviationLabel = styled.div`
   color: var(--second-text-color);
   font-size: 0.7rem;
@@ -1180,6 +1243,7 @@ const SunStatus = styled.div`
   text-align: center;
 `;
 
+// Night VPD
 const NightVPDContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -1284,6 +1348,7 @@ const StatusText = styled.div`
   text-transform: capitalize;
 `;
 
+// P.I.D
 const PIDControllerContainer = styled.div`
   display: flex;
   flex-direction: column;
@@ -1540,4 +1605,41 @@ const PIDTimestamp = styled.div`
   color: var(--second-text-color);
   font-size: 0.75rem;
   opacity: 0.7;
+`;
+
+// MEDIUM 
+
+export const MediumContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+
+
+`;
+
+export const MediumTitle = styled.h3`
+  margin-bottom: 6px;
+  color: #71e08a;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: .3px;
+`;
+
+export const MediumItem = styled.div`
+  display: flex;
+  justify-content: space-between;
+  font-size: 1rem;
+  color: #e6e6e6;
+  padding: 6px 0;
+  border-bottom: 1px solid #0fa;
+
+  &:last-child {
+    border-bottom: none;
+  }
+`;
+
+export const MediumValue = styled.span`
+  font-weight: 600;
+  margin-left: 8px;
+  color: #71c7ff;
 `;

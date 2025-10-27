@@ -43,12 +43,12 @@ const dynamicFilters = {
       },
       'VPD Target': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "weigh", 'hydro'],
+        excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop"],
         additionalTooltips: {}
       },
       'Disabled': {
         includeKeywords: ['Tent Mode'],
-        excludeKeywords: ["hold", "device", "work", "ambient", "target", "vpd", 'hydro','drying','offset'],
+        excludeKeywords: ["hold", "device", "work", "ambient", "target", "vpd", 'hydro','drying','offset',"crop"],
         additionalTooltips: {}
       }
     }

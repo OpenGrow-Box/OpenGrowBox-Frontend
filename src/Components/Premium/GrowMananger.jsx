@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { usePremium } from '../Context/OGBPremiumContext';
-
+import { MdStart,MdRestartAlt,MdStopCircle } from "react-icons/md"
 const GrowManager = () => {
   const { entities, currentRoom } = useHomeAssistant();
   const { growPlans,delGrowPlan, publicGrowPlans, privateGrowPlans, activateGrowPlan, activeGrowPlan,getGrowPlans } = usePremium(); // activeGrowPlan statt currentActivePlan
@@ -133,9 +133,8 @@ const GrowManager = () => {
     };
 
     const handlePlanActivation = async () => {
+       
     if (!selectedPlan) return;
-
-
 
     const planToActivate = {
         ...selectedPlan,
@@ -150,8 +149,9 @@ const GrowManager = () => {
       return;
     }
     await activateGrowPlan(planToActivate, currentRoom);
-
-
+    setActivePlan(null)
+    setIsOpen(false)
+    setSelectedPlan(null)
 
     try {
         if(!planToActivate.start_date)return;
@@ -205,33 +205,57 @@ const GrowManager = () => {
       setShowConfirm(true);
     };
 
+    const startManager = () => {
+
+    };
+    const pauseManager = () => {
+
+    };
+    const stopManager = () => {
+
+    };
+
+
+
   return (
     <Container $isOpen={isOpen}>
       <Header onClick={() => setIsOpen((prev) => !prev)}>
         <TitleSection>
           <Title>{title}</Title>
-            <Subtitle>Your Total Plans: {allPlans.length}</Subtitle>
-            <Subtitle>Total Public Plans (matching): {matchingPublicPlans.length}</Subtitle>
+            <Subtitle>Your Plans: {matchingPrivatePlans.length}</Subtitle>
+            <Subtitle>Public Plans: {matchingPublicPlans.length}</Subtitle>
+            <Subtitle>Total Plans: {allPlans.length}</Subtitle>
         </TitleSection>
+
+
         <ToggleIcon $isOpen={isOpen}>
           <ChevronIcon />
         </ToggleIcon>
+
       </Header>
 
       {isOpen && (
         <Content>
           <PlansHeader>
-            <h3>Your Grow Plans</h3>
+            <ManagerActionContainer>
             {strainName && (
               <StrainInfo>Current Strain: <strong>{strainName}</strong></StrainInfo>
             )}
+              <ManagerStart onClick={() => startManager()}><MdStart/></ManagerStart>
+              <ManagerPause onClick={() =>pauseManager()}><MdRestartAlt/></ManagerPause>
+              <ManagerStop onClick={() => stopManager()}><MdStopCircle/></ManagerStop>
+            </ManagerActionContainer>
+
             {activePlan && (
               <>
                 <StrainInfo>Current Active Plan: <strong>{activePlan.growPlanName || activePlan.plan_name || activePlan.name}</strong></StrainInfo>
+                <br/>
                 <StrainInfo>Start Date: <strong>{activePlan.start_date || 'Not set'}</strong></StrainInfo>
               </>
             )}
+
           </PlansHeader>
+
           
           {isLoading ? (
             <InfoText>Loading plans...</InfoText>
@@ -318,11 +342,16 @@ const GrowManager = () => {
                    <InfoRow>
                       <strong>Room:</strong> {selectedPlan.room || currentRoom}
                     </InfoRow>
-                    {selectedPlan.is_active_strain && (
+                    {selectedPlan.is_active === true ? (
                       <InfoRow>
-                        <strong>Status:</strong> <ActiveBadge>✅ Matches Current Strain</ActiveBadge>
+                        <strong>Status:</strong> <ActiveBadge>✅ ACTIVE PLAN </ActiveBadge>
                       </InfoRow>
-                    )}
+                    ):(<>
+                      <InfoRow>
+                        <strong>Status:</strong> <ActiveBadge>❌ INACTIVE PLAN</ActiveBadge>
+                      </InfoRow>        
+                    
+                    </>)}
                   </PlanInfo>
 
 
@@ -475,13 +504,14 @@ const GrowManager = () => {
                           ?     <>
                             <p>Do you really want to activate this plan?</p>
 
-                            <h3>{selectedPlan.plan_name}</h3>
+                            <h3>{editedPlanName}</h3>
 
-                            <p>
-                              Duration: <strong>{selectedPlan.weeks.length} weeks</strong>
+
+                            <p >
+                              Start: <strong>{editedStartDate}</strong>
                             </p>
                             <p>
-                              Start: <strong>{selectedPlan.start_date}</strong>
+                              Duration: <strong>{selectedPlan.weeks.length} weeks</strong>
                             </p>
                             <p>Please make sure all settings are correct.</p>
                           </>
@@ -535,13 +565,10 @@ const Container = styled.div`
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
   color: #f1f5f9;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;  /* HINZUGEFÜGT */
-  @media (min-width: 768px) {
-    padding: 2rem;
-    border-radius: 24px;
-    width: 70%;
-    max-width: 1200px;
-  }
+  
+  position: relative;
+
+
   
   @media (min-width: 1024px) {
     width: 90%;
@@ -552,6 +579,7 @@ const Container = styled.div`
     max-height: ${$isOpen ? 'none' : '8rem'};
     overflow: ${$isOpen ? 'visible' : 'hidden'};
   `}
+
   @media (min-width: 768px) {
     padding: 2rem;
     border-radius: 24px;
@@ -573,6 +601,7 @@ const Header = styled.header`
   border-bottom: 2px solid rgba(56, 189, 248, 0.2);
   margin-bottom: 1rem;
   cursor: pointer;
+  transition: all 0.3s ease;
 
   &:hover {
     border-bottom-color: rgba(56, 189, 248, 0.4);
@@ -582,12 +611,12 @@ const Header = styled.header`
 const TitleSection = styled.div`
   display: flex;
   flex-direction: row;
-  gap: 2rem;
-
+  gap: 0.5rem;
+  
   @media (min-width: 768px) {
     flex-direction: row;
     align-items: center;
-    gap: 2rem;
+    gap: 1rem;
   }
 `;
 
@@ -600,15 +629,16 @@ const Title = styled.h1`
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin: 0;
-
+  
   @media (min-width: 768px) {
     font-size: 2rem;
   }
 `;
 
 const Subtitle = styled.p`
-  font-size: 0.73rem;
+  font-size: 0.75rem;
   color: rgba(255, 255, 255, 0.6);
+  margin: 0;
   
   @media (min-width: 768px) {
     font-size: 0.875rem;
@@ -653,7 +683,7 @@ const PlansHeader = styled.div`
 const StrainInfo = styled.div`
   font-size: 1rem;
   color: rgba(255, 255, 255, 0.7);
-  
+  flex:1;
   strong {
     color: #10b981;
   }
@@ -746,7 +776,6 @@ const PlanInfo = styled.div`
   }
 `;
 
-
 const InfoRow = styled.div`
   display: grid;
   grid-template-columns: 120px 1fr;
@@ -775,7 +804,6 @@ const InfoRow = styled.div`
     }
   }
 `;
-
 
 const EditInput = styled.input`
   background: #1e293b;
@@ -1042,7 +1070,6 @@ const CancelButton = styled.button`
   }
 `;
 
-
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
@@ -1091,3 +1118,45 @@ const ModalButtonCancel = styled(ModalButton)`
   background: #f44336;
   &:hover { background: #d32f2f; }
 `;
+
+const ManagerActionContainer = styled.div`
+  display: flex;
+  justify-content: flex-end; /* Schiebt den Content nach rechts */
+  align-items: center; /* optional, saubere vertikale Ausrichtung */
+  gap: 1.3em;
+  font-size: 2rem;
+  z-index: 100;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    gap: 0.7rem;
+  }
+`;
+
+const ManagerStart = styled.div`
+padding:0.2rem;
+cursor:pointer;
+color:green;
+  &:hover {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+`
+const ManagerPause = styled.div`
+padding:0.2rem;
+cursor:pointer;
+color:yellow;
+  &:hover {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+`
+const ManagerStop = styled.div`
+padding:0.2rem;
+cursor:pointer;
+color:red;
+  &:hover {
+    transform: scale(1.15);
+    opacity: 0.85;
+  }
+`

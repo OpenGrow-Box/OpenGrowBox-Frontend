@@ -164,8 +164,7 @@ const Container = styled.div`
   flex-direction: column;
   margin:0.5rem;
 
-  color: #eee;
-  font-family: 'Inter', sans-serif;
+  color: var(--main-text-color);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   max-width: 25rem;
 `;
@@ -179,11 +178,13 @@ const ResultsWrapper = styled.div`
 `;
 
 const Result = styled.div`
-  font-size: 15px;
+  font-size: 0.85rem;
   font-weight: 400;
   display: flex;
   align-items: center;
   gap: 8px;
+
+
 `;
 
 const ErrorText = styled.div`
