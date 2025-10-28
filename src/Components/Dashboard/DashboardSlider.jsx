@@ -25,6 +25,7 @@ const DashboardSlider = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
   const [isPlaying, setIsPlaying] = useState(true);
   const intervalRef = useRef(null);
+  const [filterByRoom, setFilterByRoom] = useState(true);
 
   const handleNext = () => {
     setCurrentIndex((prevIndex) => (prevIndex + 1) % slides.length);
@@ -74,43 +75,43 @@ const DashboardSlider = () => {
 
   const slides = [
     <SlideContent key="slide1">
-      <WaterCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <WaterCard pause={pause} resume={resume} isPlaying={isPlaying} filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide2">
-      <CO2Card pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <CO2Card pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide3">
-      <VPDCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <VPDCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
       </SlideContent>,
     <SlideContent key="slide4">
-      <TempCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <TempCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide5">
-      <HumCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <HumCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide6">
-      <DewCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <DewCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide7">
-      <SoilCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <SoilCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide8">
-      <DutyCycleCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <DutyCycleCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide9">
-      <LightIntensity pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <LightIntensity pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide10">
-      <PPFDCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <PPFDCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide11">
-      <TankLevelCard pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <TankLevelCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide12">
-      <AllTemps pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <AllTemps pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
       <SlideContent key="slide13">
-      <AllHums pause={pause} resume={resume} isPlaying={isPlaying}/>
+      <AllHums pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
   ];
 
@@ -121,6 +122,14 @@ const DashboardSlider = () => {
         <IconWrapper $active={isPlaying} onClick={resume}>
           <LiaPlayCircle />
         </IconWrapper>
+
+      {/**
+       <ToggleButton onClick={() => setFilterByRoom(prev => !prev)}>
+        {filterByRoom ? "Show All" : "Show Only Room"}
+      </ToggleButton>
+       */}
+
+  
         <IconWrapper $active={!isPlaying} onClick={pause}>
           <LiaPauseCircle />
         </IconWrapper>
@@ -133,6 +142,8 @@ const DashboardSlider = () => {
         <ArrowButton onClick={handlePrev}>&#10094;</ArrowButton>
         <ArrowButton onClick={handleNext}>&#10095;</ArrowButton>
       </ArrowContainer>
+
+
       <SlideWrapper
         as={motion.div}
         key={currentIndex}  // Damit die Animation bei Indexwechsel erneut ausgeführt wird
@@ -222,5 +233,18 @@ const IconWrapper = styled.div`
 
   @media (max-width: 768px) {
     font-size: 1rem;
+  }
+`;
+const ToggleButton = styled.button`
+  margin-left: 1rem;
+  padding: 0.2rem 0.5rem;
+  background: var(--main-bg-card-color);
+  border: none;
+  cursor: pointer;
+  border-radius: 5px;
+  color: var(--main-text-color);
+  box-shadow: var(--main-shadow-art);
+  &:hover {
+    opacity: 0.7;
   }
 `;

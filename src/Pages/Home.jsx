@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdDevices, MdTerminal } from 'react-icons/md';
+import { MdDevices, MdTerminal, MdShowChart } from 'react-icons/md';
 import BottomBar from '../Components/Navigation/BottomBar';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import RoomsCard from '../Components/Cards/RoomsCard';
@@ -14,11 +14,14 @@ import DashboardStats from '../Components/Dashboard/DashboardStats';
 import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
 import HeatMap from '../Components/Cards/HeatMap';
 import OtherSensors from '../Components/Cards/OtherSensors';
+import { usePremium } from '../Components/Context/OGBPremiumContext';
 
 const Home = () => {
   const { roomOptions } = useHomeAssistant();
+  const { isPremium } = usePremium();
   const [activeTab, setActiveTab] = useState('devices');
-
+  
+ 
   return (
     <MainContainer>
       <ContainerHeader>
@@ -65,21 +68,22 @@ const Home = () => {
               )}
             </TabButton>
 
-            <TabButton
-              active={activeTab === 'heatmap'}
-              onClick={() => setActiveTab('heatmap')}
-            >
-              <MdTerminal size={20} />
-              <span>Heat Map</span>
-              {activeTab === 'heatmap' && (
-                <ActiveIndicator
-                  layoutId="activeTab"
-                  initial={false}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-            </TabButton>
-
+            {isPremium && (
+              <TabButton
+                active={activeTab === 'heatmap'}
+                onClick={() => setActiveTab('heatmap')}
+              >
+                <MdShowChart size={20} />
+                <span>Heat Map</span>
+                {activeTab === 'heatmap' && (
+                  <ActiveIndicator
+                    layoutId="activeTab"
+                    initial={false}
+                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                  />
+                )}
+              </TabButton>
+            )}
 
             <TabButton
               active={activeTab === 'others'}
@@ -95,12 +99,11 @@ const Home = () => {
                 />
               )}
             </TabButton>
-      
           </TabContainer>
 
           <TabContent>
             <AnimatePresence mode="wait">
-              {activeTab === 'devices' ? (
+              {activeTab === 'devices' && (
                 <motion.div
                   key="devices"
                   initial={{ opacity: 0, x: -20 }}
@@ -110,8 +113,9 @@ const Home = () => {
                 >
                   <DeviceCard />
                 </motion.div>
-              ) : (<></>)}
-              {activeTab === 'terminal' ? (
+              )}
+              
+              {activeTab === 'terminal' && (
                 <motion.div
                   key="terminal"
                   initial={{ opacity: 0, x: -20 }}
@@ -121,8 +125,9 @@ const Home = () => {
                 >
                   <ConsoleCard />
                 </motion.div>
-              ) : (<></>)}              
-              {activeTab === 'heatmap' ? (
+              )}
+              
+              {isPremium && activeTab === 'heatmap' && (
                 <motion.div
                   key="heatmap"
                   initial={{ opacity: 0, x: -20 }}
@@ -132,8 +137,9 @@ const Home = () => {
                 >
                   <HeatMap />
                 </motion.div>
-              ) : (<></>)}
-              {activeTab === 'others' ? (
+              )}
+              
+              {activeTab === 'others' && (
                 <motion.div
                   key="others"
                   initial={{ opacity: 0, x: -20 }}
@@ -143,7 +149,7 @@ const Home = () => {
                 >
                   <OtherSensors />
                 </motion.div>
-              ) : (<></>)}       
+              )}
             </AnimatePresence>
           </TabContent>
 

@@ -16,7 +16,7 @@ const classifyEntity = (key, entity) => {
 
   const category = detectCategory(key, entity.attributes?.friendly_name);
   
-  console.log(category)
+
   if (!category || category === "unknown") return null;
 
   const context = extractContext(key, category);

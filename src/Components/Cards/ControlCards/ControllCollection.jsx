@@ -72,7 +72,7 @@ const dynamicFilters = {
     }
   },
 
-  light_control: {
+  light_control_LED: {
     selectEntity: 'ogb_lightledtype_',
     activeInGroups: ['Lights'], 
     conditions: {
@@ -275,7 +275,7 @@ const dynamicFilters = {
       },
       'Config': {
         includeKeywords: ["hydro"],
-        excludeKeywords: [],
+        excludeKeywords: ["hydro_retrive","hydro_cycle"],
         additionalTooltips: {}
       }
     }
@@ -419,7 +419,7 @@ const groupMappings = {
   },
   'Special Settings': {
     includeKeywords: ['area','determination','medium','console'],
-    excludeKeywords: [],
+    excludeKeywords: ["mediumctrl"],
   },
   'Targets': {
     includeKeywords: ['weight', 'min', 'max'],
@@ -532,12 +532,9 @@ const ControllCollection = ({ option }) => {
     [`ogb_ambientcontrol_${currentRoom?.toLowerCase()}`]: 'Will be take care of the state of your Ambient( "NOT WORKING RIGHT NOW")',
     [`ogb_vpd_devicedampening_${currentRoom?.toLowerCase()}`]: 'Enable Device Cooldowns for any device see Wiki to check the cooldowns.',
   
-    [`ogb_light_controltype_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING', 
-        
     [`ogb_cropsteering_mode_${currentRoom?.toLowerCase()}`]: 'Select your wokring CropSteering Mode, Use Config to Setup and Change to Manual to Activate your Config or Run Automatic',
     [`ogb_cropsteering_phases_${currentRoom?.toLowerCase()}`]: 'Switch between Phases - Automatic-Mode does it allone.',
   
-    [`ogb_console_${currentRoom?.toLowerCase()}`]: 'NOT WORKING RIGHT NOW - UPCOOMING & NERDY', 
     [`ogb_mediumtype_${currentRoom?.toLowerCase()}`]: 'Set Your Medium and Summary like COCOx3', 
       
     [`ogb_lightledtype_${currentRoom?.toLowerCase()}`]: 'Set Light Type for DLI/PPFD Calculations',
@@ -545,6 +542,10 @@ const ControllCollection = ({ option }) => {
     
     [`ogb_vpd_determination_${currentRoom?.toLowerCase()}`]: 'Select your Time when new VPD get Calculated', 
   
+    [`ogb_light_controltype_${currentRoom?.toLowerCase()}`]: 'Select your Light Method  - UPCOOMING', 
+    [`ogb_hydro_plant_watering_${currentRoom?.toLowerCase()}`]: 'Select your Plant Watering Method - UPCOMMING',
+    [`ogb_multi_mediumctrl_${currentRoom?.toLowerCase()}`]: 'Select your if we calc AVG or Single Multi Medium Control - UPCOMMING', 
+
   };
 
   // 🎯 Dynamische Filter-Logik - NUR FÜR AKTUELLE GRUPPE

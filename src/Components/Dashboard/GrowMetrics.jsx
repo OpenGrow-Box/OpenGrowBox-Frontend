@@ -24,8 +24,29 @@ const GrowMetrics = ({ room = 'default' }) => {
   const { entities, currentRoom } = useHomeAssistant();
 
   const { state } = useGlobalState();
+
+  const [isLive, setIsLive] = useState(false);
+  
   const srvAddr = state?.Conf?.hassServer;
   const token = state?.Conf?.haToken;
+
+  useEffect(() => {
+    let interval;
+    
+    if (isLive) {
+      // Initiales Laden
+      fetchAllGrowData();
+      
+      // Alle 30 Sekunden neu laden
+      interval = setInterval(() => {
+        fetchAllGrowData();
+      }, 30000);
+    }
+    
+    return () => {
+      if (interval) clearInterval(interval);
+    };
+  }, [isLive]);
 
   // Default Werte als Fallback
   const defaultTargetValues = {
@@ -426,14 +447,17 @@ const GrowMetrics = ({ room = 'default' }) => {
     );
   }
 
-  if (!historicalData.length) {
+  if (!historicalData.length && !loading) {
     return (
       <Container>
         <NoDataMessage>
-          📊 No data Found for that Time you provided
+          📊 No data available for the selected time period
           <DataInfo>
-            Check your Sensor Entiy_id and the Time Period 
+            Room: {currentRoom || 'Unknown'} | Time: {timeRange}
           </DataInfo>
+          <RetryButton onClick={fetchAllGrowData}>
+            Try Reload
+          </RetryButton>
         </NoDataMessage>
       </Container>
     );
@@ -449,7 +473,12 @@ const GrowMetrics = ({ room = 'default' }) => {
         <OverallScore score={overallScore.avgOptimal}>
           Overall Optimal: {overallScore.avgOptimal}%
         </OverallScore>
-
+        <LiveButton 
+          isActive={isLive} 
+          onClick={() => setIsLive(!isLive)}
+        >
+          {isLive ? '🔴 Live' : '⚪ Live Off'}
+        </LiveButton>
 
       </Header>
 
@@ -648,6 +677,7 @@ const Container = styled.div`
   box-shadow: var(--main-shadow-art);
   background: var(--main-bg-card-color);
   padding: 1.5rem;
+  gab:0.3rem;
 `;
 
 const LoadingContainer = styled.div`
@@ -745,6 +775,7 @@ const Header = styled.div`
   justify-content: space-between;
   align-items: center;
   margin-bottom: 1rem;
+  gap:0.5rem;
 `;
 
 const Title = styled.h2`
@@ -754,7 +785,8 @@ const Title = styled.h2`
 `;
 
 const OverallScore = styled.div`
-  padding: 0.5rem 1rem;
+  padding: 0.5rem 0.8rem;
+
   border-radius: 10px;
   background: linear-gradient(135deg, 
     ${props => props.score >= 80 ? '#4CAF50' : props.score >= 60 ? '#FFEB3B' : '#F44336'}, 
@@ -975,6 +1007,44 @@ const SummaryPercentage = styled.div`
   font-weight: 700;
   color: ${props => props.color};
 `;
+
+const LiveButton = styled.button`
+  background: ${props => props.isActive 
+    ? 'linear-gradient(135deg, #f44336 0%, #e91e63 100%)' 
+    : 'linear-gradient(135deg, #666 0%, #888 100%)'};
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: ${props => props.isActive 
+    ? '0 4px 15px rgba(244, 67, 54, 0.4)' 
+    : '0 2px 8px rgba(0,0,0,0.2)'};
+  animation: ${props => props.isActive ? 'pulse 2s ease-in-out infinite' : 'none'};
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: ${props => props.isActive 
+      ? '0 6px 20px rgba(244, 67, 54, 0.5)' 
+      : '0 4px 12px rgba(0,0,0,0.3)'};
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+
+  @keyframes pulse {
+    0%, 100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.8;
+    }
+  }
+`;
+
 
 const OptimalLabel = styled.div``
 

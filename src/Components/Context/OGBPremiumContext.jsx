@@ -240,7 +240,7 @@ export const OGBPremiumProvider = ({ children }) => {
         logCurrentRoom('initializeSession');
         await loadUserProfile(true);
         console.log('Load Grow Plans from Server...');
-        await getGrowPlans();
+        //await getGrowPlans();
         console.log('Session successfull loaded');
         
       } catch (error) {
@@ -294,7 +294,7 @@ export const OGBPremiumProvider = ({ children }) => {
       try {
         console.log('[INTERVAL] Lade Profil und GrowPlans...');
         await loadUserProfile(true);
-        await getGrowPlans();
+        //await getGrowPlans();
         console.log('[INTERVAL] Profil und GrowPlans aktualisiert');
       } catch (err) {
         console.warn('[INTERVAL] Fehler beim regelmäßigen Abruf:', err.message);

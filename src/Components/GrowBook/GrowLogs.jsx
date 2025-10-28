@@ -19,9 +19,18 @@ const LogItem = ({ room, date, info }) => {
     console.log(data, msg);
 
     if (entry.medium === true) return 'medium-stats';
+
+    if (data.rotation_success === true) return 'rotation-success';
     
     if (entry.controllerType === "PID") return 'pid-controller';
     if (entry.controllerType === "MPC") return 'pid-controller';
+
+    if (data.Type === "INVALID PUMPS") return 'missing-pumps';
+    if (data.Mode === "Hydro") return 'hydro-mode';
+    if (msg.Mode === "Plant-Watering") return 'hydro-mode';
+    if (msg.Mode === "Crop-Steering") return 'hydro-mode';
+    if (msg.type === "missingno") return 'cs-missing-data';
+    if (msg.PlantPhase === "missingno") return 'cs-missing-data';
 
 
     if (entry.action) return 'action';
@@ -29,15 +38,15 @@ const LogItem = ({ room, date, info }) => {
     if (entry.NightVPDHold !== undefined) return 'night-vpd';
     if (msg.includes('humidity')) return 'humidity';
     if (msg.includes('temperature')) return 'temperature';
-    if (entry.VPD !== undefined) return 'sensor';
 
+    if (entry.VPD !== undefined) return 'sensor';
+    
     if (entry.Device || entry.Action || entry.Cycle !== undefined) return 'device';
     
     return 'default';
   };
 
   const logType = getLogType(parsedInfo);
-  console.log(logType)
   function calculateUptimeFromTimestamp(timestampMs) {
     const now = Date.now(); // aktuelle Zeit in Millisekunden
     const uptimeSeconds = Math.floor((now - timestampMs) / 1000); // Differenz in Sekunden
@@ -405,12 +414,79 @@ const LogItem = ({ room, date, info }) => {
   };
 
 
+  const formatCastData = (data) => {
+    if (!data.Mode) return null;
+
+    return (
+      <div>
+        <HydroTitle>
+
+          <StatusBadge active={data.Active}>
+            CastMode: {data.Mode} {data.Active ? 'Active' : 'Inactive'}
+          </StatusBadge>
+        </HydroTitle>
+
+        <HydroCastData>
+          <HydroCastItem>
+            <ItemLabel>Interval Active</ItemLabel>
+            <StatusBadge active={data.Cycle}>
+              {data.Cycle ? 'Enabled' : 'Disabled'}
+            </StatusBadge>
+          </HydroCastItem>
+          
+          <HydroCastItem>
+            <ItemLabel>Interval</ItemLabel>
+            <ItemValue>{data.Intervall} min</ItemValue>
+          </HydroCastItem>
+          
+          <HydroCastItem>
+            <ItemLabel>Duration</ItemLabel>
+            <ItemValue>{data.Duration} min</ItemValue>
+          </HydroCastItem>
+          
+          <HydroCastItem>
+            <ItemLabel>Active Devices</ItemLabel>
+            <ItemValue>{data.Devices?.count || 0} / {data.Devices?.devEntities?.length || 0}</ItemValue>
+          </HydroCastItem>
+
+          {data.Devices?.devEntities && data.Devices.devEntities.length > 0 && (
+            <DeviceItem>
+              <ItemLabel>Connected Devices</ItemLabel>
+              <DeviceBadgesContainer>
+                {data.Devices.devEntities.map((device, index) => (
+                  <DeviceBadge key={index}>
+                    {device}
+                  </DeviceBadge>
+                ))}
+              </DeviceBadgesContainer>
+            </DeviceItem>
+          )}
+        </HydroCastData>
+      </div>
+    );
+  };
+
+
+  const formatRotationData = (data) => {
+    if (!data.rotation_success) return null;
+
+    return (
+      <div>
+        <div>Token rotation success!</div>
+      </div>
+    );
+  };
+
+
   const sensorData = formatSensorData(parsedInfo);
   const actionData = formatActionData(parsedInfo);
   const deviceData = formatDeviceAction(parsedInfo);
   const deviationData = formatDeviationData(parsedInfo);
   const nightVPDData = formatNightVPDData(parsedInfo);
   const mediumData = formatMediumData(parsedInfo);
+  const castData = formatCastData(parsedInfo)
+  const rotationData = formatRotationData(parsedInfo)
+
   console.log(mediumData)
   return (
     <LogItemContainer logType={logType}>
@@ -428,7 +504,9 @@ const LogItem = ({ room, date, info }) => {
         {nightVPDData && nightVPDData}
         {deviationData && deviationData}
         {mediumData && mediumData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && (
+        {castData && castData}
+        {rotationData && rotationData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -620,7 +698,13 @@ const LogItemContainer = styled.div`
       case 'pid-controller': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
       
       case 'medium-stats': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
-      
+      case 'crop-steering': return 'linear-gradient(135deg, rgba(116, 255, 162, 1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
+      case 'hydro-mode': return 'linear-gradient(135deg, rgba(116, 255, 162, 0.3) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
+      case 'rotation-success': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New      
+      case 'missing-pumps': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
+      case 'cs-missing-data': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
+
+
       case 'sensor': return 'linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(253, 187, 45, 0.1) 100%)';
       case 'action': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 154, 0, 0.1) 100%)';
       case 'device': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)';
@@ -1060,6 +1144,29 @@ const StatusBadge = styled.div`
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+`;
+
+export const StatusBadgeHydro = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  color: ${props => props.active ? '#0fa' : '#ff6b6b'};
+  font-weight: 600;
+  
+  &::before {
+    content: '';
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: ${props => props.active ? '#0fa' : '#ff6b6b'};
+    box-shadow: 0 0 10px ${props => props.active ? '#0fa' : '#ff6b6b'};
+    animation: pulse 2s ease-in-out infinite;
+  }
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.5; }
   }
 `;
 
@@ -1643,3 +1750,93 @@ export const MediumValue = styled.span`
   margin-left: 8px;
   color: #71c7ff;
 `;
+
+export const HydroTitle = styled.h3`
+  margin-bottom: 6px;
+  color: #71e08a;
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: .3px;
+`;
+
+export const HydroCastData = styled.div`
+  display: grid;
+  gap: 0.75rem;
+  margin-bottom: 2rem;
+`;
+
+export const HydroCastItem = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: linear-gradient(135deg, rgba(15, 170, 170, 0.1), rgba(113, 224, 138, 0.1));
+  backdrop-filter: blur(10px);
+  border-radius: 12px;
+  font-size: 0.95rem;
+  color: #e6e6e6;
+  padding: 14px 20px;
+  border: 1px solid rgba(15, 170, 170, 0.3);
+  transition: all 0.3s ease;
+  
+  &:hover {
+    border-color: #0fa;
+    background: linear-gradient(135deg, rgba(15, 170, 170, 0.2), rgba(113, 224, 138, 0.2));
+    transform: translateX(4px);
+  }
+`;
+
+export const DeviceItem = styled(HydroCastItem)`
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 10px;
+`;
+
+export const ItemLabel = styled.span`
+  color: #71e08a;
+  font-weight: 500;
+  letter-spacing: 0.3px;
+`;
+
+export const ItemValue = styled.span`
+  color: #fff;
+  font-weight: 600;
+  background: rgba(15, 170, 170, 0.2);
+  padding: 4px 12px;
+  border-radius: 20px;
+  font-size: 0.9rem;
+`;
+
+
+
+export const DeviceBadgesContainer = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  width: 100%;
+`;
+
+export const DeviceBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: linear-gradient(135deg, rgba(15, 170, 170, 0.3), rgba(113, 224, 138, 0.3));
+  color: #fff;
+  padding: 6px 14px;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  border: 1px solid rgba(15, 170, 170, 0.5);
+  transition: all 0.3s ease;
+  
+  &::before {
+    content: '⚡';
+    font-size: 0.9rem;
+  }
+  
+  &:hover {
+    background: linear-gradient(135deg, rgba(15, 170, 170, 0.5), rgba(113, 224, 138, 0.5));
+    transform: scale(1.05);
+    border-color: #0fa;
+  }
+`;
+
