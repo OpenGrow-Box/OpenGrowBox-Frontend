@@ -246,7 +246,7 @@ const dynamicFilters = {
     conditions: {
       'Crop-Steering': {
         includeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot',],
-        excludeKeywords: ['pump', 'leaf', 'duration',  'cycle', 'Retrive','drying','plan','tolerance','plant','medium'],
+        excludeKeywords: ['pump', 'leaf',   'cycle', 'Retrive','drying','plan','tolerance','plant','medium',],
         additionalTooltips: {
           'ogb_crop_dry_back_': 'Set the dry-back percentage for crop steering cycles',
           'ogb_crop_wet_time_': 'Set duration for wet phase in crop steering',
@@ -315,7 +315,7 @@ const dynamicFilters = {
       },
       'Automatic': {
         includeKeywords: ['Phases'],
-        excludeKeywords: ['p0','p1','p2','p3'],
+        excludeKeywords: ['p0','p1','p2','p3',"phase"],
         additionalTooltips: { }
       },
       'Config': {

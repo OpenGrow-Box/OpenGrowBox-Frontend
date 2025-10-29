@@ -2,8 +2,12 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatDateTime } from '../../misc/formatDateTime';
-import { TbTemperatureCelsius,TbPercentage } from "react-icons/tb";
-
+import { SiApacheairflow } from "react-icons/si";
+import { MdOutlineWaterDrop,MdAir } from "react-icons/md";
+import { FaSeedling,FaCheck,FaRegCircle} from "react-icons/fa";
+import { LuHeater } from "react-icons/lu";
+import { GiIceCube,GiSunset,GiSunrise,GiSun } from "react-icons/gi";
+import { WiHumidity } from "react-icons/wi";
 const LogItem = ({ room, date, info }) => {
   // Parse the info if it's a string
   const parsedInfo = typeof info === 'string' ? JSON.parse(info) : info;
@@ -29,9 +33,7 @@ const LogItem = ({ room, date, info }) => {
     if (data.Mode === "Hydro") return 'hydro-mode';
     if (msg.Mode === "Plant-Watering") return 'hydro-mode';
     if (msg.Mode === "Crop-Steering") return 'hydro-mode';
-    if (msg.type === "missingno") return 'cs-missing-data';
-    if (msg.PlantPhase === "missingno") return 'cs-missing-data';
-
+    if (data.Type === "CSLOG") return 'cs-log';
 
     if (entry.action) return 'action';
     if (msg.includes('vpd')) return 'vpd';
@@ -126,7 +128,7 @@ const LogItem = ({ room, date, info }) => {
                   <DimmingControl>
                     <DimmingHeader>
                       <DimmingLabel>Dimmable</DimmingLabel>
-                      {Dimmable == true ?<DimmingIcon>🌝</DimmingIcon>:<DimmingIcon>🌚</DimmingIcon> }
+                      {Dimmable == true ?<DimmingIcon><FaCheck color={"green"} size={30}/></DimmingIcon>:<DimmingIcon><FaRegCircle  color={"red"} size={30}/></DimmingIcon> }
                       
 
                     </DimmingHeader>
@@ -151,7 +153,7 @@ const LogItem = ({ room, date, info }) => {
                 {/* Sun Schedule */}
                 <SunScheduleContainer>
                   <SunScheduleItem active={sunrise}>
-                    <SunIcon>🌅</SunIcon>
+                    <SunIcon> <GiSunrise size={30} color='yellow'/></SunIcon>
                     <SunLabel>Sun Rise</SunLabel>
                     <SunStatus active={sunrise}>
                       {sunrise ? 'Aktiv' : 'Inaktiv'}
@@ -159,7 +161,7 @@ const LogItem = ({ room, date, info }) => {
                   </SunScheduleItem>
                   
                   <SunScheduleItem active={sunset}>
-                    <SunIcon>🌇</SunIcon>
+                    <SunIcon> <GiSunset size={30} color='red'/> </SunIcon>
                     <SunLabel>Sun Set</SunLabel>
                     <SunStatus active={sunset}>
                       {sunset ? 'Aktiv' : 'Inaktiv'}
@@ -222,28 +224,18 @@ const LogItem = ({ room, date, info }) => {
   };
 
   // Get device icon based on device type
-  const getMediumIcon = (medium) => {
-
-
-    if (deviceLower.includes('pump') || deviceLower.includes('water')) return '💧';
-    if (deviceLower.includes('fan') || deviceLower.includes('venti')) return '𖣘';
-
-    return '⚙️';
-  };
-
-  // Get device icon based on device type
   const getDeviceIcon = (device) => {
     const deviceLower = device.toLowerCase();
-    if (deviceLower.includes('pump') || deviceLower.includes('water')) return '💧';
-    if (deviceLower.includes('fan') || deviceLower.includes('venti')) return '𖣘';
-    if (deviceLower.includes('exhaust') || deviceLower.includes('ventil')) return '🌪️';
-    if (deviceLower.includes('inhaust') || deviceLower.includes('ventil')) return '🌪️';
-    if (deviceLower.includes('light') || deviceLower.includes('led')) return '💡';
-    if (deviceLower.includes('heat') || deviceLower.includes('warm')) return '🔥';
-    if (deviceLower.includes('cool') || deviceLower.includes('ac')) return '❄️';
-    if (deviceLower.includes('dehumidi') || deviceLower.includes('warm')) return '🏜️';
-    if (deviceLower.includes('humidi') || deviceLower.includes('ac')) return '🌧️';
-    if (deviceLower.includes('climate') || deviceLower.includes('ac')) return '🌦️';
+    if (deviceLower.includes('pump') || deviceLower.includes('water')) return <MdOutlineWaterDrop size={30}/>;
+    if (deviceLower.includes('fan') || deviceLower.includes('venti')) return <SiApacheairflow size={30}/>;
+    if (deviceLower.includes('exhaust') || deviceLower.includes('ventil')) return <MdAir size={30}/>;
+    if (deviceLower.includes('inhaust') || deviceLower.includes('ventil')) return <MdAir size={30}/>;
+    if (deviceLower.includes('light') || deviceLower.includes('led')) return <GiSun size={30}/>;
+    if (deviceLower.includes('heat') || deviceLower.includes('warm')) return <LuHeater size={30}/>;
+    if (deviceLower.includes('cool') || deviceLower.includes('ac')) return <GiIceCube size={30}/>;
+    if (deviceLower.includes('dehumidi') || deviceLower.includes('warm')) return <WiHumidity size={30} color='red'/>;
+    if (deviceLower.includes('humidi') || deviceLower.includes('ac')) return <WiHumidity size={30}  color='blue'/>;
+    if (deviceLower.includes('climate') || deviceLower.includes('ac')) return <GiIceCube size={30}/>;;
     return '⚙️';
   };
 
@@ -433,17 +425,7 @@ const LogItem = ({ room, date, info }) => {
               {data.Cycle ? 'Enabled' : 'Disabled'}
             </StatusBadge>
           </HydroCastItem>
-          
-          <HydroCastItem>
-            <ItemLabel>Interval</ItemLabel>
-            <ItemValue>{data.Intervall} min</ItemValue>
-          </HydroCastItem>
-          
-          <HydroCastItem>
-            <ItemLabel>Duration</ItemLabel>
-            <ItemValue>{data.Duration} min</ItemValue>
-          </HydroCastItem>
-          
+                   
           <HydroCastItem>
             <ItemLabel>Active Devices</ItemLabel>
             <ItemValue>{data.Devices?.count || 0} / {data.Devices?.devEntities?.length || 0}</ItemValue>
@@ -469,7 +451,6 @@ const LogItem = ({ room, date, info }) => {
 
   const formatRotationData = (data) => {
     if (!data.rotation_success) return null;
-
     return (
       <div>
         <div>Token rotation success!</div>
@@ -477,6 +458,19 @@ const LogItem = ({ room, date, info }) => {
     );
   };
 
+const formatCSData = (data) => {
+  if (data.Type === "CSLOG") 
+  return(
+    <Box>
+      <Header>
+        <FaSeedling />
+        Crop Steering
+      </Header>
+      <Message>{data.Message}</Message>
+    </Box>
+  )
+
+};
 
   const sensorData = formatSensorData(parsedInfo);
   const actionData = formatActionData(parsedInfo);
@@ -486,6 +480,8 @@ const LogItem = ({ room, date, info }) => {
   const mediumData = formatMediumData(parsedInfo);
   const castData = formatCastData(parsedInfo)
   const rotationData = formatRotationData(parsedInfo)
+  const csData = formatCSData(parsedInfo)
+
 
   console.log(mediumData)
   return (
@@ -506,7 +502,8 @@ const LogItem = ({ room, date, info }) => {
         {mediumData && mediumData}
         {castData && castData}
         {rotationData && rotationData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && (
+        {csData && csData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && !csData &&(
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -698,11 +695,13 @@ const LogItemContainer = styled.div`
       case 'pid-controller': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
       
       case 'medium-stats': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
-      case 'crop-steering': return 'linear-gradient(135deg, rgba(116, 255, 162, 1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
+
       case 'hydro-mode': return 'linear-gradient(135deg, rgba(116, 255, 162, 0.3) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
       case 'rotation-success': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New      
       case 'missing-pumps': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
-      case 'cs-missing-data': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
+      
+      case 'crop-steering': return 'linear-gradient(135deg, rgba(116, 255, 162, 1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
+      case 'cs-log': return 'linear-gradient(135deg, rgba(125, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
 
 
       case 'sensor': return 'linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(253, 187, 45, 0.1) 100%)';
@@ -1840,3 +1839,27 @@ export const DeviceBadge = styled.span`
   }
 `;
 
+const Box = styled.div`
+  background: #1e1f25;
+  border-left: 4px solid #3cb371;
+  padding: 14px 18px;
+  border-radius: 10px;
+  color: #fff;
+  margin-top: 10px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.25);
+`;
+
+const Header = styled.div`
+  display: flex;
+  align-items: center;
+  font-weight: 600;
+  font-size: 1.1rem;
+  gap: 8px;
+  margin-bottom: 8px;
+`;
+
+const Message = styled.div`
+  font-size: 0.95rem;
+  line-height: 1.4;
+  color: #d9e2e1;
+`;

@@ -12,8 +12,6 @@ const AllHums = ({ pause, resume, isPlaying }) => {
 
 useEffect(() => {
 
-
-
   const normalizedSensors = classifyAndNormalize(entities)
     .filter(s => 
       s.category === "humidity" &&
