@@ -1,19 +1,21 @@
+
 import { useState, useEffect, useMemo } from 'react';
-import styled from 'styled-components';
+import styled, { keyframes } from "styled-components";
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { usePremium } from '../Context/OGBPremiumContext';
-import { MdStart,MdRestartAlt,MdStopCircle } from "react-icons/md"
-const GrowManager = () => {
+import { MdStart, MdRestartAlt, MdStopCircle } from "react-icons/md"
+import { ChevronDown, Thermometer, Droplets, Zap, Leaf, Flower2, Lock, Globe, Check, X, Trash2, Edit2, Save, CheckCircle2, AlertCircle } from 'lucide-react';
+import { FaSeedling} from "react-icons/fa";
+
+const GrowManager = ({newPlan}) => {
   const { entities, currentRoom } = useHomeAssistant();
-  const { growPlans,delGrowPlan, publicGrowPlans, privateGrowPlans, activateGrowPlan, activeGrowPlan,getGrowPlans } = usePremium(); // activeGrowPlan statt currentActivePlan
+  const { growPlans, delGrowPlan, publicGrowPlans, privateGrowPlans, activateGrowPlan, activeGrowPlan, getGrowPlans,resumeGrowPlan,pauseGrowPlan } = usePremium();
 
   const [isOpen, setIsOpen] = useState(false);
   const [strainName, setStrainName] = useState('');
-
   const [selectedPlan, setSelectedPlan] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
-
-  const [activePlan, setActivePlan] = useState(null); 
+  const [activePlan, setActivePlan] = useState(null);
   
   // Editing states
   const [isEditing, setIsEditing] = useState(false);
@@ -21,45 +23,30 @@ const GrowManager = () => {
   const [editedStartDate, setEditedStartDate] = useState('');
   const [editedStrainName, setEditedStrainName] = useState('');
 
-  const [confirmAction, setConfirmAction] = useState(null); // "delete" | "activate" | null
+  const [confirmAction, setConfirmAction] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
+  const [activationError, setActivationError] = useState('');
 
+  const [managerState,setManagerState] = useState("")
 
   const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
-    useEffect(() => {
-      getGrowPlans()
-  }, []);
-
-  // Get strain name from Home Assistant entity
-  useEffect(() => {
-    const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
-    if (strainSensor) {
-      setStrainName(strainSensor.state);
-    }
-  }, []);
-
-  // Update activePlan when activeGrowPlan from context changes
-  useEffect(() => {
-    setActivePlan(activeGrowPlan || null);
-  }, [activeGrowPlan]);
 
   const ConfirmModal = ({ message, onConfirm, onCancel }) => (
     <ModalBackdrop>
       <ModalBox>
         <ModalMessage>{message}</ModalMessage>
         <ModalButtons>
-          <ModalButton onClick={onConfirm}>✅ Yes</ModalButton>
-          <ModalButtonCancel onClick={onCancel}>❌ No</ModalButtonCancel>
+          <ModalButton onClick={onConfirm}><Check size={18} /> Yes</ModalButton>
+          <ModalButtonCancel onClick={onCancel}><X size={18} /> No</ModalButtonCancel>
         </ModalButtons>
       </ModalBox>
     </ModalBackdrop>
   );
 
-
   // Update plans when context data changes
   const { allPlans, matchingPublicPlans, matchingPrivatePlans } = useMemo(() => {
     const norm = (s) => (s ?? '').trim().toLowerCase();
-    console.log("PLANS",growPlans)
+    
     const allPlansRaw = [
       ...(privateGrowPlans || []),
       ...(publicGrowPlans || []),
@@ -68,6 +55,12 @@ const GrowManager = () => {
     const normalized = allPlansRaw.map((plan, idx) => {
       const sName = plan.strainName ?? plan.strain_name ?? '';
       const displayName = plan.plan_name ?? plan.name ?? 'Unnamed';
+      
+      // ✅ Prüfe ob Plan in privateGrowPlans ist = gehört mir
+      const isOwnPlan = privateGrowPlans.some(p => 
+        String(p.id ?? p.uuid) === String(plan.id ?? plan.uuid)
+      );
+      
       return {
         ...plan,
         id: String(plan.id ?? plan.uuid ?? `${displayName}-${idx}`),
@@ -76,16 +69,14 @@ const GrowManager = () => {
         _displayName: displayName,
         start_date: plan.start_date ?? '',
         is_public: Boolean(plan.is_public),
+        isOwnPlan: isOwnPlan, // ✅ Flag ob Plan mir gehört
       };
     });
 
     const strainNorm = norm(strainName);
     const isFiltering = Boolean(strainNorm);
-
     const matching = normalized.filter(p => isFiltering ? p._strainNorm === strainNorm : true);
-
     const ordered = isFiltering ? matching : normalized;
-
     const publicMatch = ordered.filter(p => p.is_public);
     const privateMatch = ordered.filter(p => !p.is_public);
 
@@ -96,126 +87,235 @@ const GrowManager = () => {
     };
   }, [growPlans, privateGrowPlans, publicGrowPlans, strainName]);
 
-    const title = useMemo(() => `${strainName || 'Unnamed'} - Grow Manager`, [strainName]);
+  const title = useMemo(() => `${strainName || 'Unnamed'} - Grow Manager`, [strainName]);
 
-    const handlePlanChange = (e) => {
-      const planId = String(e.target.value);
-      const plan = allPlans.find(p => String(p.id) === planId);
-      if (!plan) return;
 
-      setSelectedPlan(plan);
+  useEffect(() => {
+    getGrowPlans();
+  }, []);
 
-      // Initialize visible fields
-      setEditedPlanName(plan.plan_name || plan.name || plan._displayName || '');
-      setEditedStartDate(plan.start_date || '');
-      setEditedStrainName(plan.strainName || plan.strain_name || '');
-      setIsEditing(false);
-    };
+  useEffect(() => {
+    getGrowPlans();
+  }, [newPlan]);
 
-    const handleEditToggle = () => {
+
+  // Get strain name from Home Assistant entity
+  useEffect(() => {
+    const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
+    if (strainSensor) {
+      setStrainName(strainSensor.state);
+    }
+  }, [entities, roomKey]);
+
+  // Update activePlan when activeGrowPlan from context changes
+  useEffect(() => {
+    setActivePlan(activeGrowPlan || null);
+    setManagerState("Active")
+  }, [activeGrowPlan]);
+
+  // Monitor plan list changes and deselect if deleted
+  useEffect(() => {
+    if (selectedPlan && allPlans.length >= 0) {
+      const stillExists = allPlans.find(p => String(p.id) === String(selectedPlan.id));
+      if (!stillExists) {
+        setSelectedPlan(null);
+        setIsEditing(false);
+      }
+    }
+  }, [allPlans, selectedPlan]);
+
+  const handlePlanChange = (e) => {
+    const planId = String(e.target.value);
+    const plan = allPlans.find(p => String(p.id) === planId);
+    if (!plan) return;
+
+    setSelectedPlan(plan);
+    setEditedPlanName(plan.plan_name || plan.name || plan._displayName || '');
+    setEditedStartDate(plan.start_date || '');
+    setEditedStrainName(plan.strainName || plan.strain_name || '');
+    setIsEditing(false);
+    setActivationError('');
+  };
+
+  const handleEditToggle = () => {
     if (!isEditing && selectedPlan) {
-        // Initialize edit values when starting to edit
-        setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
-        setEditedStartDate(selectedPlan.start_date || '');
-        setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
+      setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
+      setEditedStartDate(selectedPlan.start_date || '');
+      setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
     }
     setIsEditing(!isEditing);
-    };
+  };
 
-    const handleCancelEdit = () => {
+  const handleCancelEdit = () => {
     setIsEditing(false);
-    // Reset to original values
     if (selectedPlan) {
-        setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
-        setEditedStartDate(selectedPlan.start_date || '');
-        setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
+      setEditedPlanName(selectedPlan.plan_name || selectedPlan.name || '');
+      setEditedStartDate(selectedPlan.start_date || '');
+      setEditedStrainName(selectedPlan.strainName || selectedPlan.strain_name || '');
     }
-    };
+  };
 
-    const handlePlanActivation = async () => {
-       
+  const handlePlanActivation = async () => {
     if (!selectedPlan) return;
 
-    const planToActivate = {
-        ...selectedPlan,
-        growPlanName: editedPlanName || selectedPlan.plan_name || selectedPlan.name,
-        start_date: editedStartDate || selectedPlan.start_date,
-        strainName: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name,
-        strain_name: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name
-    };
+    setActivationError('');
 
-    if (!planToActivate.start_date) {
-      window.alert("You need to set a Start Date");
+    // ✅ Validiere Start Date
+    if (!editedStartDate && !selectedPlan.start_date) {
+      setActivationError("You need to set a Start Date");
       return;
     }
 
-    try {
-        if(!planToActivate.start_date)return;
-            await activateGrowPlan(planToActivate, currentRoom); // currentRoom explizit übergeben
-
-        console.log('Plan activation successful');
-        // Der activePlan State wird automatisch über den useEffect aktualisiert
-        // wenn activeGrowPlan im Context sich ändert
-    } catch (error) {
-        console.error('Plan activation failed:', error);
-        // Hier könntest du eine Error-State setzen oder Toast anzeigen
-    }
-
-    setIsEditing(false);
+    const planToActivate = {
+      id: selectedPlan.id,
+      uuid: selectedPlan.uuid,
+      plan_name: editedPlanName || selectedPlan.plan_name || selectedPlan.name,
+      growPlanName: editedPlanName || selectedPlan.plan_name || selectedPlan.name,
+      start_date: editedStartDate || selectedPlan.start_date,
+      strain_name: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name,
+      strainName: editedStrainName || selectedPlan.strainName || selectedPlan.strain_name,
+      weeks: selectedPlan.weeks || [],
+      room: currentRoom,
+      is_public: selectedPlan.is_public || false,
+      total_weeks: selectedPlan.total_weeks || selectedPlan.weeks?.length || 0,
     };
 
-    const handlePlanDelete = async () => {
+    try {
+      setIsLoading(true);
+      
+      // ✅ Temporär aus dem Array entfernen (optimistic update)
+      setSelectedPlan(null);
+      setEditedPlanName('');
+      setEditedStartDate('');
+      setEditedStrainName('');
+      setIsEditing(false);
+      
+      // API call starten
+      await activateGrowPlan(planToActivate, currentRoom);
+      setActivePlan(planToActivate)
+      console.log('Plan activation successful');
+      
+      // Lade Pläne neu
+      await getGrowPlans();
+
+      // Warte kurz damit Backend antwortet
+      await new Promise(resolve => setTimeout(resolve,30));
+
+      // Modal schließen
+      setShowConfirm(false);
+      setConfirmAction(null);
+      setActivationError('');
+      
+    } catch (error) {
+      console.error('Plan activation failed:', error);
+      setActivationError(error?.message || 'Error activating plan. Please check the console.');
+      // Bei Fehler könnte man hier den Plan zurück laden
+      await getGrowPlans();
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handlePlanDelete = async () => {
     if (!selectedPlan) return;
 
     const isActive = activePlan && selectedPlan.id === activePlan.id;
 
     if (isActive) {
-        const confirmDelete = window.confirm('This is your active plan. Are you sure you want to delete it?');
-        if (!confirmDelete) return;
+      const confirmDelete = window.confirm('This is your active plan. Are you sure you want to delete it?');
+      if (!confirmDelete) return;
     }
 
     try {
-        await delGrowPlan(selectedPlan, currentRoom);
-        console.log('Plan deletion successful');
-        setSelectedPlan(null)
-        setIsEditing(false);
+      setIsLoading(true);
+      
+      // ✅ Temporär aus dem Array entfernen (optimistic update)
+      setSelectedPlan(null);
+      setEditedPlanName('');
+      setEditedStartDate('');
+      setEditedStrainName('');
+      setIsEditing(false);
+      
+      // API call starten
+      await delGrowPlan(selectedPlan, currentRoom);
+      console.log('Plan deletion successful');
 
-        await getGrowPlans();
-        
+      // Lade Pläne neu vom Backend
+      await getGrowPlans();
+       
+      // Warte kurz
+      await new Promise(resolve => setTimeout(resolve, 30));
+      
+
+      // Modal schließen
+      setShowConfirm(false);
+      setConfirmAction(null);
+      setActivationError('');
+      
     } catch (error) {
-        console.error('Plan deletion failed:', error);
+      console.error('Plan deletion failed:', error);
+      setActivationError(error?.message || 'Error deleting plan');
+      // Bei Fehler könnte man hier den Plan zurück laden
+      await getGrowPlans();
+    } finally {
+      setIsLoading(false);
     }
-    };
+  };
 
-    // Get current date in YYYY-MM-DD format for date input
-    const getCurrentDate = () => {
-      return new Date().toISOString().split('T')[0];
-    };
+  const handlePlanPause = async () => {
 
-    const confirmActivate = () => {
-      setConfirmAction('activate');
-      setShowConfirm(true);
+      const isActive = activePlan && activePlan.id === activePlan.id;
 
-    };
+      if (isActive) {
+        const confirmDelete = window.confirm('This is your active plan. Are you sure you want to pause it?');
+        if (!confirmDelete) return;
+      }
 
-    const confirmDelete = () => {
-      setConfirmAction('delte');
-      setShowConfirm(true);
+      // API call starten
+      await pauseGrowPlan(activePlan, currentRoom);
+     setManagerState("Inactive")
+     console.log(managerState)
+  }
 
-    };
+  const handlePlanResume = async () => {
+    const isActive = activePlan && activePlan.id === activePlan.id;
 
-    const startManager = () => {
+    if (isActive) {
+      const confirmDelete = window.confirm('This is your Paused plan. Are you sure you want to Resume it?');
+      if (!confirmDelete) return;
+    }
 
-    };
+    await resumeGrowPlan(activePlan, currentRoom);
+    setManagerState("Active")
+    console.log(managerState)
+  }
 
-    const pauseManager = () => {
 
-    };
-    
-    const stopManager = () => {
+  // Get current date in YYYY-MM-DD format for date input
+  const getCurrentDate = () => {
+    return new Date().toISOString().split('T')[0];
+  };
 
-    };
+  const confirmActivate = () => {
+    setConfirmAction('activate');
+    setShowConfirm(true);
+  };
 
+  const confirmDelete = () => {
+    setConfirmAction('delete');
+    setShowConfirm(true);
+  };
+
+  const disableManager = async () => {
+    if(managerState == "") return;
+    await handlePlanPause()
+  };
+
+
+  const resumeManager = async () => {
+    if(managerState == "") return;
+    await handlePlanResume()
+  };
 
 
   return (
@@ -223,47 +323,42 @@ const GrowManager = () => {
       <Header onClick={() => setIsOpen((prev) => !prev)}>
         <TitleSection>
           <Title>{title}</Title>
-            <Subtitle>Your Plans: {matchingPrivatePlans.length}</Subtitle>
-            <Subtitle>Public Plans: {matchingPublicPlans.length}</Subtitle>
-            <Subtitle>Total Plans: {allPlans.length}</Subtitle>
+          <Subtitle>Your Plans: {matchingPrivatePlans.length}</Subtitle>
+          <Subtitle>Public Plans: {matchingPublicPlans.length}</Subtitle>
+          <Subtitle>Total Plans: {allPlans.length}</Subtitle>
         </TitleSection>
 
-
         <ToggleIcon $isOpen={isOpen}>
-          <ChevronIcon />
+          <ChevronDown />
         </ToggleIcon>
-
       </Header>
 
       {isOpen && (
         <Content>
           <PlansHeader>
             <ManagerActionContainer>
-            {strainName && (
-              <StrainInfo>Current Strain: <strong>{strainName}</strong></StrainInfo>
-            )}
+              {strainName && (
+                <StrainInfo>Current Strain: <strong>{strainName}</strong></StrainInfo>
+              )}
 
-               {activePlan !== null ? (<></>) : (<>
-                <ManagerStop onClick={() => stopManager()}><MdStopCircle/></ManagerStop>
-                <ManagerPause onClick={() => pauseManager()}><MdRestartAlt/></ManagerPause>
-               </>)}
-
-
+                <ManagerStop onClick={() => disableManager()}><MdStopCircle /></ManagerStop>
+                <ManagerPause onClick={() => resumeManager()}><MdRestartAlt /></ManagerPause>
             </ManagerActionContainer>
 
             {activePlan && (
               <>
                 <StrainInfo>Current Active Plan: <strong>{activePlan.growPlanName || activePlan.plan_name || activePlan.name}</strong></StrainInfo>
-                <br/>
+                <br />
                 <StrainInfo>Start Date: <strong>{activePlan.start_date || 'Not set'}</strong></StrainInfo>
               </>
             )}
-
           </PlansHeader>
 
-          
           {isLoading ? (
-            <InfoText>Loading plans...</InfoText>
+            <InfoText>
+              Loading plans for <FaSeedling color="green" size={20} />{" "}
+              <a>{strainName}</a> <FaSeedling color="green" size={20} /> <Spinner />
+            </InfoText>
           ) : allPlans.length === 0 ? (
             <InfoText>
               No plans found for this Strain.
@@ -272,9 +367,9 @@ const GrowManager = () => {
           ) : (
             <>
               <Label htmlFor="plan-select">Select a plan ({allPlans.length} available):</Label>
-              <Select 
-                id="plan-select" 
-                onChange={handlePlanChange} 
+              <Select
+                id="plan-select"
+                onChange={handlePlanChange}
                 value={selectedPlan?.id || ''}>
                 <option value="" disabled>Select a plan...</option>
                 {allPlans.map(plan => (
@@ -296,7 +391,11 @@ const GrowManager = () => {
                       </EditToggleButton>
                     </HeaderRow>
                   </PlanHeader>
-                  
+
+                  {activationError && (
+                    <ErrorMessage>{activationError}</ErrorMessage>
+                  )}
+
                   <PlanInfo>
                     <InfoRow>
                       <strong>Plan Name:</strong>
@@ -311,7 +410,7 @@ const GrowManager = () => {
                         <span>{editedPlanName || selectedPlan.plan_name || selectedPlan.name || selectedPlan._displayName || 'Unknown'}</span>
                       )}
                     </InfoRow>
-                    
+
                     <InfoRow>
                       <strong>Strain:</strong>
                       {isEditing ? (
@@ -322,10 +421,9 @@ const GrowManager = () => {
                           placeholder="Enter strain name"
                         />
                       ) : (
-                       <span>{editedStrainName || selectedPlan.strainName || selectedPlan.strain_name || 'Unknown'}</span>
+                        <span>{editedStrainName || selectedPlan.strainName || selectedPlan.strain_name || 'Unknown'}</span>
                       )}
                     </InfoRow>
-                    
 
                     <InfoRow>
                       <strong>Start Date:</strong>
@@ -337,29 +435,26 @@ const GrowManager = () => {
                           min={getCurrentDate()}
                         />
                       ) : (
-                      <span>{editedStartDate || selectedPlan.start_date || 'Not set'}</span>
+                        <span>{editedStartDate || selectedPlan.start_date || 'Not set'}</span>
                       )}
                     </InfoRow>
-                    
+
                     <InfoRow>
                       <strong>Total Weeks:</strong> {selectedPlan.total_weeks || selectedPlan.weeks?.length || 'Unknown'}
                     </InfoRow>
-                   <InfoRow>
+                    <InfoRow>
                       <strong>Room:</strong> {selectedPlan.room || currentRoom}
                     </InfoRow>
                     {selectedPlan.is_active === true ? (
                       <InfoRow>
-                        <strong>Status:</strong> <ActiveBadge>✅ ACTIVE PLAN </ActiveBadge>
+                        <strong>Status:</strong> <ActiveBadge><CheckCircle2 size={16} /> ACTIVE PLAN </ActiveBadge>
                       </InfoRow>
-                    ):(<>
+                    ) : (<>
                       <InfoRow>
-                        <strong>Status:</strong> <ActiveBadge>❌ INACTIVE PLAN</ActiveBadge>
-                      </InfoRow>        
-                    
+                        <strong>Status:</strong> <ActiveBadge><AlertCircle size={16} /> INACTIVE PLAN</ActiveBadge>
+                      </InfoRow>
                     </>)}
                   </PlanInfo>
-
-
 
                   {selectedPlan.weeks && selectedPlan.weeks.length > 0 && (
                     <WeeksContainer>
@@ -374,7 +469,7 @@ const GrowManager = () => {
                             </WeekTitle>
 
                             <WeekSection>
-                              <SectionTitle>🌡️ Clima</SectionTitle>
+                              <SectionTitle><Thermometer size={18} /> Clima</SectionTitle>
                               <ParameterGrid>
                                 <Parameter>
                                   <ParameterLabel>Temp:</ParameterLabel>
@@ -395,16 +490,16 @@ const GrowManager = () => {
                               </ParameterGrid>
                               <ControlsGrid>
                                 <ControlBadge $active={week.co2Control}>
-                                  {week.co2Control ? '✅' : '❌'} CO₂ Control
+                                  {week.co2Control ? <Check size={14} /> : <X size={14} />} CO₂ Control
                                 </ControlBadge>
                                 <ControlBadge $active={week.nightVPDHold}>
-                                  {week.nightVPDHold ? '✅' : '❌'} Night VPD Hold
+                                  {week.nightVPDHold ? <Check size={14} /> : <X size={14} />} Night VPD Hold
                                 </ControlBadge>
                               </ControlsGrid>
                             </WeekSection>
 
                             <WeekSection>
-                              <SectionTitle>💡 Lightning</SectionTitle>
+                              <SectionTitle><Zap size={18} /> Lightning</SectionTitle>
                               <ParameterGrid>
                                 <Parameter>
                                   <ParameterLabel>Start:</ParameterLabel>
@@ -419,13 +514,13 @@ const GrowManager = () => {
                                   <ParameterValue>{week.lightIntensity || 0}%</ParameterValue>
                                 </Parameter>
                               </ParameterGrid>
-                              
+
                               <ControlsGrid>
                                 <ControlBadge $active={week.isDimmable}>
-                                  {week.isDimmable ? '✅' : '❌'} isDimmable
+                                  {week.isDimmable ? <Check size={14} /> : <X size={14} />} isDimmable
                                 </ControlBadge>
                                 <ControlBadge $active={week.sunPhases}>
-                                  {week.sunPhases ? '✅' : '❌'} Sonnenphases
+                                  {week.sunPhases ? <Check size={14} /> : <X size={14} />} Sonnenphases
                                 </ControlBadge>
                                 {(() => {
                                   const [startH, startM] = (week.lightStart || '00:00').split(':').map(Number);
@@ -438,7 +533,7 @@ const GrowManager = () => {
 
                                   return (
                                     <ControlBadge $active={isVeg}>
-                                      {isVeg ? '🍀 VEG' : '🍁 Flower'} Phase
+                                      {isVeg ? <Leaf size={14} /> : <Flower2 size={14} />} {isVeg ? 'VEG' : 'Flower'} Phase
                                     </ControlBadge>
                                   );
                                 })()}
@@ -446,7 +541,7 @@ const GrowManager = () => {
                             </WeekSection>
 
                             <WeekSection>
-                              <SectionTitle>💧 Nutrients</SectionTitle>
+                              <SectionTitle><Droplets size={18} /> Nutrients</SectionTitle>
                               <ParameterGrid>
                                 <Parameter>
                                   <ParameterLabel>A:</ParameterLabel>
@@ -471,70 +566,67 @@ const GrowManager = () => {
                               </ParameterGrid>
                               <ControlsGrid>
                                 <ControlBadge $active={week.feedControl}>
-                                  {week.feedControl ? '✅' : '❌'} Feed Control
+                                  {week.feedControl ? <Check size={14} /> : <X size={14} />} Feed Control
                                 </ControlBadge>
                               </ControlsGrid>
                             </WeekSection>
-
                           </WeekCard>
                         ))}
                       </WeeksGrid>
                     </WeeksContainer>
                   )}
-                                
-                <ButtonGroup>
-                {isEditing ? (
-                    <>
-                    <CancelButton onClick={handleCancelEdit}>
-                        Cancel
-                    </CancelButton>
-                    </>
-                ) : (
-                    <>
-                    <ActivateButton onClick={confirmActivate}>
-                        Activate Plan
-                    </ActivateButton>
-                    {!selectedPlan.is_public && (
-                        <DeleteButton onClick={confirmDelete}>
-                        Delete Plan
-                        </DeleteButton>
+
+                  <ButtonGroup>
+                    {isEditing ? (
+                      <>
+                        <CancelButton onClick={handleCancelEdit}>
+                          Cancel
+                        </CancelButton>
+                      </>
+                    ) : (
+                      <>
+                        <ActivateButton onClick={confirmActivate} disabled={isLoading}>
+                          {isLoading ? 'Loading...' : 'Activate Plan'}
+                        </ActivateButton>
+                        {selectedPlan?.isOwnPlan && (
+                          <DeleteButton onClick={confirmDelete} disabled={isLoading}>
+                            {isLoading ? 'Loading...' : 'Delete Plan'}
+                          </DeleteButton>
+                        )}
+                      </>
                     )}
-                    </>
-                )}
-                </ButtonGroup>
+                  </ButtonGroup>
+
                   {showConfirm && (
                     <ConfirmModal
                       message={
                         confirmAction === 'activate'
-                          ?     <>
+                          ? <>
                             <p>Do you really want to activate this plan?</p>
-
                             <h3>{editedPlanName}</h3>
-
-
-                            <p >
-                              Start: <strong>{editedStartDate}</strong>
+                            <p>
+                              Start: <strong>{editedStartDate || selectedPlan.start_date}</strong>
                             </p>
                             <p>
-                              Duration: <strong>{selectedPlan.weeks.length} weeks</strong>
+                              Duration: <strong>{selectedPlan.weeks?.length || 0} weeks</strong>
                             </p>
                             <p>Please make sure all settings are correct.</p>
                           </>
-                           :     <>
+                          : <>
                             <p>Do you really want to delete this plan?</p>
-
-                            <h3>{selectedPlan.plan_name}</h3>
-
+                            <h3>{selectedPlan.plan_name || selectedPlan.name}</h3>
                             <p><strong>This action cannot be undone.</strong></p>
                             <p><strong>Your plan is smoked away then.</strong></p>
                           </>
                       }
                       onConfirm={async () => {
                         setShowConfirm(false);
+                        setConfirmAction(null);
+
                         if (confirmAction === 'activate') {
-                          handlePlanActivation();
-                        }else{
-                           handlePlanDelete()
+                          await handlePlanActivation();
+                        } else {
+                          await handlePlanDelete();
                         }
                       }}
                       onCancel={() => {
@@ -694,11 +786,12 @@ const StrainInfo = styled.div`
   }
 `;
 
-const InfoText = styled.p`
-  color: rgba(255, 255, 255, 0.5);
-  font-style: italic;
-  text-align: center;
-  padding: 2rem;
+const InfoText = styled.div`
+  display: flex;
+  align-items: right;
+  justiy-content:center;
+  gap: 6px;
+  font-size: 1rem;
 `;
 
 const Label = styled.label`
@@ -1165,3 +1258,19 @@ color:red;
     opacity: 0.85;
   }
 `
+const spin = keyframes`
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+`;
+
+const Spinner = styled.div`
+  display: inline-block;
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(0, 128, 0, 0.3);
+  border-top: 2px solid green;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
+  margin-left: 6px;
+  vertical-align: middle;
+`;

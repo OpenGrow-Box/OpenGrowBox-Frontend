@@ -9,11 +9,12 @@ import GrowMananger from '../Components/Premium/GrowMananger'
 const Premium = () => {
   const { isPremium } = usePremium()
   const [loading, setLoading] = useState(true)
+  const [newPlan , setNewPlan] = useState(false)
  
   useEffect(() => {
     let elapsed = 0
     const interval = setInterval(() => {
-      if (isPremium === true || elapsed >= 1000) {  // 3 Sekunden statt 5
+      if (isPremium === true || elapsed >= 1000) {  
         clearInterval(interval)
         setLoading(false)
       }
@@ -52,14 +53,10 @@ const Premium = () => {
           <PremContainer>
             <PremiumMainContainer>
 
-              <GrowMananger/>
-              <GrowPlaner/>
-
+              <GrowMananger setNewPlan={setNewPlan}/>
+              <GrowPlaner newPlan={newPlan}/>
             
             </PremiumMainContainer>
-
-
-
           </PremContainer>
         ) : (
           <DeniedBox>

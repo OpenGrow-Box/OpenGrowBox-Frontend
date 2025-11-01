@@ -2,10 +2,9 @@ import React, { useState, useCallback, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { usePremium } from '../Context/OGBPremiumContext';
+import { ChevronDown, Plus, Minus, Eye, Save, Copy, Leaf, Flower2, Thermometer, Droplets, Zap, Settings2, Check, X, AlertCircle, CheckCircle2, Truck } from 'lucide-react';
 
 function generateRandomPlanName() {
-
-
   const firstParts = [
     'Bud', 'Green', 'Loud', 'Sticky', 'Dank', 'Cloud', 'Tricho', 'Resin', 'Herb',
     'Terp', 'Nug', 'Leaf', 'Smoke', 'Grow', 'Kief', '420', 'Chronic', 'THC', 'CBD'
@@ -22,16 +21,12 @@ function generateRandomPlanName() {
 
   const part1 = firstParts[Math.floor(Math.random() * firstParts.length)];
   const part2 = secondParts[Math.floor(Math.random() * secondParts.length)];
-
   const useCombo = Math.random() < 0.3;
   const combo = useCombo ? ' ' + combos[Math.floor(Math.random() * combos.length)] : '';
-
-
 
   return `${part1}${part2}${combo}`;
 }
 
-// --- DATA STRUCTURE ---
 const defaultWeek = (weekNumber, previousWeek = null) => ({
   week: weekNumber,
   lightStart: previousWeek?.lightStart || '06:00',
@@ -55,22 +50,26 @@ const defaultWeek = (weekNumber, previousWeek = null) => ({
   C: previousWeek?.C || 4,
 });
 
-// --- COMPONENT ---
-const GrowPlaner = () => {
+const GrowPlaner = ({setNewPlan}) => {
   const [start_date, setStartDate] = useState('');
   const [weeks, setWeeks] = useState([defaultWeek(1)]);
   const [selectedWeekIndex, setSelectedWeekIndex] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isPublic, setIsPublic] = useState(false); // Moved to plan level
+  const [isPublic, setIsPublic] = useState(false);
   const { entities, currentRoom } = useHomeAssistant();
   const [strainName, setStrainName] = useState(generateRandomPlanName());
   const [growPlanName, addGrowPlanName] = useState(`${strainName} Plan`);
   const [isOpen, setIsOpen] = useState(false);
   const { getGrowPlans, addGrowPlan } = usePremium();
   const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
-
-  const [confirmAction, setConfirmAction] = useState(null); // "delete" | "activate" | null
+  const [confirmAction, setConfirmAction] = useState(null);
   const [showConfirm, setShowConfirm] = useState(false);
+
+  useEffect(() => {
+    const tomorrow = new Date();
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    setStartDate(tomorrow.toISOString().split('T')[0]);
+  }, []);
 
   useEffect(() => {
     const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
@@ -87,13 +86,12 @@ const GrowPlaner = () => {
       <ModalBox>
         <ModalMessage>{message}</ModalMessage>
         <ModalButtons>
-          <ModalButton onClick={onConfirm}>✅ Yes</ModalButton>
-          <ModalButtonCancel onClick={onCancel}>❌ No</ModalButtonCancel>
+          <ModalButton onClick={onConfirm}><CheckCircle2 size={18} /> Yes</ModalButton>
+          <ModalButtonCancel onClick={onCancel}><AlertCircle size={18} /> No</ModalButtonCancel>
         </ModalButtons>
       </ModalBox>
     </ModalBackdrop>
   );
-
 
   const addWeek = useCallback(() => {
     setWeeks((prev) => {
@@ -130,45 +128,44 @@ const GrowPlaner = () => {
   const copyToClipboard = useCallback(() => {
     const jsonString = JSON.stringify({ strainName, growPlanName, roomKey, start_date, weeks, isPublic }, null, 2);
     navigator.clipboard.writeText(jsonString);
-    alert('JSON copied to clipboard!');
+
   }, [start_date, growPlanName, strainName, weeks, roomKey, isPublic]);
 
-  const handleApplyGrowPlan = useCallback(() => {
-
+  const handleApplyGrowPlan = useCallback(async () => {
     const jsonString = JSON.stringify({ strainName, growPlanName, roomKey, start_date, weeks, isPublic }, null, 2);
-    addGrowPlan(jsonString);
-
-    setStartDate('');
-    setWeeks([defaultWeek(1)]);
-    setSelectedWeekIndex(0);
-    const newStrainName = generateRandomPlanName();
-        getGrowPlans();
-    setStrainName(newStrainName);
-    addGrowPlanName(`${newStrainName} Plan`);
-    setIsPublic(false);
-    setIsOpen(false)
+    
+    try {
+      
+      await addGrowPlan(jsonString);
+      await getGrowPlans();
+      // Reset UI
+      setStartDate('');
+      setWeeks([defaultWeek(1)]);
+      setSelectedWeekIndex(0);
+      const newStrainName = generateRandomPlanName();
+      setStrainName(newStrainName);
+      addGrowPlanName(`${newStrainName} Plan`);
+      setIsPublic(false);
+      setIsOpen(false);
+    } catch (err) {
+      console.error("Fehler beim Speichern:", err);
+      alert("Plan konnte nicht gespeichert werden.");
+    }
   }, [start_date, growPlanName, weeks, strainName, roomKey, addGrowPlan, isPublic]);
   
   const confirmActivate = () => {
     setConfirmAction('activate');
     setShowConfirm(true);
-    
   };
 
   function validateTime(inputTime) {
-    // inputTime kann ein Date-Objekt oder ein ISO-Zeitstring sein
     const now = new Date();
     const timeToCheck = new Date(inputTime);
-
-    // Prüfen, ob das Datum gültig ist
     if (isNaN(timeToCheck.getTime())) {
-      return false; // ungültiges Datum
+      return false;
     }
-
-    // true, wenn die Zeit jetzt oder in der Zukunft liegt
     return timeToCheck >= now;
   }
-
 
   return (
     <>
@@ -176,63 +173,61 @@ const GrowPlaner = () => {
         <Header onClick={() => setIsOpen((prev) => !prev)}>
           <TitleSection>
             <Title>{title}</Title>
-            <Subtitle> {weeks.length > 1 ? <> Planed Weeks:{weeks.length} </> : <>Plan Your Grow</>} </Subtitle>
+            <Subtitle> {weeks.length > 1 ? <> Planed Weeks: {weeks.length} </> : <>Plan Your Grow</>} </Subtitle>
           </TitleSection>
 
           <ToggleIcon $isOpen={isOpen}>
-            <ChevronIcon />
+            <ChevronDown size={24} />
           </ToggleIcon>
         </Header>
 
         {isOpen && (
           <>
             <ControlsSection>
-              {/* Action buttons at top on mobile, integrated on desktop */}
               <ActionButtonsWrapper>
                 <StyledButton onClick={addWeek} variant="success">
-                  ➕ Add Week
+                  <Plus size={18} /> Add Week
                 </StyledButton>
                 <StyledButton onClick={removeWeek} variant="danger" disabled={weeks.length <= 1}>
-                  ➖ Remove Week
+                  <Minus size={18} /> Remove Week
                 </StyledButton>
                 <StyledButton onClick={() => setIsModalOpen(true)}>
-                  📋 Show JSON
+                  <Eye size={18} /> Show JSON
                 </StyledButton>
                 <ApplyButton 
                   onClick={confirmActivate} 
                   disabled={!validateTime(start_date)}
                 >
-                  ✨ Save Grow-Plan
+                  <Save size={18} /> Save Grow-Plan
                 </ApplyButton>
-
-
               </ActionButtonsWrapper>
-                  {showConfirm && (
-                    <ConfirmModal
-                      message={
-                        confirmAction === 'activate'
-                          ? `Do you really want to send your Plans "${growPlanName}" -- Did you Checked all Settings??`
-                          : `Do you really want to delete "${growPlanName|| growPlanName}"?`
-                      }
-                      onConfirm={async () => {
-                        setShowConfirm(false);
-                        if (confirmAction === 'activate') {
-                          handleApplyGrowPlan(true);
-                        } else if (confirmAction === 'delete') {
-                          return
-                        }
-                        setConfirmAction(null);
-                      }}
-                      onCancel={() => {
-                        setShowConfirm(false);
-                        setConfirmAction(null);
-                      }}
-                    />
-                  )}
+
+              {showConfirm && (
+                <ConfirmModal
+                  message={
+                    confirmAction === 'activate'
+                      ? `Do you really want to send your Plans "${growPlanName}" -- Did you Checked all Settings??`
+                      : `Do you really want to delete "${growPlanName || growPlanName}"?`
+                  }
+                  onConfirm={async () => {
+                    setShowConfirm(false);
+                    if (confirmAction === 'activate') {
+                      handleApplyGrowPlan(true);
+                    } else if (confirmAction === 'delete') {
+                      return
+                    }
+                    setConfirmAction(null);
+                  }}
+                  onCancel={() => {
+                    setShowConfirm(false);
+                    setConfirmAction(null);
+                  }}
+                />
+              )}
 
               <CompactSection>
                 <CardHeader>
-                  <CardTitle>📢 Publish Plan</CardTitle>
+                  <CardTitle><Leaf size={20} /> Publish Plan</CardTitle>
                   <ModernToggle
                     checked={isPublic}
                     onChange={() => setIsPublic(!isPublic)}
@@ -241,20 +236,18 @@ const GrowPlaner = () => {
                 </CardHeader>
               </CompactSection>
 
-              {/* Input controls */}
               <InputsWrapper>
                 <InputGroup>
-                  <Label>🗓 Start Date</Label>
-                    <StyledInput
-                      type="date"
-                      value={start_date}
-                      onChange={(e) => setStartDate(e.target.value)}
-                      required
-                    />
-
+                  <Label>Start Date</Label>
+                  <StyledInput
+                    type="date"
+                    value={start_date}
+                    onChange={(e) => setStartDate(e.target.value)}
+                    required
+                  />
                 </InputGroup>
                 <InputGroup>
-                  <Label>🌿 Grow Plan Name</Label>
+                  <Label>Grow Plan Name</Label>
                   <StyledInput
                     type="text"
                     value={growPlanName}
@@ -282,7 +275,7 @@ const GrowPlaner = () => {
               {/* Light Section */}
               <CompactSection>
                 <CardHeader>
-                  <CardTitle>💡 Light Schedule</CardTitle>
+                  <CardTitle><Zap size={20} /> Light Schedule</CardTitle>
                   <ModernToggle
                     checked={currentWeek.isDimmable}
                     onChange={() => toggleSwitch('isDimmable')}
@@ -291,7 +284,7 @@ const GrowPlaner = () => {
                   <ModernToggle
                     checked={currentWeek.sunPhases}
                     onChange={() => toggleSwitch("sunPhases")}
-                    label="sunPhases"
+                    label="Sun Phases"
                   />
                 </CardHeader>
                 <ParameterRow>
@@ -330,17 +323,16 @@ const GrowPlaner = () => {
                         value={currentWeek.lightDimmTime}
                         onChange={(e) => updateWeek('lightDimmTime', e.target.value)}
                       />
-                      <InputSuffix>Minutes</InputSuffix>
+                      <InputSuffix>Min</InputSuffix>
                     </InputWithSuffix>
                   </ParameterGroup>
-
                 </ParameterRow>
               </CompactSection>
 
               {/* Climate Section */}
               <CompactSection>
                 <CardHeader>
-                  <CardTitle>🌡️ Climate Control</CardTitle>
+                  <CardTitle><Thermometer size={20} /> Climate Control</CardTitle>
                   <ToggleGroup>
                     <ModernToggle
                       checked={currentWeek.nightVPDHold}
@@ -408,80 +400,80 @@ const GrowPlaner = () => {
                 </ParameterRow>
               </CompactSection>
             </ParameterGrid>
-              <CompactFoodSection>
-                <CardHeader>
-                  <CardTitle>🌱 Feed Control </CardTitle>
-                  <ToggleGroup>
-                      <ModernToggle
-                        checked={currentWeek.feedControl}
-                        onChange={() => toggleSwitch('feedControl')}
-                        label="Feed Control"
-                      />
-                    </ToggleGroup>
-                </CardHeader>
 
-                  <FoodGrid>
-                    <FoodLabel>
-                      EC:
-                      <FoodInput
-                        type="number"
-                        step="0.1"
-                        value={currentWeek.EC}
-                        onChange={(e) => updateWeek('EC', e.target.value)}
-                      />
-                    </FoodLabel>
-                    <FoodLabel>
-                      PH:
-                      <FoodInput
-                        type="number"
-                        step="0.1"
-                        value={currentWeek.PH}
-                        onChange={(e) => updateWeek('PH', e.target.value)}
-                      />
-                    </FoodLabel>
-                    <FoodLabel>
-                      A:
-                      <FoodInput
-                        type="number"
-                        value={currentWeek.A}
-                        onChange={(e) => updateWeek('A', e.target.value)}
-                      />
-                      <Unit>ml</Unit>
-                    </FoodLabel>
-                    <FoodLabel>
-                      B:
-                      <FoodInput
-                        type="number"
-                        step="0.1"
-                        value={currentWeek.B}
-                        onChange={(e) => updateWeek('B', e.target.value)}
-                      />
-                      <Unit>ml</Unit>
-                    </FoodLabel>
-                    <FoodLabel>
-                      C:
-                      <FoodInput
-                        type="number"
-                        step="0.1"
-                        value={currentWeek.C}
-                        onChange={(e) => updateWeek('C', e.target.value)}
-                      />
-                      <Unit>ml</Unit>
-                    </FoodLabel>
-                  </FoodGrid>
-              </CompactFoodSection>
+            <CompactFoodSection>
+              <CardHeader>
+                <CardTitle><Droplets size={20} /> Feed Control </CardTitle>
+                <ToggleGroup>
+                  <ModernToggle
+                    checked={currentWeek.feedControl}
+                    onChange={() => toggleSwitch('feedControl')}
+                    label="Feed Control"
+                  />
+                </ToggleGroup>
+              </CardHeader>
 
+              <FoodGrid>
+                <FoodLabel>
+                  EC:
+                  <FoodInput
+                    type="number"
+                    step="0.1"
+                    value={currentWeek.EC}
+                    onChange={(e) => updateWeek('EC', e.target.value)}
+                  />
+                </FoodLabel>
+                <FoodLabel>
+                  PH:
+                  <FoodInput
+                    type="number"
+                    step="0.1"
+                    value={currentWeek.PH}
+                    onChange={(e) => updateWeek('PH', e.target.value)}
+                  />
+                </FoodLabel>
+                <FoodLabel>
+                  A:
+                  <FoodInput
+                    type="number"
+                    value={currentWeek.A}
+                    onChange={(e) => updateWeek('A', e.target.value)}
+                  />
+                  <Unit>ml</Unit>
+                </FoodLabel>
+                <FoodLabel>
+                  B:
+                  <FoodInput
+                    type="number"
+                    step="0.1"
+                    value={currentWeek.B}
+                    onChange={(e) => updateWeek('B', e.target.value)}
+                  />
+                  <Unit>ml</Unit>
+                </FoodLabel>
+                <FoodLabel>
+                  C:
+                  <FoodInput
+                    type="number"
+                    step="0.1"
+                    value={currentWeek.C}
+                    onChange={(e) => updateWeek('C', e.target.value)}
+                  />
+                  <Unit>ml</Unit>
+                </FoodLabel>
+              </FoodGrid>
+            </CompactFoodSection>
 
             <ModalOverlay isOpen={isModalOpen}>
               <ModalContent>
                 <ModalHeader>
-                  <ModalTitle>📋 Output JSON</ModalTitle>
+                  <ModalTitle><Eye size={24} /> Output JSON</ModalTitle>
                   <CloseButton onClick={() => setIsModalOpen(false)} aria-label="Close modal">
-                    ✕
+                    <X size={20} />
                   </CloseButton>
                 </ModalHeader>
                 <JsonOutput>{JSON.stringify({ strainName, growPlanName, roomKey, start_date, weeks, isPublic }, null, 2)}</JsonOutput>
-                <CopyButton onClick={copyToClipboard}>📋 Copy to Clipboard</CopyButton>
+                <CopyButton onClick={copyToClipboard}><Copy size={18} /> Copy to Clipboard</CopyButton>
               </ModalContent>
             </ModalOverlay>
           </>

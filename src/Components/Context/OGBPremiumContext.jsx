@@ -239,6 +239,7 @@ export const OGBPremiumProvider = ({ children }) => {
         console.log('Load Profils from Server...');
         logCurrentRoom('initializeSession');
         await loadUserProfile(true);
+        await getGrowPlans()
         console.log('Load Grow Plans from Server...');
         //await getGrowPlans();
         console.log('Session successfull loaded');
@@ -294,12 +295,12 @@ export const OGBPremiumProvider = ({ children }) => {
       try {
         console.log('[INTERVAL] Lade Profil und GrowPlans...');
         await loadUserProfile(true);
-        //await getGrowPlans();
+        await getGrowPlans();
         console.log('[INTERVAL] Profil und GrowPlans aktualisiert');
       } catch (err) {
         console.warn('[INTERVAL] Fehler beim regelmäßigen Abruf:', err.message);
       }
-    }, 1000 * 60 * 1);
+    }, 1000 * 60 * 5);
 
     return () => clearInterval(interval);
   }, [connection, currentRoom]);
@@ -481,6 +482,45 @@ export const OGBPremiumProvider = ({ children }) => {
     }
   };
 
+
+  const pauseGrowPlan = async (growPlan, requestingRoom) => {
+    try {
+      const roomToUse = requestingRoom || currentRoom;
+      console.log('Pause GrowPlan with room:', roomToUse);
+      
+      const result = await sendAuthEventWithCallback('ogb_premium_growplan_pause', { 
+        growPlan, 
+        requestingRoom: roomToUse 
+      });
+      console.log("GrowPlan Paused:", result);
+      return result;
+    } catch (error) {
+      console.error('Paused growplan error:', error);
+      throw error;
+    }
+  };
+
+
+  const resumeGrowPlan = async (growPlan, requestingRoom) => {
+    try {
+      const roomToUse = requestingRoom || currentRoom;
+      console.log('Pause GrowPlan with room:', roomToUse);
+      
+      const result = await sendAuthEventWithCallback('ogb_premium_growplan_resume', { 
+        growPlan, 
+        requestingRoom: roomToUse 
+      });
+      console.log("GrowPlan Paused:", result);
+      return result;
+    } catch (error) {
+      console.error('Paused growplan error:', error);
+      throw error;
+    }
+  };
+
+
+
+
   const updateProfile = async (profileData) => {
     try {
       const result = await sendAuthEventWithCallback('ogb_premium_update_profile', { 
@@ -538,6 +578,7 @@ export const OGBPremiumProvider = ({ children }) => {
         activeGrowPlan,
         growPlans,
         devTestUser,
+        currentPlan,
         ///
         devUserLogin,
         login,
@@ -552,7 +593,8 @@ export const OGBPremiumProvider = ({ children }) => {
         delGrowPlan,
         activateGrowPlan,
         canAddNewRoom,
-
+        pauseGrowPlan,
+        resumeGrowPlan,
       }}
     >
       {children}
