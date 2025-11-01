@@ -3,7 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import ReactECharts from 'echarts-for-react';
 import { useGlobalState } from '../Context/GlobalContext';
 import { FaLeaf } from 'react-icons/fa';
-import { formatTime,formatDateTime } from '../../misc/formatDateTime';
+import { formatTime, formatDateTime } from '../../misc/formatDateTime';
 
 const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2500, title = 'Sensor Trends (24h)', unit = '' }) => {
   const getDefaultDate = (offset = 0) => {
@@ -14,16 +14,22 @@ const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2500, title = 
     return localISOTime;
   };
 
-  const {state} = useGlobalState();
-  const srvAddr = state?.Conf?.hassServer
-  const accessToken = state?.Conf?.haToken
+  const { state } = useGlobalState();
+  const srvAddr = state?.Conf?.hassServer;
+  const accessToken = state?.Conf?.haToken;
 
   const [startDate, setStartDate] = useState(getDefaultDate());
   const [endDate, setEndDate] = useState(getDefaultDate());
   const [chartOptions, setChartOptions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedView, setSelectedView] = useState(() => localStorage.getItem('selectedView') || 'Live');
+  const [selectedView, setSelectedView] = useState(() => localStorage.getItem('selectedView') || '12h');
+
+  // Handler für View-Änderung
+  const handleViewChange = (view) => {
+    setSelectedView(view);
+    localStorage.setItem('selectedView', view);
+  };
 
   // Aktualisiere startDate und endDate, wenn der View geändert wird.
   useEffect(() => {
@@ -37,11 +43,6 @@ const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2500, title = 
       setStartDate(getDefaultDate(-7 * 24 * 60 * 60 * 1000));
     }
     setEndDate(getDefaultDate());
-  }, [selectedView]);
-
-  // Speichere den ausgewählten View im localStorage.
-  useEffect(() => {
-    localStorage.setItem('selectedView', selectedView);
   }, [selectedView]);
 
   // Im Live-Modus: Aktualisiere endDate regelmäßig ohne den Ladezustand (wenn bereits Chart-Daten vorhanden sind).
@@ -95,7 +96,7 @@ const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2500, title = 
             },
             formatter: params => {
               const point = params[0];
-              const time = formatTime(point.axisValue)
+              const time = formatTime(point.axisValue);
               return `
                 <div style="color:white; font-size: 12px;">
                   <strong>${time}</strong><br/>
@@ -218,7 +219,7 @@ const SensorChart = ({ sensorId, minThreshold = 0, maxThreshold = 2500, title = 
             <ViewButton
               key={view}
               $isActive={selectedView === view}
-              onClick={() => setSelectedView(view)}
+              onClick={() => handleViewChange(view)}
             >
               {view}
             </ViewButton>

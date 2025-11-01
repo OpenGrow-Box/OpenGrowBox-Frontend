@@ -12,7 +12,7 @@ import DeviceCard from '../Components/Cards/ControlCards/DeviceCard';
 import DashboardSlider from '../Components/Dashboard/DashboardSlider';
 import DashboardStats from '../Components/Dashboard/DashboardStats';
 import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
-import HeatMap from '../Components/Cards/HeatMap';
+import HeatMap from '../Components/Premium/HeatMap';
 import OtherSensors from '../Components/Cards/OtherSensors';
 import { usePremium } from '../Components/Context/OGBPremiumContext';
 

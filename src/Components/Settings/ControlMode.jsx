@@ -590,8 +590,12 @@ const ControlMode = ({ onSelectChange }) => {
             Get your Account Now !
           </UpgradeButton>
             <LaunchInfo>
-              🎉 It’s possible you’ll become a beta Premium tester 🎉
+              🎉 You might be one of the first to become a Beta Premium tester! 🎉
             </LaunchInfo>
+            <LaunchInfo>
+              🚀 Head over to your OGB-Account Page and choose if you want to join the program. 🚀
+            </LaunchInfo>
+
         </NoSubWrapper>
       )}
     </Container>
@@ -1090,18 +1094,34 @@ const TestUserMessage = styled.div`
     color: #ffa726;
   `}
 `;
-// New styled components for launch info
+
 const LaunchInfo = styled.div`
-  background: linear-gradient(135deg, rgba(255, 124, 0, 0.15), rgba(255, 165, 0, 0.15));
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  border-radius: 8px;
-  padding: 12px 16px;
+  background: linear-gradient(135deg, rgba(255, 124, 0, 0.1), rgba(255, 165, 0, 0.1));
+  border: 1px solid rgba(255, 215, 0, 0.4);
+  border-radius: 12px;
+  padding: 14px 20px;
   margin-bottom: 16px;
   color: var(--main-text-color);
-  font-size: 0.9rem;
-  font-weight: 500;
+  font-size: 0.95rem;
+  font-weight: 600;
   text-align: center;
+  position: relative;
+  overflow: hidden;
   animation: ${glow} 3s ease-in-out infinite;
+
+  &::before {
+    content: '✨';
+    position: absolute;
+    top: -8px;
+    right: -8px;
+    font-size: 1.2rem;
+    animation: spin 6s linear infinite;
+  }
+
+  @keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+  }
 `;
 
 const CountdownContainer = styled.div`
@@ -1136,17 +1156,3 @@ const CountdownLabel = styled.div`
   letter-spacing: 0.5px;
 `;
 
-const LoadingSpinner = styled.div`
-  width: 20px;
-  height: 20px;
-  border: 2px solid rgba(255, 215, 0, 0.3);
-  border-top: 2px solid #FFD700;
-  border-radius: 50%;
-  animation: spin 1s linear infinite;
-  margin: 0 auto;
-  
-  @keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-  }
-`;

@@ -39,7 +39,7 @@ const SENSOR_TRANSLATIONS = {
         "oxidation","orp"
     ],
     "salinity": [
-        "salinity","sal"
+        "salinity",
     ],
     "weight": [
         "weight","gewicht",

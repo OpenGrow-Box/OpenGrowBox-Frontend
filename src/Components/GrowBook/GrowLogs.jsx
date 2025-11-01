@@ -22,24 +22,26 @@ const LogItem = ({ room, date, info }) => {
 
     console.log(data, msg);
 
-    if (entry.medium === true) return 'medium-stats';
 
     if (data.rotation_success === true) return 'rotation-success';
     
-    if (entry.controllerType === "PID") return 'pid-controller';
-    if (entry.controllerType === "MPC") return 'pid-controller';
-
     if (data.Type === "INVALID PUMPS") return 'missing-pumps';
     if (data.Mode === "Hydro") return 'hydro-mode';
-    if (msg.Mode === "Plant-Watering") return 'hydro-mode';
-    if (msg.Mode === "Crop-Steering") return 'hydro-mode';
     if (data.Type === "CSLOG") return 'cs-log';
 
     if (entry.action) return 'action';
-    if (msg.includes('vpd')) return 'vpd';
+    if (entry.controllerType === "PID") return 'pid-controller';
+    if (entry.controllerType === "MPC") return 'pid-controller';
+    if (entry.medium === true) return 'medium-stats';
     if (entry.NightVPDHold !== undefined) return 'night-vpd';
+
+    if (msg.Mode === "Plant-Watering") return 'hydro-mode';
+    if (msg.Mode === "Crop-Steering") return 'hydro-mode';
+
+    if (msg.includes('vpd')) return 'vpd';
     if (msg.includes('humidity')) return 'humidity';
     if (msg.includes('temperature')) return 'temperature';
+    if (msg.includes("blocked")) return 'device-cd';
 
     if (entry.VPD !== undefined) return 'sensor';
     
@@ -469,8 +471,30 @@ const formatCSData = (data) => {
       <Message>{data.Message}</Message>
     </Box>
   )
-
 };
+
+const formatDeviceCDData = (data) => {
+  if (data.blocked_actions !== 0 && Array.isArray(data.emergency_conditions)) {
+    return (
+      <Box>
+        <div>Blocked Actions: {data.blocked_actions}</div>
+        <div>Emergency Conditions: {data.emergency_conditions.length}</div>
+
+        {data.emergency_conditions.length > 0 && (
+          <ul>
+            {data.emergency_conditions.map((item, index) => (
+              <li key={index}>{JSON.stringify(item)}</li>
+            ))}
+          </ul>
+        )}
+      </Box>
+    );
+  }
+
+  return null;
+};
+
+
 
   const sensorData = formatSensorData(parsedInfo);
   const actionData = formatActionData(parsedInfo);
@@ -481,9 +505,9 @@ const formatCSData = (data) => {
   const castData = formatCastData(parsedInfo)
   const rotationData = formatRotationData(parsedInfo)
   const csData = formatCSData(parsedInfo)
+  const deviceCDData = formatDeviceCDData(parsedInfo)
 
 
-  console.log(mediumData)
   return (
     <LogItemContainer logType={logType}>
       <LogHeader logType={logType}>
@@ -503,7 +527,8 @@ const formatCSData = (data) => {
         {castData && castData}
         {rotationData && rotationData}
         {csData && csData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && !csData &&(
+        {deviceCDData && deviceCDData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && !csData && !deviceCDData &&(
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -703,6 +728,7 @@ const LogItemContainer = styled.div`
       case 'crop-steering': return 'linear-gradient(135deg, rgba(116, 255, 162, 1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
       case 'cs-log': return 'linear-gradient(135deg, rgba(125, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
 
+      case 'device-cd': return 'linear-gradient(135deg, rgba(255, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New    
 
       case 'sensor': return 'linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(253, 187, 45, 0.1) 100%)';
       case 'action': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 154, 0, 0.1) 100%)';

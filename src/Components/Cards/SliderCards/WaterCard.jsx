@@ -12,60 +12,103 @@ const WaterCard = ({pause,resume,isPlaying}) => {
   const [selectedSensor, setSelectedSensor] = useState(null); // State für den ausgewählten Sensor
 
   useEffect(() => {
-    const normalizedSensors = classifyAndNormalize(entities)
-      .filter(s => 
-        (s.category === "ph" || s.category === "ec" || s.category === "tds" || s.category === "oxidation" ||
-          s.category === "salinity" || s.category === "temperature"
+    const ogbOrpSensor = Object.entries(entities)
+      .filter(
+        ([key, entity]) =>
+          key.startsWith('sensor.') &&
+          key.toLowerCase().includes('waterorp') &&
+          !isNaN(parseFloat(entity.state))
+      )
+      .map(([key, entity]) => ({
+        id: key,
+        value: parseFloat(entity.state),
+        unit: entity.attributes?.unit_of_measurement || 'mV',
+        friendlyName: entity.attributes?.friendly_name || key,
+        category: 'oxidation',
+        context: 'water',
+      }));
 
-         ) && 
-        s.context === "water"  // ← Hier der zusätzliche Filter!
+    const normalizedSensors = classifyAndNormalize(entities)
+      .filter(
+        (s) =>
+          ['ph', 'ec', 'tds', 'oxidation', 'salinity', 'temperature'].includes(s.category) &&
+          s.context === 'water'
       );
 
-    setWaterensors(normalizedSensors);
+    // 🔥 Hier kombinieren wir beides:
+    const combinedSensors = [...normalizedSensors, ...ogbOrpSensor];
+
+    setWaterensors(combinedSensors);
   }, [entities]);
 
 
   const getColorForValue = (value, unit) => {
     const unitLower = unit.toLowerCase();
-  
+    let normalizedValue = value;
+
+    // Einheitskonvertierung für EC/Leitfähigkeit
+    if (unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('ms/us')) {
+      // µS/cm, µS/us oder ms/us zu mS konvertieren (1 mS = 1000 µS)
+      normalizedValue = value / 1000;
+    }
+
     // Farben für pH-Werte
     if (unitLower.includes('ph')) {
-      if (value < 4.5) return '#ef4444'; // Sehr sauer (Rot)
-      if (value >= 4.5 && value < 5.5) return 'rgba(230, 63, 12, 0.85)'; 
-      if (value >= 5.5 && value < 6.0) return 'rgba(230, 212, 12, 0.85)'; 
-      if (value >= 6.0 && value <= 7.0) return 'rgba(85, 230, 12, 0.85)';
-      if (value > 7.0 && value <= 7.5) return 'rgba(197, 230, 12, 0.85)'; 
-      if (value > 7.5 && value <= 8.5) return 'rgba(12, 170, 230, 0.85)';
-      return '#60a5fa'; // Stark alkalisch (Dunkelblau)
+      if (normalizedValue < 4.5) return '#ef4444';
+      if (normalizedValue >= 4.5 && normalizedValue < 5.5) return 'rgba(230, 63, 12, 0.85)';
+      if (normalizedValue >= 5.5 && normalizedValue < 6.0) return 'rgba(230, 212, 12, 0.85)';
+      if (normalizedValue >= 6.0 && normalizedValue <= 7.0) return 'rgba(85, 230, 12, 0.85)';
+      if (normalizedValue > 7.0 && normalizedValue <= 7.5) return 'rgba(197, 230, 12, 0.85)';
+      if (normalizedValue > 7.5 && normalizedValue <= 8.5) return 'rgba(12, 170, 230, 0.85)';
+      return '#60a5fa';
     }
-  
-    // Farben für EC/TDS/Salinity
-    if (unitLower.includes('ms/cm') || unitLower.includes('ms/us') || unitLower.includes('salinity')) {
-      if (value < 100) return '#60a5fa'; // Sehr niedrige Leitfähigkeit (Dunkelblau)
-      if (value >= 100 && value <= 500) return 'rgba(85, 230, 12, 0.85)';
-      if (value > 500 && value <= 1500) return 'rgba(197, 230, 12, 0.85)'; 
-      if (value > 1500 && value <= 2500) return 'rgba(230, 212, 12, 0.85)';
-      if (value > 2500) return 'rgba(230, 63, 12, 0.85)'; 
+
+    // Farben für EC/TDS/Salinity (in mS/cm)
+    if (unitLower.includes('ms/cm') || unitLower.includes('ms/us') || unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('salinity')) {
+      if (normalizedValue < 0.1) return '#60a5fa';
+      if (normalizedValue >= 0.1 && normalizedValue <= 0.5) return 'rgba(85, 230, 12, 0.85)';
+      if (normalizedValue > 0.5 && normalizedValue <= 1.5) return 'rgba(197, 230, 12, 0.85)';
+      if (normalizedValue > 1.5 && normalizedValue <= 2.5) return 'rgba(230, 212, 12, 0.85)';
+      if (normalizedValue > 2.5) return 'rgba(230, 63, 12, 0.85)';
     }
+
+    // Farben für PPM (TDS)
     if (unitLower.includes('ppm')) {
-        if (value < 50) return '#60a5fa'; // Sehr niedrige Leitfähigkeit (Dunkelblau)
-        if (value >= 50 && value <= 250) return 'rgba(85, 230, 12, 0.85)';
-        if (value > 250 && value <= 750) return 'rgba(197, 230, 12, 0.85)'; 
-        if (value > 750 && value <= 1250) return 'rgba(230, 212, 12, 0.85)';
-        if (value > 1250) return 'rgba(230, 63, 12, 0.85)'; 
-      }
-    if (unitLower.includes('celcius') ||unitLower.includes('°C') ||  unitLower.includes('tds') || unitLower.includes('ec') || unitLower.includes('salinity')) {
-        if (value < 10) return '#60a5fa'; // Sehr niedrige Leitfähigkeit (Dunkelblau)
-        if (value >= 10 && value <= 15) return 'rgba(12, 226, 230, 0.86)'; 
-        if (value > 15 && value <= 20) return 'rgba(12, 230, 165, 0.85)'; 
-        if (value > 20 && value <= 25) return 'rgba(230, 212, 12, 0.85)'; 
-        if (value > 25) return 'rgba(230, 63, 12, 0.85)';
-      }
-    return '#ffffff'; // Standard: Weiß (falls nichts zutrifft)
+      if (normalizedValue < 50) return '#60a5fa';
+      if (normalizedValue >= 50 && normalizedValue <= 250) return 'rgba(85, 230, 12, 0.85)';
+      if (normalizedValue > 250 && normalizedValue <= 750) return 'rgba(197, 230, 12, 0.85)';
+      if (normalizedValue > 750 && normalizedValue <= 1250) return 'rgba(230, 212, 12, 0.85)';
+      if (normalizedValue > 1250) return 'rgba(230, 63, 12, 0.85)';
+    }
+
+    // Farben für Temperatur (Celsius)
+    if (unitLower.includes('celsius') || unitLower.includes('°c')) {
+      if (normalizedValue < 10) return '#60a5fa';
+      if (normalizedValue >= 10 && normalizedValue <= 15) return 'rgba(12, 226, 230, 0.86)';
+      if (normalizedValue > 15 && normalizedValue <= 20) return 'rgba(12, 230, 165, 0.85)';
+      if (normalizedValue > 20 && normalizedValue <= 25) return 'rgba(230, 212, 12, 0.85)';
+      if (normalizedValue > 25) return 'rgba(230, 63, 12, 0.85)';
+    }
+
+    return '#ffffff';
   };
 
-  const formatValue = (value) => {
-    return value % 1 === 0 ? value.toFixed(0) : value.toFixed(2);
+  // Formatierung mit Einheitskonvertierung
+  const getFormattedValueWithUnit = (value, unit) => {
+    const unitLower = unit.toLowerCase();
+    
+    if (unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('ms/us')) {
+      const mSValue = value / 1000;
+      return {
+        value: mSValue % 1 === 0 ? mSValue.toFixed(0) : mSValue.toFixed(2),
+        unit: 'mS/cm'
+      };
+    }
+    
+    return {
+      value: value % 1 === 0 ? value.toFixed(0) : value.toFixed(2),
+      unit: unit
+    };
   };
 
   const handleDataBoxClick = (sensorId) => {
@@ -84,17 +127,20 @@ const WaterCard = ({pause,resume,isPlaying}) => {
     <CardContainer>
       <Header><h4>WATER</h4></Header>
       <Content>
-        {waterSensors.map((sensor) => (
-          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
-            <Label>{sensor.friendlyName}</Label>
-            <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
-                {formatValue(sensor.value)}
-              </Value>
-              <Unit>{sensor.unit}</Unit>
-            </ValueWrapper>
-          </DataBox>
-        ))}
+        {waterSensors.map((sensor) => {
+          const formatted = getFormattedValueWithUnit(sensor.value, sensor.unit);
+          return (
+            <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
+              <Label>{sensor.friendlyName}</Label>
+              <ValueWrapper>
+                <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
+                  {formatted.value}
+                </Value>
+                <Unit>{formatted.unit}</Unit>
+              </ValueWrapper>
+            </DataBox>
+          );
+        })}
         {waterSensors.length === 0 && <NoData>No Water sensors found.</NoData>}
       </Content>
 

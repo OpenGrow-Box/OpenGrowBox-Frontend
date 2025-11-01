@@ -148,14 +148,11 @@ const GrowManager = () => {
       window.alert("You need to set a Start Date");
       return;
     }
-    await activateGrowPlan(planToActivate, currentRoom);
-    setActivePlan(null)
-    setIsOpen(false)
-    setSelectedPlan(null)
 
     try {
         if(!planToActivate.start_date)return;
             await activateGrowPlan(planToActivate, currentRoom); // currentRoom explizit übergeben
+
         console.log('Plan activation successful');
         // Der activePlan State wird automatisch über den useEffect aktualisiert
         // wenn activeGrowPlan im Context sich ändert
@@ -180,8 +177,9 @@ const GrowManager = () => {
     try {
         await delGrowPlan(selectedPlan, currentRoom);
         console.log('Plan deletion successful');
-        setSelectedPlan(null);
+        setSelectedPlan(null)
         setIsEditing(false);
+
         await getGrowPlans();
         
     } catch (error) {
@@ -197,20 +195,23 @@ const GrowManager = () => {
     const confirmActivate = () => {
       setConfirmAction('activate');
       setShowConfirm(true);
-      
+
     };
 
     const confirmDelete = () => {
       setConfirmAction('delte');
       setShowConfirm(true);
+
     };
 
     const startManager = () => {
 
     };
+
     const pauseManager = () => {
 
     };
+    
     const stopManager = () => {
 
     };
@@ -241,9 +242,13 @@ const GrowManager = () => {
             {strainName && (
               <StrainInfo>Current Strain: <strong>{strainName}</strong></StrainInfo>
             )}
-              <ManagerStart onClick={() => startManager()}><MdStart/></ManagerStart>
-              <ManagerPause onClick={() =>pauseManager()}><MdRestartAlt/></ManagerPause>
-              <ManagerStop onClick={() => stopManager()}><MdStopCircle/></ManagerStop>
+
+               {activePlan !== null ? (<></>) : (<>
+                <ManagerStop onClick={() => stopManager()}><MdStopCircle/></ManagerStop>
+                <ManagerPause onClick={() => pauseManager()}><MdRestartAlt/></ManagerPause>
+               </>)}
+
+
             </ManagerActionContainer>
 
             {activePlan && (
@@ -515,7 +520,7 @@ const GrowManager = () => {
                             </p>
                             <p>Please make sure all settings are correct.</p>
                           </>
-                                                :     <>
+                           :     <>
                             <p>Do you really want to delete this plan?</p>
 
                             <h3>{selectedPlan.plan_name}</h3>

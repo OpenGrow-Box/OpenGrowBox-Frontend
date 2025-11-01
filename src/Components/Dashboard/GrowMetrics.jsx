@@ -466,7 +466,7 @@ const GrowMetrics = ({ room = 'default' }) => {
   return (
     <Container>
       <Header>
-        <Title>Grow Metrics Analytics - {room}</Title>
+        <Title>Room Analytics - {room}</Title>
         <OverallScore score={overallScore.avgRange}>
           Overall Range: {overallScore.avgRange}%
         </OverallScore>
@@ -530,7 +530,7 @@ const GrowMetrics = ({ room = 'default' }) => {
 
       {Object.keys(sensorEntities).length === 0 && (
         <WarningMessage>
-          ⚠️ Keine passenden Sensoren gefunden für Room: {currentRoom}
+          ⚠️ NO SENSOR FOUND FOR ROOM: {currentRoom}
           <SensorList>
             Searched Sensors:
             <ul>
@@ -785,9 +785,9 @@ const Title = styled.h2`
 `;
 
 const OverallScore = styled.div`
-  padding: 0.5rem 0.8rem;
+  padding: 0.8rem 0.3rem;
 
-  border-radius: 10px;
+  border-radius: 1rem;
   background: linear-gradient(135deg, 
     ${props => props.score >= 80 ? '#4CAF50' : props.score >= 60 ? '#FFEB3B' : '#F44336'}, 
     ${props => props.score >= 80 ? '#45a049' : props.score >= 60 ? '#FDD835' : '#d32f2f'});
@@ -1009,13 +1009,14 @@ const SummaryPercentage = styled.div`
 `;
 
 const LiveButton = styled.button`
+  padding: 0.9rem 0.2rem;
+  border-radius:1rem;
   background: ${props => props.isActive 
     ? 'linear-gradient(135deg, #f44336 0%, #e91e63 100%)' 
-    : 'linear-gradient(135deg, #666 0%, #888 100%)'};
-  color: white;
+    : 'linear-gradient(135deg, #6ff4 0%, #888 100%)'};
+
   border: none;
-  border-radius: 8px;
-  font-size: 1rem;
+
   font-weight: 600;
   cursor: pointer;
   transition: all 0.3s ease;

@@ -7,7 +7,7 @@ export const classifyAndNormalize = (entities) => {
 };
 
 const blockedKeywords = [
-  'wifi', 'mqtt', 'battery',  'power', 'connect', 'signal'
+  'wifi', 'mqtt', 'battery',  'power', 'connect', 'signal',"backup"
 ];
 
 const classifyEntity = (key, entity) => {
