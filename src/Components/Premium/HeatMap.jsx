@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState, useMemo, useCallback } from 'react'
 import styled from 'styled-components'
 import * as THREE from 'three'
-import { FaTemperatureHigh, FaExpand, FaCompress, FaSave } from 'react-icons/fa'
+import { FaTemperatureHigh, FaSave } from 'react-icons/fa'
 import { useHomeAssistant } from '../Context/HomeAssistantContext'
 import { useGlobalState } from '../Context/GlobalContext'
 
@@ -17,11 +17,15 @@ const HeatMap = () => {
   const sensorsRef = useRef([])
   const [isFullscreen, setIsFullscreen] = useState(false)
   const [selectedType, setSelectedType] = useState('all')
-  const [isDragging, setIsDragging] = useState(false)
   const [savedMessage, setSavedMessage] = useState('')
+  const [lightState, setLightState] = useState(true)
+  const [isDaytime, setIsDaytime] = useState(false)
+  const [editingId, setEditingId] = useState(null)
   const { HASS } = useGlobalState()
   const { entities, currentRoom } = useHomeAssistant()
   const [debugInfo, setDebugInfo] = useState({})
+  const doubleClickTimeoutRef = useRef(null)
+  const lastClickRef = useRef(0)
 
   const STORAGE_KEY = `heatmap_positions_${currentRoom?.toLowerCase() || 'default'}`
 
@@ -30,8 +34,6 @@ const HeatMap = () => {
     [`sensor.ogb_avgtemperature_${currentRoom?.toLowerCase()}`]: { x: 2, y: 5, z: 0 },
     [`sensor.ogb_avghumidity_${currentRoom?.toLowerCase()}`]: { x: 2, y: 5, z: 0 },
     [`sensor.ogb_avgdewpoint_${currentRoom?.toLowerCase()}`]: { x: 2, y: 5, z: 0 },
-   
-   
     [`sensor.ogb_outsitetemperature_${currentRoom?.toLowerCase()}`]: { x: -5, y: 5.5, z: 1 },
     [`sensor.ogb_outsitehumidity${currentRoom?.toLowerCase()}`]: { x: -5, y: 5.5, z: 1 },
     [`sensor.ogb_outsitedewpoint_${currentRoom?.toLowerCase()}`]: { x: -5, y: 5.5, z: 1 },
@@ -60,6 +62,43 @@ const HeatMap = () => {
     setTimeout(() => setSavedMessage(''), 2000)
   }, [customPositions, STORAGE_KEY])
 
+  const getColorByValue = (val, sensor) => {
+    let type = selectedType
+    if (selectedType === 'all' && sensor) {
+      const unit = sensor.unit || ''
+      const name = sensor.name.toLowerCase()
+      if (unit === '°C' || unit === '°F' || name.includes('temp')) {
+        type = 'temperature'
+      } else if (unit === '%' || name.includes('feucht') || name.includes('humidity')) {
+        type = 'humidity'
+      } else if (name.includes('tau') || name.includes('dew')) {
+        type = 'dewpoint'
+      }
+    }
+
+    if (type === 'temperature') {
+      if (val < 20) return 0x3b82f6
+      if (val < 22) return 0x22c55e
+      if (val < 24) return 0xeab308
+      if (val < 26) return 0xf97316
+      return 0xef4444
+    }
+    if (type === 'humidity') {
+      if (val < 30) return 0x60a5fa
+      if (val < 50) return 0x22c55e
+      if (val < 70) return 0xeab308
+      return 0xef4444
+    }
+    if (type === 'dewpoint') {
+      if (val < 5) return 0x60a5fa
+      if (val < 10) return 0x22c55e
+      if (val < 15) return 0xeab308
+      return 0xf97316
+    }
+    
+    return 0xffffff
+  }
+
   const sensors = useMemo(() => {
     if (!HASS || !entities || !currentRoom) return []
     const devices = HASS.devices || {}
@@ -77,17 +116,42 @@ const HeatMap = () => {
         const dc = e.attributes?.device_class || ''
         const name = (e.attributes?.friendly_name || '').toLowerCase()
 
-        if (!roomDeviceIds.includes(deviceId)) return false
+        if (deviceId && !roomDeviceIds.includes(deviceId)) return false
+
+        const unwantedTerms = ['wifi', 'signal', 'voltage',"battery", 'connection', 'tolerance', 'cropsteering', 'restart', 'energy', 'volt', 'mqtt']
+        const allowedOgbTerms = ['avg', 'outside', 'ambient']
+
+        if (
+          entityId.includes('ogb_') &&
+          !allowedOgbTerms.some(term => entityId.includes(term) || name.includes(term))
+        ) return false
+
+        if (
+          !entityId.includes('ogb_') &&
+          unwantedTerms.some(term => entityId.includes(term) || name.includes(term))
+        ) return false
 
         switch (selectedType) {
           case 'all':
-            return
+            return true
           case 'temperature':
-            return dc === 'temperature' || unit === '°C' || unit === '°F' || entityId.includes('temp') || name.includes('temp')
+            return (
+              dc === 'temperature' ||
+
+              entityId.includes('temp') ||
+              name.includes('temp')
+            )
           case 'humidity':
-            return dc === 'humidity' || unit === '%' || entityId.includes('humid') || name.includes('feucht') || name.includes('humidity')
+            return (
+              dc === 'humidity' ||
+              entityId.includes('humid') ||
+              name.includes('feucht')
+            )
           case 'dewpoint':
-            return entityId.includes('dew') || name.includes('tau') || name.includes('dewpoint') || dc === 'dew_point'
+            return (
+              name.includes('dewpoint') ||
+              dc === 'dew_point'
+            )
           default:
             return false
         }
@@ -120,28 +184,6 @@ const HeatMap = () => {
     setDebugInfo({ room: currentRoom, type: selectedType, count: result.length })
     return result
   }, [HASS?.devices, entities, currentRoom, selectedType, customPositions])
-
-  const getColorByValue = (val) => {
-    if (selectedType === 'temperature') {
-      if (val < 20) return 0x3b82f6
-      if (val < 22) return 0x22c55e
-      if (val < 24) return 0xeab308
-      if (val < 26) return 0xf97316
-      return 0xef4444
-    }
-    if (selectedType === 'humidity') {
-      if (val < 30) return 0x60a5fa
-      if (val < 50) return 0x22c55e
-      if (val < 70) return 0xeab308
-      return 0xef4444
-    }
-    if (selectedType === 'dewpoint') {
-      if (val < 5) return 0x60a5fa
-      if (val < 10) return 0x22c55e
-      if (val < 15) return 0xeab308
-      return 0xf97316
-    }
-  }
 
   useEffect(() => {
     if (!canvasRef.current || rendererRef.current) return
@@ -185,15 +227,11 @@ const HeatMap = () => {
     planeRef.current = plane
 
     let isRotating = false
-    let isPanning = false
     let previousMouse = { x: 0, y: 0 }
-    let clickStartTime = 0
-    let hasMoved = false
-    const CLICK_THRESHOLD = 5 // Pixel
-    const DRAG_START_DELAY = 150 // ms
-        
+    let isDraggingRef = { current: false }
+
     const handleMouseDown = (e) => {
-      if (e.button === 2) return
+      if (e.button !== 0) return
       if (!rendererRef.current) return
 
       const rect = canvasRef.current.getBoundingClientRect()
@@ -204,40 +242,35 @@ const HeatMap = () => {
       mouseRef.current.y = -(y / rect.height) * 2 + 1
 
       raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
-      
-      // Nur gegen aktuelle Sensoren checken
       const intersects = raycasterRef.current.intersectObjects(sensorsRef.current, true)
 
-      clickStartTime = Date.now()
-      hasMoved = false
       previousMouse = { x: e.clientX, y: e.clientY }
 
       if (intersects.length > 0) {
         const obj = intersects[0].object
         let group = obj.parent
         
-        // Sicherstellen dass wir die Group mit der ID haben
         while (group && !group.userData.id && group !== scene) {
           group = group.parent
         }
         
         if (group && group.userData.id) {
-          selectedObjectRef.current = group
-          canvasRef.current.style.cursor = 'grab'
+          const now = Date.now()
+          const timeSinceLastClick = now - lastClickRef.current
           
-          const checkDrag = setTimeout(() => {
-            if (selectedObjectRef.current && !hasMoved) {
-              setIsDragging(true)
-              canvasRef.current.style.cursor = 'grabbing'
-              // Plane auf Sensor-Höhe setzen
-              planeRef.current.position.y = group.position.y
-            }
-          }, DRAG_START_DELAY)
-          
-          selectedObjectRef.current.userData.dragTimeout = checkDrag
+          if (timeSinceLastClick < 300) {
+            setEditingId(group.userData.id)
+            isDraggingRef.current = true
+            canvasRef.current.style.cursor = 'grabbing'
+            selectedObjectRef.current = group
+            planeRef.current.position.y = group.position.y
+          } else {
+            lastClickRef.current = now
+            isRotating = true
+          }
         }
       } else {
-        isPanning = true
+        isRotating = true
       }
     }
 
@@ -246,43 +279,46 @@ const HeatMap = () => {
 
       const deltaX = e.clientX - previousMouse.x
       const deltaY = e.clientY - previousMouse.y
-      const movedDistance = Math.sqrt(deltaX * deltaX + deltaY * deltaY)
 
-      if (movedDistance > CLICK_THRESHOLD) {
-        hasMoved = true
-      }
-
-      // Panning - Kamera drehen
-      if (isPanning && !selectedObjectRef.current) {
+      if (isRotating && !isDraggingRef.current) {
         const spherical = new THREE.Spherical()
-        spherical.setFromVector3(cameraRef.current.position)
+        const camPos = cameraRef.current.position
+        const centerY = 2
+        
+        const relativePos = new THREE.Vector3(camPos.x, camPos.y - centerY, camPos.z)
+        spherical.setFromVector3(relativePos)
+        
         spherical.theta -= deltaX * 0.005
         spherical.phi += deltaY * 0.005
         spherical.phi = Math.max(0.1, Math.min(Math.PI - 0.1, spherical.phi))
         
         const newPos = new THREE.Vector3()
         newPos.setFromSpherical(spherical)
-        newPos.y += 2
+        newPos.y += centerY
         cameraRef.current.position.copy(newPos)
-        cameraRef.current.lookAt(0, 2, 0)
+        cameraRef.current.lookAt(0, centerY, 0)
       }
 
-      // Dragging - Sensor bewegen
-      if (isDragging && selectedObjectRef.current) {
-        const rect = canvasRef.current.getBoundingClientRect()
-        mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-        mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
+      if (isDraggingRef.current && selectedObjectRef.current) {
+        if (e.shiftKey || e.ctrlKey) {
+          const deltaY = e.clientY - previousMouse.y
+          selectedObjectRef.current.position.y -= deltaY * 0.02
+        } else {
+          const rect = canvasRef.current.getBoundingClientRect()
+          mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
+          mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
 
-        raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
-        const intersect = raycasterRef.current.intersectObject(planeRef.current)
-        
-        if (intersect.length > 0) {
-          const pos = intersect[0].point
-          selectedObjectRef.current.position.set(
-            pos.x,
-            selectedObjectRef.current.position.y,
-            pos.z
-          )
+          raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
+          const intersect = raycasterRef.current.intersectObject(planeRef.current)
+          
+          if (intersect.length > 0) {
+            const pos = intersect[0].point
+            selectedObjectRef.current.position.set(
+              pos.x,
+              selectedObjectRef.current.position.y,
+              pos.z
+            )
+          }
         }
       }
 
@@ -290,57 +326,42 @@ const HeatMap = () => {
     }
 
     const handleMouseUp = (e) => {
-      if (selectedObjectRef.current?.userData?.dragTimeout) {
-        clearTimeout(selectedObjectRef.current.userData.dragTimeout)
-      }
-
-      if (isDragging && selectedObjectRef.current) {
+      if (isDraggingRef.current && selectedObjectRef.current) {
         const id = selectedObjectRef.current.userData.id
         const pos = selectedObjectRef.current.position
         setCustomPositions(prev => ({
           ...prev,
           [id]: { x: pos.x, y: pos.y, z: pos.z }
         }))
+        setEditingId(null)
       }
 
-      setIsDragging(false)
-      isPanning = false
+      isDraggingRef.current = false
+      isRotating = false
       selectedObjectRef.current = null
       canvasRef.current.style.cursor = 'grab'
     }
 
-
     const handleWheel = (e) => {
+      e.preventDefault()
       const delta = e.deltaY > 0 ? 1.1 : 0.9
-      camera.position.multiplyScalar(delta)
-      const dist = camera.position.length()
-      if (dist < 5) camera.position.setLength(5)
-      if (dist > 30) camera.position.setLength(30)
+      cameraRef.current.position.multiplyScalar(delta)
+      const dist = cameraRef.current.position.length()
+      if (dist < 5) cameraRef.current.position.setLength(5)
+      if (dist > 30) cameraRef.current.position.setLength(30)
     }
 
-    const handleClick = (e) => {
-      if (hasMoved || isDragging) return
-
-      const rect = canvasRef.current.getBoundingClientRect()
-      mouseRef.current.x = ((e.clientX - rect.left) / rect.width) * 2 - 1
-      mouseRef.current.y = -((e.clientY - rect.top) / rect.height) * 2 + 1
-
-      raycasterRef.current.setFromCamera(mouseRef.current, cameraRef.current)
-      const intersects = raycasterRef.current.intersectObjects(sensorsRef.current, true)
-
-      if (intersects.length === 0 && !isRotating) {
-        isRotating = true
-      }
+    const handleContextMenu = (e) => {
+      e.preventDefault()
+      return false
     }
-
 
     const domElement = renderer.domElement
-    domElement.addEventListener('click', handleClick)
     domElement.addEventListener('mousedown', handleMouseDown)
     domElement.addEventListener('mousemove', handleMouseMove)
     domElement.addEventListener('mouseup', handleMouseUp)
-    domElement.addEventListener('wheel', handleWheel,{passive: false })
-    domElement.addEventListener('contextmenu', e => e.preventDefault())
+    domElement.addEventListener('wheel', handleWheel, { passive: false })
+    domElement.addEventListener('contextmenu', handleContextMenu)
 
     const animate = () => {
       requestAnimationFrame(animate)
@@ -359,8 +380,8 @@ const HeatMap = () => {
     const handleResize = () => {
       const w = canvasRef.current.clientWidth
       const h = canvasRef.current.clientHeight
-      camera.aspect = w / h
-      camera.updateProjectionMatrix()
+      cameraRef.current.aspect = w / h
+      cameraRef.current.updateProjectionMatrix()
       renderer.setSize(w, h)
     }
     window.addEventListener('resize', handleResize)
@@ -370,9 +391,74 @@ const HeatMap = () => {
       domElement.removeEventListener('mousedown', handleMouseDown)
       domElement.removeEventListener('mousemove', handleMouseMove)
       domElement.removeEventListener('mouseup', handleMouseUp)
-      domElement.removeEventListener('wheel', handleWheel,{passive: false })
+      domElement.removeEventListener('wheel', handleWheel)
+      domElement.removeEventListener('contextmenu', handleContextMenu)
     }
   }, [])
+
+  useEffect(() => {
+    if (!sceneRef.current) return
+    const scene = sceneRef.current
+
+    // Lampengruppe entfernen falls vorhanden
+    const existingLamp = scene.getObjectByName('lampGroup')
+    if (existingLamp) scene.remove(existingLamp)
+
+    // Lampengruppe IMMER hinzufügen
+    const lampGroup = new THREE.Group()
+    lampGroup.name = 'lampGroup'
+    lampGroup.position.set(0, 5, 0)
+
+    // Lampen-Aufhängung (Kabel/Stab)
+    const hookGeom = new THREE.CylinderGeometry(0.05, 0.05, 0.3, 16)
+    const hookMat = new THREE.MeshPhongMaterial({ color: 0x333333 })
+    const hook = new THREE.Mesh(hookGeom, hookMat)
+    hook.position.y = -0.15
+    lampGroup.add(hook)
+
+    // Lampen-Gehäuse (Zylinder oben)
+    const casing1Geom = new THREE.CylinderGeometry(0.2, 0.2, 0.1, 32)
+    const casingMat = new THREE.MeshPhongMaterial({ color: 0x222222 })
+    const casing1 = new THREE.Mesh(casing1Geom, casingMat)
+    casing1.position.y = -0.35
+    lampGroup.add(casing1)
+
+    // Lampen-Schirm (Kegel)
+    const shadeGeom = new THREE.ConeGeometry(0.25, 0.4, 32)
+    const shadeMat = new THREE.MeshPhongMaterial({ color: 0x444444, emissive: 0x222222 })
+    const shade = new THREE.Mesh(shadeGeom, shadeMat)
+    shade.position.y = -0.5
+    lampGroup.add(shade)
+
+    // Leuchtmittel (Glühbirne innen)
+    const bulbGeom = new THREE.SphereGeometry(0.15, 16, 16)
+    const bulbMat = new THREE.MeshPhongMaterial({
+      color: lightState ? 0xffff99 : 0x666666,
+      emissive: lightState ? 0xffff99 : 0x000000,
+      emissiveIntensity: lightState ? 0.8 : 0
+    })
+    const bulb = new THREE.Mesh(bulbGeom, bulbMat)
+    bulb.position.y = -0.8
+    lampGroup.add(bulb)
+
+    // Lichtstrahlung NUR wenn An
+    if (lightState) {
+      const light = new THREE.PointLight(0xffff99, 2, 25)
+      light.position.set(0, -0.35, 0)
+      light.name = 'roomLight'
+      lampGroup.add(light)
+    }
+
+    scene.add(lampGroup)
+
+    const bgColor = isDaytime ? 0x87ceeb : 0x0a0e27
+    scene.background = new THREE.Color(bgColor)
+
+    const ambientLight = scene.children.find(c => c instanceof THREE.AmbientLight)
+    if (ambientLight) {
+      ambientLight.intensity = isDaytime ? 1.8 : 0.4
+    }
+  }, [lightState, isDaytime])
 
   useEffect(() => {
     if (!sceneRef.current) return
@@ -389,7 +475,8 @@ const HeatMap = () => {
 
     sensors.forEach(sensor => {
       let group = sensorsRef.current.find(g => g.userData.id === sensor.id)
-      const color = getColorByValue(sensor.value)
+      const isEditing = editingId === sensor.id
+      const color = isEditing ? 0x000000 : getColorByValue(sensor.value, sensor)
 
       if (!group) {
         group = new THREE.Group()
@@ -439,7 +526,7 @@ const HeatMap = () => {
         group.position.set(sensor.position.x, sensor.position.y, sensor.position.z)
       }
     })
-  }, [sensors])
+  }, [sensors, editingId])
 
   const updateLabel = (ctx, sensor) => {
     ctx.fillStyle = '#ffffff'
@@ -460,8 +547,15 @@ const HeatMap = () => {
           </div>
         </TitleSection>
         <RightHeader>
-          <Select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
+          <LightToggle active={lightState} onClick={() => setLightState(!lightState)}>
+            {lightState ? '💡 AN' : '🔦 AUS'}
+          </LightToggle>
+          
+          <DaytimeToggle active={isDaytime} onClick={() => setIsDaytime(!isDaytime)}>
+            {isDaytime ? '☀️' : '🌙'}
+          </DaytimeToggle>
 
+          <Select value={selectedType} onChange={(e) => setSelectedType(e.target.value)}>
             <option value="all">All</option>
             <option value="temperature">Temperature</option>
             <option value="humidity">Humidity</option>
@@ -471,7 +565,6 @@ const HeatMap = () => {
           <SaveButton onClick={savePositions}>
             <FaSave /> SAVE
           </SaveButton>
-
         </RightHeader>
       </Header>
 
@@ -480,49 +573,53 @@ const HeatMap = () => {
       <CanvasContainer ref={canvasRef} $isFullscreen={isFullscreen} />
 
       <Controls>
-        <ControlItem>Left click + drag = Rotate</ControlItem>
-        <ControlItem>Click sensor + drag = Move</ControlItem>
-        <ControlItem>Mouse wheel = Zoom</ControlItem>
+        <ControlItem>Links ziehen = Raum drehen</ControlItem>
+        <ControlItem>Doppelklick auf Sensor + ziehen = Sensor verschieben (wird schwarz)</ControlItem>
+        <ControlItem>Shift + ziehen = Höhe ändern</ControlItem>
+        <ControlItem>Mausrad = Zoom</ControlItem>
       </Controls>
 
       <Legend>
-        <LegendTitle>LEGED: ({selectedType})</LegendTitle>
+        <LegendTitle>LEGENDE: ({selectedType})</LegendTitle>
         <LegendItems>
-          <LegendItem><LegendColor color="#3b82f6" /><span>COLD / LOW</span></LegendItem>
-          <LegendItem><LegendColor color="#22c55e" /><span>MEDIUM</span></LegendItem>
-          <LegendItem><LegendColor color="#f97316" /><span>HOT / HIGH</span></LegendItem>
-          <LegendItem><LegendColor color="#ef4444" /><span>SUPER HIGH</span></LegendItem>
+          <LegendItem><LegendColor color="#3b82f6" /><span>KALT / NIEDRIG</span></LegendItem>
+          <LegendItem><LegendColor color="#22c55e" /><span>MITTEL</span></LegendItem>
+          <LegendItem><LegendColor color="#f97316" /><span>WARM / HOCH</span></LegendItem>
+          <LegendItem><LegendColor color="#ef4444" /><span>SEHR HOCH</span></LegendItem>
         </LegendItems>
       </Legend>
 
       <SensorList>
-        <SensorListTitle>Sensors ({sensors.length})</SensorListTitle>
-        {sensors.map((sensor) => (
-          <SensorCard
-            key={sensor.id}
-            color={`#${getColorByValue(sensor.value).toString(16).padStart(6, '0')}`}
-            $draggable
-          >
-            <SensorName>{sensor.name}</SensorName>
-            <SensorValue>{sensor.value.toFixed(1)}{sensor.unit}</SensorValue>
-            {sensor.labelPosKey && <LabelTag>{sensor.labelPosKey}</LabelTag>}
-          </SensorCard>
-        ))}
+        <SensorListTitle>Sensoren ({sensors.length})</SensorListTitle>
+        {sensors.map((sensor) => {
+          const colorValue = getColorByValue(sensor.value, sensor)
+          const hexColor = colorValue ? `#${colorValue.toString(16).padStart(6, '0')}` : '#ffffff'
+          const displayColor = editingId === sensor.id ? '#000000' : hexColor
+          
+          return (
+            <SensorCard
+              key={sensor.id}
+              color={displayColor}
+            >
+              <SensorName>{sensor.name}</SensorName>
+              <SensorValue>{sensor.value.toFixed(1)}{sensor.unit}</SensorValue>
+              {sensor.labelPosKey && <LabelTag>{sensor.labelPosKey}</LabelTag>}
+              {editingId === sensor.id && <EditingBadge>BEARBEITUNG</EditingBadge>}
+            </SensorCard>
+          )
+        })}
       </SensorList>
     </Container>
   )
 }
 
-/* ---------------- STYLED COMPONENTS (vollständig & hübsch!) ---------------- */
 const Container = styled.div`
   border: 1px solid var(--secondary-accent);
-  border-radius: 1rem;
-  background: var(--main-bg-card-color);
   border-radius: 20px;
+  background: var(--main-bg-card-color);
   padding: 30px;
   box-shadow: 0 20px 60px rgba(0,0,0,0.3);
   max-width: 1200px;
-
   color: white;
   position: relative;
 `
@@ -603,19 +700,28 @@ const SaveButton = styled.button`
   &:hover { background: #16a34a; transform: scale(1.05); }
 `
 
-const FullscreenButton = styled.button`
-  background: rgba(255,255,255,0.2);
+const LightToggle = styled.button`
+  background: ${props => props.active ? '#fbbf24' : 'rgba(255,255,255,0.2)'};
   border: none;
   color: white;
-  padding: 10px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all .3s ease;
+  &:hover { background: ${props => props.active ? '#f59e0b' : 'rgba(255,255,255,0.3)'}; }
+`
+
+const DaytimeToggle = styled.button`
+  background: ${props => props.active ? '#60a5fa' : '#1a1a2e'};
+  border: 1px solid rgba(255,255,255,0.3);
+  color: white;
+  padding: 8px 12px;
   border-radius: 8px;
   font-size: 18px;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   transition: all .3s ease;
-  &:hover { background: rgba(255,255,255,0.3); transform: scale(1.1); }
+  &:hover { transform: scale(1.1); }
 `
 
 const CanvasContainer = styled.div`
@@ -703,16 +809,14 @@ const SensorCard = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+  gap: 10px;
   transition: all .2s ease;
-  ${props => props.$draggable && `
-    cursor: move;
-    &:hover { background: rgba(255,255,255,0.1); transform: translateX(4px); }
-  `}
 `
 
 const SensorName = styled.div`
   font-weight: 500;
   font-size: 14px;
+  flex: 1;
 `
 
 const SensorValue = styled.div`
@@ -729,6 +833,21 @@ const LabelTag = styled.span`
   padding: 2px 6px;
   border-radius: 4px;
   opacity: 0.8;
+`
+
+const EditingBadge = styled.span`
+  font-size: 10px;
+  background: #000000;
+  color: #fff;
+  padding: 4px 8px;
+  border-radius: 4px;
+  font-weight: 600;
+  animation: pulse 1s infinite;
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.6; }
+  }
 `
 
 export default HeatMap
