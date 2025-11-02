@@ -21,7 +21,7 @@ const dynamicFilters = {
       },
       'VPD Perfection': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light"],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light","planttype"],
         additionalTooltips: {}
       },
       'PID Control': {
@@ -54,7 +54,6 @@ const dynamicFilters = {
     }
   },
 
-
   light_control: {
     selectEntity: 'ogb_lightcontrol_',
     activeInGroups: ['Lights'], 
@@ -65,7 +64,7 @@ const dynamicFilters = {
         additionalTooltips: {}
       },
       'YES': {
-        includeKeywords: ["light"],
+        includeKeywords: ["light",],
         excludeKeywords: [],
         additionalTooltips: {}
       }
@@ -84,7 +83,6 @@ const dynamicFilters = {
     }
   },
 
-
   light_control_mode: {
     selectEntity: 'ogb_light_controltype_',
     activeInGroups: ['Lights'], 
@@ -94,14 +92,9 @@ const dynamicFilters = {
         excludeKeywords: [],
         additionalTooltips: {}
       },
-      'GLJ': {
-        includeKeywords: ["light"],
-        excludeKeywords: ["sun","off","minmax"],
-        additionalTooltips: {}
-      },
       'DLI': {
         includeKeywords: ["light"],
-        excludeKeywords: [],
+        excludeKeywords: ["minmax","vpdlight"],
         additionalTooltips: {}
       }
     }
@@ -418,7 +411,7 @@ const groupMappings = {
     excludeKeywords: ['Device', 'water', 'hydro'],
   },
   'Special Settings': {
-    includeKeywords: ['area','determination','medium','console'],
+    includeKeywords: ['area','determination','medium','console','planttype'],
     excludeKeywords: ["mediumctrl"],
   },
   'Targets': {
