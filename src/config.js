@@ -11,12 +11,12 @@ const DEV_CONFIG = {
                window.location.hostname === 'localhost'
 };
 
-const DEV_USERS =[
+// Project Contributors (Hall of Fame)
+const CONTRIBUTORS = [
   {name:"OpenGrowBox"},
   {name:"0xW3bJun6l3"},
   {name:"SZip"},
-]
-
+];
 
 const premiumLaunchDate = new Date('2025-12-01T00:00:00Z'); 
 const PREMIUM_RELEASE_DATE = new Date("2025-12-01T00:00:00Z");
@@ -24,7 +24,7 @@ const PREMIUM_RELEASE_DATE = new Date("2025-12-01T00:00:00Z");
 export {
   ogbversions,
   DEV_CONFIG,
-  DEV_USERS,
+  CONTRIBUTORS,
   premiumLaunchDate,
   PREMIUM_RELEASE_DATE,
 };

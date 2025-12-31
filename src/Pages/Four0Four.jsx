@@ -1,6 +1,7 @@
 import React from "react";
 import styled, { keyframes } from "styled-components";
 import { useHomeAssistant } from "../Components/Context/HomeAssistantContext";
+import { FaLeaf, FaHome, FaSearch, FaSeedling } from 'react-icons/fa';
 
 const float = keyframes`
   0% { transform: translateY(0) rotate(0deg); }
@@ -351,7 +352,7 @@ export default function NotFound404({homeUrl = "/ogb-gui/home"}){
     <Page>
       <Card>
         <Left>
-          <Title>404 — Plant Escaped 🌿</Title>
+          <Title>404 — Plant Escaped <FaLeaf /></Title>
           <Subtitle>Oops — nothing growing here. Page not found.</Subtitle>
 
           <Explanation>
@@ -361,10 +362,10 @@ export default function NotFound404({homeUrl = "/ogb-gui/home"}){
 
           <Actions>
             <Button onClick={handleHomeClick} aria-label="Back to home page">
-              🏠 Back to Home
+              <FaHome /> Back to Home
             </Button>
             <Ghost onClick={handleDebugClick} aria-label="Debug logs">
-              🔎 Debug (Growers Only)
+              <FaSearch /> Debug (Growers Only)
             </Ghost>
           </Actions>
 
@@ -380,7 +381,7 @@ export default function NotFound404({homeUrl = "/ogb-gui/home"}){
             <LeafSmall />
             <Soil />
             <PotBody />
-            <LeafBadge>🍃</LeafBadge>
+            <LeafBadge><FaSeedling /></LeafBadge>
           </Pot>
         </Right>
       </Card>

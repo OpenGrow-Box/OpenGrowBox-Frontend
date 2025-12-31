@@ -1,26 +1,45 @@
+import { lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import { GlobalStateProvider } from './Components/Context/GlobalContext';
-import HomeAssistantProvider from './Components/Context/HomeAssistantContext';
+import HomeAssistantProvider, { useHomeAssistant } from './Components/Context/HomeAssistantContext';
 
 import { OGBPremiumProvider } from './Components/Context/OGBPremiumContext';
 
-
 import ErrorBoundary from '../src/misc/ErrorBoundary';
-import ConnectionStatus from '../src/misc/ConnectionStatus'
-
-import GrowBook from './Pages/GrowBook';
-import Dashboard from './Pages/Dashboard';
-import SetupPage from './Pages/SetupPage';
-import Settings from './Pages/Settings';
-import Home from './Pages/Home';
-import Interface from './Pages/Interface'
-import Premium from './Pages/Premium';
-import FourOFour from './Pages/Four0Four'
+import ConnectionStatus from '../src/misc/ConnectionStatus';
 import ThemeGlobalStyle from './Pages/ThemeGlobalStyle';
 
-import StrainDB from './Components/Premium/StrainDB';
+// Wrapper component to provide reconnect function to ErrorBoundary
+const ErrorBoundaryWrapper = ({ children }) => {
+  const { reconnect } = useHomeAssistant();
+
+  return (
+    <ErrorBoundary onReconnect={reconnect}>
+      {children}
+    </ErrorBoundary>
+  );
+};
+
+// Lazy load all pages for better code splitting
+const Interface = lazy(() => import('./Pages/Interface'));
+const Home = lazy(() => import('./Pages/Home'));
+const Dashboard = lazy(() => import('./Pages/Dashboard'));
+const GrowBook = lazy(() => import('./Pages/GrowBook'));
+const Settings = lazy(() => import('./Pages/Settings'));
+const SetupPage = lazy(() => import('./Pages/SetupPage'));
+const FourOFour = lazy(() => import('./Pages/Four0Four'));
+
+
+
+// Loading fallback component
+const PageLoader = () => (
+  <LoaderContainer>
+    <LoaderSpinner />
+    <LoaderText>Loading...</LoaderText>
+  </LoaderContainer>
+);
 
 export default function App() {
 
@@ -29,8 +48,8 @@ export default function App() {
   return (
     <GlobalOGBContainer>
         <GlobalStateProvider>
-          <ErrorBoundary>
             <HomeAssistantProvider>
+              <ErrorBoundaryWrapper>
                 <OGBPremiumProvider>
                   <ThemeGlobalStyle />
                   <Router basename={basename}>
@@ -44,27 +63,27 @@ export default function App() {
                         <div className='gradient-4'></div>
                         <div className='gradient-5'></div>
                       </BackgroundContainer>
-                      {/* Sidebar und Main-Content */}
                       {/* Connection Status Notification */}
                       <ConnectionStatus />
                       <MainContent>
-                        <Routes>
-                          <Route path="/" element={<Interface />} />
-                          <Route path="/home" element={<Home />} />
-                          <Route path="/dashboard" element={<Dashboard />} />
-                          <Route path="/premium" element={<Premium />} />
-                          <Route path="/strainDB" element={<StrainDB />} />
-                          <Route path="/settings" element={<Settings />} />
-                          <Route path="/growbook" element={<GrowBook />} />
-                          <Route path="/config" element={<SetupPage />} />
-                          <Route path="/*" element={<FourOFour/>}/>
-                        </Routes>
+                        <Suspense fallback={<PageLoader />}>
+                          <Routes>
+                            <Route path="/" element={<Interface />} />
+                            <Route path="/home" element={<Home />} />
+                            <Route path="/dashboard" element={<Dashboard />} />
+                            <Route path="/settings" element={<Settings />} />
+                            <Route path="/growbook" element={<GrowBook />} />
+                            <Route path="/config" element={<SetupPage />} />
+                            <Route path="/*" element={<FourOFour/>}/>
+                          </Routes>
+                        </Suspense>
                       </MainContent>
                     </AppContainer>
                   </Router>
                 </OGBPremiumProvider>
+              </ErrorBoundaryWrapper>
             </HomeAssistantProvider>
-          </ErrorBoundary>
+
         </GlobalStateProvider>
     </GlobalOGBContainer>
   );
@@ -145,3 +164,31 @@ const MainContent = styled.div`
   height:100%;
 `;
 
+// Loading components
+const LoaderContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  min-height: 60vh;
+  gap: 1rem;
+`;
+
+const LoaderSpinner = styled.div`
+  width: 48px;
+  height: 48px;
+  border: 4px solid rgba(255, 255, 255, 0.1);
+  border-top-color: var(--primary-accent, #007AFF);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+  
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+`;
+
+const LoaderText = styled.p`
+  color: var(--main-text-color);
+  font-size: 0.9rem;
+  opacity: 0.7;
+`;

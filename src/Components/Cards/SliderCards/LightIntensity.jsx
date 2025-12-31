@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
+import { filterSensorsByRoom } from './sensorClassifier';
 
-const LightIntensity = ({pause,resume,isPlaying}) => {
-  const { entities } = useHomeAssistant();
+const LightIntensity = ({pause, resume, isPlaying, filterByRoom}) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [lightIntesity, setLightIntensity] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
@@ -18,38 +19,37 @@ const LightIntensity = ({pause,resume,isPlaying}) => {
   };
 
   useEffect(() => {
-    const LightIntensityCheck = () => {
-      const sensors = Object.entries(entities)
-        .filter(([key, entity]) => {
-          const isValidDomain = key.startsWith('number.') || key.startsWith('sensor.') || key.startsWith('switch.');
-          const isIntensity = key.toLowerCase().includes('intensity');
-          const hasState = entity?.state !== undefined;
-          return isIntensity && isValidDomain && hasState;
-        })
-        .map(([key, entity]) => {
-          let value = parseFloat(entity.state);
-          let unit = entity.attributes?.unit_of_measurement || '';
-          
-          // Sonderbehandlung für Volt → Prozent
-          if (unit.toLowerCase() === 'v') {
-            value = value * 10; // 0-10V → 0-100%
-            unit = '%';
-          }
+    let sensors = Object.entries(entities)
+      .filter(([key, entity]) => {
+        const isValidDomain = key.startsWith('number.') || key.startsWith('sensor.') || key.startsWith('switch.');
+        const isIntensity = key.toLowerCase().includes('intensity');
+        const hasState = entity?.state !== undefined;
+        return isIntensity && isValidDomain && hasState;
+      })
+      .map(([key, entity]) => {
+        let value = parseFloat(entity.state);
+        let unit = entity.attributes?.unit_of_measurement || '';
+        
+        if (unit.toLowerCase() === 'v') {
+          value = value * 10;
+          unit = '%';
+        }
 
-          return {
-            id: key,
-            value: value,
-            unit: unit,
-            friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-            entity_id: entity.entity_id,
-          };
-        });
+        return {
+          id: key,
+          value: value,
+          unit: unit,
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+          entity_id: entity.entity_id,
+        };
+      });
 
-      setLightIntensity(sensors);
-    };
+    if (filterByRoom && currentRoom) {
+      sensors = filterSensorsByRoom(sensors, currentRoom);
+    }
 
-    LightIntensityCheck();
-  }, [entities]);
+    setLightIntensity(sensors);
+  }, [entities, filterByRoom, currentRoom]);
 
   const handleDataBoxClick = (sensorId) => {
     pause(); 
@@ -115,7 +115,8 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 `;
 
 const Content = styled.div``;

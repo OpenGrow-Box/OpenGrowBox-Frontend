@@ -1,10 +1,9 @@
 import { useEffect, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
-import { FaDiscord, FaTelegram, FaBook } from 'react-icons/fa';
-import {ogbversions} from '../../config';
-import OGBIcon from '../../misc/OGBIcon'
+import { FaDiscord, FaTelegram, FaBook, FaLeaf, FaMobile } from 'react-icons/fa';
+import {ogbversions, CONTRIBUTORS} from '../../config';
+import OGBIcon from '../../misc/OGBIcon';
 import DevBageHallOfFame from './DevBageHallOfFame';
-import { DEV_USERS } from '../../config';
 
 const SettingsFooter = () => {
   const currentYear = new Date().getFullYear();
@@ -53,48 +52,44 @@ const SettingsFooter = () => {
   };
 
   return (
+    <>
+      <FooterContainer>
+        <OGBCopyright onClick={handleWebPageClick}>
+          <IconWrapper>
+           <OGBIcon/>
+          </IconWrapper>
 
-      <>
-    <FooterContainer>
-      <OGBCopyright onClick={handleWebPageClick}>
-        <IconWrapper>
-         <OGBIcon/>
-        </IconWrapper>
-
-        <span className="copyright-text">© OpenGrowBox</span>
-      </OGBCopyright>
-      
-      <SocialButtonsContainer>
-        <WikiButton onClick={handleWikiClick}>
-          <FaBook size={16} /> 
-          <span>Wiki</span>
-        </WikiButton>
+          <span className="copyright-text">© OpenGrowBox</span>
+        </OGBCopyright>
         
-        <TelegramButton onClick={handleTelegramClick}>
-          <FaTelegram size={16} /> 
-          <span>Telegram</span>
-        </TelegramButton>
+        <SocialButtonsContainer>
+          <WikiButton onClick={handleWikiClick}>
+            <FaBook size={16} /> 
+            <span>Wiki</span>
+          </WikiButton>
+          
+          <TelegramButton onClick={handleTelegramClick}>
+            <FaTelegram size={16} /> 
+            <span>Telegram</span>
+          </TelegramButton>
+          
+          <DiscordButton onClick={handleDiscordClick}>
+            <FaDiscord size={16} /> 
+            <span>Discord</span>
+          </DiscordButton>
+        </SocialButtonsContainer>
         
-        <DiscordButton onClick={handleDiscordClick}>
-          <FaDiscord size={16} /> 
-          <span>Discord</span>
-        </DiscordButton>
-      </SocialButtonsContainer>
-      
-      <Version onClick={handleVersionClick} hasUpdate={hasUpdate}>
-        <VersionIcon hasUpdate={hasUpdate}>
-          {hasUpdate ? '🍀' : '📱'}
-        </VersionIcon>
-        <VersionText>
-          {hasUpdate ? 'New Update!' : 'UI Version'}
-          <VersionNumber>{appVersion}</VersionNumber>
-        </VersionText>
-      </Version>
-
-
-    </FooterContainer>
-    <DevBageHallOfFame users={DEV_USERS} key={DEV_USERS.indexOf}/>
-    
+        <Version onClick={handleVersionClick} $hasUpdate={hasUpdate}>
+          <VersionIcon $hasUpdate={hasUpdate}>
+            {hasUpdate ? <FaLeaf /> : <FaMobile />}
+          </VersionIcon>
+          <VersionText>
+            {hasUpdate ? 'New Update!' : 'UI Version'}
+            <VersionNumber>{appVersion}</VersionNumber>
+          </VersionText>
+        </Version>
+      </FooterContainer>
+      <DevBageHallOfFame users={CONTRIBUTORS} />
     </>
   );
 };
@@ -204,17 +199,17 @@ const Version = styled.div`
   border-radius: 20px;
   cursor: pointer;
   transition: all 0.3s ease;
-  background: ${props => props.hasUpdate 
+  background: ${props => props.$hasUpdate 
     ? 'linear-gradient(135deg, #FF6B6B, #FF8E8E)' 
     : 'var(--main-bg-card-color)'
   };
-  border: ${props => props.hasUpdate 
+  border: ${props => props.$hasUpdate 
     ? '2px solid #FF6B6B' 
     : '1px solid var(--main-text-color)'
   };
-  color: ${props => props.hasUpdate ? 'white' : 'var(--main-text-color)'};
+  color: ${props => props.$hasUpdate ? 'white' : 'var(--main-text-color)'};
   
-  ${props => props.hasUpdate && css`
+  ${props => props.$hasUpdate && css`
     animation: ${pulse} 2s infinite;
     box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
   `}
@@ -222,16 +217,16 @@ const Version = styled.div`
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    background: ${props => props.hasUpdate 
+    background: ${props => props.$hasUpdate 
       ? 'linear-gradient(135deg, #FF8E8E, #FFB3B3)' 
-      : 'var(--primary-accent)'
+      : 'var(--primary-accent, #10b981)'
     };
   }
 `;
 
 const VersionIcon = styled.div`
   font-size: 1.2rem;
-  ${props => props.hasUpdate && css`animation: ${blink} 1.5s infinite;`}
+  ${props => props.$hasUpdate && css`animation: ${blink} 1.5s infinite;`}
 `;
 
 const VersionText = styled.div`

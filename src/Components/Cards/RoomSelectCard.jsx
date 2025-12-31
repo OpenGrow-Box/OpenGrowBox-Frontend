@@ -171,6 +171,6 @@ const ToggleIcon = styled.div`
   transition: color 0.3s ease;
 
   &:hover {
-    color: ${props => props.selected ? '#3e8e41' : 'var(--main-text-color)'};
+    color: ${props => props.selected ? 'var(--main-arrow-up)' : 'var(--main-text-color)'};
   }
 `;

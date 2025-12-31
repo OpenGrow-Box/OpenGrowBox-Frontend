@@ -3,24 +3,28 @@ import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
-import { classifyAndNormalize } from './sensorClassifier';
+import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 
 
-const CO2Card = ({pause,resume,isPlaying}) => {
-  const { entities } = useHomeAssistant();
+const CO2Card = ({pause, resume, isPlaying, filterByRoom}) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [co2Sensors, setCo2Sensors] = useState([]);
-  const [selectedSensor, setSelectedSensor] = useState(null); // State für ausgewählten Sensor (Modal)
-
+  const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
-    const normalizedSensors = classifyAndNormalize(entities)
+    let normalizedSensors = classifyAndNormalize(entities)
       .filter(s => 
         (s.category === "co2") && 
-        s.context === "air"  // ← Hier der zusätzliche Filter!
+        s.context === "air"
       );
 
+    // Filter by current room using HA device registry
+    if (filterByRoom && currentRoom) {
+      normalizedSensors = filterSensorsByRoom(normalizedSensors, currentRoom);
+    }
+
     setCo2Sensors(normalizedSensors);
-  }, [entities]);
+  }, [entities, filterByRoom, currentRoom]);
 
   // Funktion, die die Farbe basierend auf dem CO₂-Wert bestimmt
   const getColorForValue = (value) => {
@@ -86,9 +90,9 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
-    width: 10%;
     transition: color 0.3s ease;
   }
 `;

@@ -123,13 +123,21 @@ const DashboardSlider = () => {
           <LiaPlayCircle />
         </IconWrapper>
 
-      {/**
-       <ToggleButton onClick={() => setFilterByRoom(prev => !prev)}>
-        {filterByRoom ? "Show All" : "Show Only Room"}
-      </ToggleButton>
-       */}
+        <FilterToggle>
+          <FilterOption 
+            $active={filterByRoom} 
+            onClick={() => setFilterByRoom(true)}
+          >
+            Room
+          </FilterOption>
+          <FilterOption 
+            $active={!filterByRoom} 
+            onClick={() => setFilterByRoom(false)}
+          >
+            All
+          </FilterOption>
+        </FilterToggle>
 
-  
         <IconWrapper $active={!isPlaying} onClick={pause}>
           <LiaPauseCircle />
         </IconWrapper>
@@ -166,28 +174,32 @@ const SliderContainer = styled.div`
   align-items: center;
   flex-direction: column;
   border-radius: 25px;
-  background:  var(--main-bg-card-color);
+  background: var(--main-bg-card-color);
   box-shadow: var(--main-shadow-art);
-
+  padding-bottom: 1rem;
+  overflow: hidden;
 `;
 
 const SliderMenu = styled.div`
   display: flex;
-  justify-content: space-around;
-  margin: 1rem;
-  width: 50%;
+  justify-content: center;
+  align-items: center;
+  gap: 1.5rem;
+  margin: 0.75rem;
+  padding: 0.5rem 1rem;
   font-size: 0.8rem;
   border-radius: 20px;
   box-shadow: var(--main-shadow-art);
+  background: rgba(0, 0, 0, 0.15);
 `;
 
 const SlideWrapper = styled.div`
   display: flex;
-  padding: 0.1rem;
-  min-width: 95%;
+  padding: 0.5rem;
+  width: 95%;
   min-height: 15vh;
-  max-height: 30vh;
-
+  max-height: 50vh;
+  overflow-y: auto;
 `;
 
 const ArrowContainer = styled.div`
@@ -213,7 +225,6 @@ const ArrowButton = styled.button`
 
 const SlideContent = styled.div`
   width: 100%;
-  padding-bottom:1rem;
 `;
 
 const IconWrapper = styled.div`
@@ -235,16 +246,26 @@ const IconWrapper = styled.div`
     font-size: 1rem;
   }
 `;
-const ToggleButton = styled.button`
-  margin-left: 1rem;
-  padding: 0.2rem 0.5rem;
-  background: var(--main-bg-card-color);
+const FilterToggle = styled.div`
+  display: flex;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 12px;
+  padding: 0.15rem;
+  gap: 0.15rem;
+`;
+
+const FilterOption = styled.button`
+  padding: 0.25rem 0.6rem;
+  background: ${props => props.$active ? 'var(--primary-button-color)' : 'transparent'};
   border: none;
+  border-radius: 10px;
   cursor: pointer;
-  border-radius: 5px;
-  color: var(--main-text-color);
-  box-shadow: var(--main-shadow-art);
+  color: ${props => props.$active ? '#fff' : 'var(--main-text-color)'};
+  font-size: 0.7rem;
+  font-weight: 500;
+  transition: all 0.2s ease;
+
   &:hover {
-    opacity: 0.7;
+    background: ${props => props.$active ? 'var(--primary-button-color)' : 'rgba(255, 255, 255, 0.1)'};
   }
 `;

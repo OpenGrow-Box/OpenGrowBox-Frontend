@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react';
 import { ogbversions } from '../../config';
+import SecureTokenStorage from '../../utils/secureTokenStorage';
 
 const GlobalStateContext = createContext();
 
@@ -21,7 +22,10 @@ const initialState = {
   hassWS:{},
   Design: {
     theme: 'Main',
-    availableThemes: ['Main', 'Unicorn', 'Hacky','BookWorm','BlueOcean','CyperPunk','Darkness'],
+    availableThemes: ['Main', 'Unicorn', 'Hacky','BookWorm','BlueOcean','CyberPunk','Darkness','Aurora'],
+  },
+  Settings: {
+    safeModeEnabled: true, // Enable safe mode by default to prevent accidental mobile changes
   },
 };
 
@@ -30,8 +34,26 @@ export const GlobalStateProvider = ({ children }) => {
   // Initialisierung des Zustands mit Werten aus dem localStorage, falls vorhanden
  
   const [state, setState] = useState(() => {
-    const storedState = localStorage.getItem('globalOGBState');
-    return storedState ? JSON.parse(storedState) : initialState;
+    try {
+      const storedState = localStorage.getItem('globalOGBState');
+      if (storedState) {
+        const parsedState = JSON.parse(storedState);
+        // Merge with initialState to ensure new themes are included
+        return {
+          ...initialState,
+          ...parsedState,
+          Design: {
+            ...initialState.Design,
+            ...parsedState.Design,
+            // Always use the latest availableThemes from initialState
+            availableThemes: initialState.Design.availableThemes
+          }
+        };
+      }
+    } catch (error) {
+      console.warn('Failed to load state from localStorage:', error);
+    }
+    return initialState;
   });
   const [srvADDR,setSrvADDR] = useState(null)
   const [HASS,setHASS] = useState(null)
@@ -42,10 +64,14 @@ export const GlobalStateProvider = ({ children }) => {
 
   // Effekt zum Speichern des Zustands im localStorage bei Änderungen
   
-  const setHASSAccessToken = (token) => {
-    setAccessToken(token)
-    setDeep("Conf.haToken",token)
-  }
+   const setHASSAccessToken = (token) => {
+     setAccessToken(token)
+     setDeep("Conf.haToken",token)
+     // Also save to SecureTokenStorage for persistence
+     if (token) {
+       SecureTokenStorage.storeToken(token);
+     }
+   }
 
   const setHASSServer = (addr) => {
     if(addr === null) return
@@ -98,31 +124,38 @@ export const GlobalStateProvider = ({ children }) => {
   
   }, []);
 
-  useEffect(() => {
-    if (import.meta.env.PROD) {
-      const hass = getHASS();
-      setHass(hass)
-      const haServer = hass.auth.data.hassUrl
-      if (haServer !== null) {
-        setHASSServer(haServer)
-      }
-    }else{
-      setHASSServer(haHostDev)
-    }
+   useEffect(() => {
+     if (import.meta.env.PROD) {
+       const hass = getHASS();
+       setHass(hass)
+       const haServer = hass.auth.data.hassUrl
+       if (haServer !== null) {
+         setHASSServer(haServer)
+       }
+     }else{
+       // In dev mode, only set default server if not already configured
+       const currentServer = state.Conf?.hassServer;
+       if (!currentServer || currentServer.trim() === '') {
+         setHASSServer(haHostDev)
+       }
+     }
 
-  }, [srvADDR]);
+   }, [srvADDR, state.Conf?.hassServer]);
 
-  useEffect(() => {
-    if (import.meta.env.PROD) {
-      const hass = getHASS();
-      const token = hass.states["text.ogb_accesstoken"].state
-      setHASSAccessToken(token)
-    }else{
-      const token = localStorage.getItem("devToken")
-      setHASSAccessToken(token)
-    }
+   useEffect(() => {
+     if (import.meta.env.PROD) {
+       const hass = getHASS();
+       const token = hass.states["text.ogb_accesstoken"].state
+       setHASSAccessToken(token)
+     }else{
+       // Load token from SecureTokenStorage in dev mode
+       const token = SecureTokenStorage.getToken();
+       if (token) {
+         setHASSAccessToken(token);
+       }
+     }
 
-  }, [accessToken]);
+   }, [accessToken]);
 
   useEffect(() => {
     localStorage.setItem('globalOGBState', JSON.stringify(state));
@@ -194,4 +227,10 @@ export const GlobalStateProvider = ({ children }) => {
   );
 };
 
-export const useGlobalState = () => useContext(GlobalStateContext);
+export const useGlobalState = () => {
+  const context = useContext(GlobalStateContext);
+  if (!context) {
+    throw new Error('useGlobalState must be used within GlobalStateProvider');
+  }
+  return context;
+};

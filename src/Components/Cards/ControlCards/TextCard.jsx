@@ -1,52 +1,123 @@
+import { useState, useEffect } from "react";
 import styled from "styled-components";
+import { Shield } from 'lucide-react';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
+import { useSafeMode } from "../../../hooks/useSafeMode";
+import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 
-const TextCard = ({ entities }) => {
-  const { connection } = useHomeAssistant();
+// Single text input component with local state
+const TextInputCard = ({ entity, sendCommand, isSafeModeEnabled, confirmChange }) => {
+  const [localValue, setLocalValue] = useState(entity.state || '');
 
-  if (!entities || entities.length === 0) {
-    return <p>No text entities available</p>;
-  }
+  // Sync with entity state when it changes from external source
+  useEffect(() => {
+    if (entity.state !== undefined && entity.state !== localValue) {
+      setLocalValue(entity.state);
+    }
+  }, [entity.state]);
 
-  const handleTextChange = async (entity, value) => {
-    if (!connection) return;
+  const handleTextChange = (e) => {
+    setLocalValue(e.target.value);
+  };
+
+  const handleBlur = async () => {
+    // Skip if value hasn't changed
+    if (localValue === entity.state) {
+      return;
+    }
+
+    // Request confirmation if Safe Mode is enabled
+    const confirmed = await confirmChange(
+      entity.title || entity.friendly_name || entity.entity_id,
+      entity.state,
+      localValue
+    );
+
+    if (!confirmed) {
+      // Revert to original value
+      setLocalValue(entity.state);
+      return;
+    }
 
     try {
-      await connection.sendMessagePromise({
+      await sendCommand({
         type: "call_service",
         domain: "text",
         service: "set_value",
         service_data: {
           entity_id: entity.entity_id,
-          value: value,
+          value: localValue,
         },
       });
     } catch (error) {
       console.error("Error updating text entity:", error);
+      // Revert to original value on error
+      setLocalValue(entity.state);
+    }
+  };
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter') {
+      e.target.blur(); // Trigger blur to save
     }
   };
 
   return (
-    <Container>
-      {entities.map((entity) => (
-        <Card key={entity.entity_id}>
-          <CardHeader>
-            <Tooltip>{entity.tooltip}</Tooltip>
-            <Title>{entity.title || entity.friendly_name}</Title>
-            <Value>{entity.state}</Value>
-            {entity.unit && <Unit>{entity.unit}</Unit>}
-          </CardHeader>
-          <InputWrapper>
-            <TextInput
-              type="text"
-              defaultValue={entity.state}
-              placeholder={entity.placeholder || "Enter value..."}
-              onBlur={(e) => handleTextChange(entity, e.target.value)}
-            />
-          </InputWrapper>
-        </Card>
-      ))}
-    </Container>
+    <Card $safeModeEnabled={isSafeModeEnabled}>
+      <CardHeader>
+        <Tooltip>{entity.tooltip}</Tooltip>
+        <Title>{entity.title || entity.friendly_name}</Title>
+        {isSafeModeEnabled && <SafeModeIndicator title="Safe Mode Active"><Shield size={14} /></SafeModeIndicator>}
+        <Value>{entity.state}</Value>
+        {entity.unit && <Unit>{entity.unit}</Unit>}
+      </CardHeader>
+      <InputWrapper>
+        <TextInput
+          type="text"
+          value={localValue}
+          placeholder={entity.placeholder || "Enter value..."}
+          onChange={handleTextChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+        />
+      </InputWrapper>
+    </Card>
+  );
+};
+
+const TextCard = ({ entities }) => {
+  const { sendCommand } = useHomeAssistant();
+  const { isSafeModeEnabled, confirmChange, confirmationState, handleConfirm, handleCancel } = useSafeMode();
+
+  if (!entities || entities.length === 0) {
+    return <p>No text entities available</p>;
+  }
+
+  return (
+    <>
+      <Container>
+        {entities.map((entity) => (
+          <TextInputCard
+            key={entity.entity_id}
+            entity={entity}
+            sendCommand={sendCommand}
+            isSafeModeEnabled={isSafeModeEnabled}
+            confirmChange={confirmChange}
+          />
+        ))}
+      </Container>
+
+      {/* Safe Mode Confirmation Modal */}
+      <SafeModeConfirmModal
+        isOpen={confirmationState.isOpen}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        entityName={confirmationState.entityName}
+        currentValue={confirmationState.currentValue}
+        newValue={confirmationState.newValue}
+        changeType="input"
+      />
+    </>
   );
 };
 
@@ -68,8 +139,8 @@ const Tooltip = styled.div`
   position: absolute;
   top: -1.5rem;
   left: 1rem;
-  background-color: rgba(50, 50, 50, 0.9);
-  color: white;
+  background-color: var(--main-bg-color);
+  color: var(--main-text-color);
   padding: 4px 8px;
   border-radius: 4px;
   font-size: 0.7rem;
@@ -86,16 +157,39 @@ const Card = styled.div`
   box-shadow: var(--main-shadow-art);
   display: flex;
   flex-direction: column;
+  border: ${props => props.$safeModeEnabled ? '1px solid rgba(59, 130, 246, 0.2)' : 'none'};
 
   &:hover ${Tooltip} {
     opacity: 1;
   }
 `;
 
+const SafeModeIndicator = styled.span`
+  position: absolute;
+  top: 6px;
+  left: 8px;
+  font-size: 14px;
+  opacity: 0.8;
+  color: #ef4444;
+  filter: drop-shadow(0 0 3px rgba(239, 68, 68, 0.3));
+  transition: all 0.2s ease;
+
+  &:hover {
+    opacity: 1;
+    transform: scale(1.1);
+  }
+  `;
+
 const CardHeader = styled.div`
   display: flex;
   justify-content: space-around;
   align-items: center;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 `;
 
 const Title = styled.p`
@@ -103,6 +197,11 @@ const Title = styled.p`
   font-size: 0.8rem;
   font-weight: bold;
   width: 80%;
+
+  @media (max-width: 640px) {
+    width: 100%;
+    margin-left: 0;
+  }
 `;
 
 const InputWrapper = styled.div`
@@ -110,6 +209,10 @@ const InputWrapper = styled.div`
   align-items: center;
   width: 100%;
   padding: 0.4rem 1rem 1rem 1rem;
+
+  @media (max-width: 640px) {
+    padding: 0.4rem 0.8rem 0.8rem 0.8rem;
+  }
 `;
 
 const TextInput = styled.input`

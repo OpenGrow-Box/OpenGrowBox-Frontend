@@ -2,64 +2,52 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
+import { getThemeColor } from '../../../utils/themeColors';
+import { filterSensorsByRoom } from './sensorClassifier';
 
-const HumCard = ({pause,resume,isPlaying}) => {
-  const { entities, connection } = useHomeAssistant();
+const HumCard = ({pause, resume, isPlaying, filterByRoom}) => {
+  const { entities, connection, currentRoom } = useHomeAssistant();
   const [humSensors, setHumSensors] = useState([]);
-  const [selectedSensor, setSelectedSensor] = useState(null); // State für den ausgewählten Sensor
+  const [selectedSensor, setSelectedSensor] = useState(null);
 
-  // Formatierung des Labels
   const formatLabel = (label) => {
     return label
-      .replace(/^OGB_AVGHumidity/, '') // Entferne "OGB_"
-      .replace(/_/g, ' ') // Ersetze Unterstriche mit Leerzeichen
-      .replace(/([a-z])([A-Z])/g, '$1 $2') // Leerzeichen bei CamelCase
-      .toLowerCase() // Kleinschreibung
-      .replace(/\b\w/g, (c) => c.toUpperCase()); // Großbuchstaben bei Wörtern
+      .replace(/^OGB_AVGHumidity/, '')
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .toLowerCase()
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   useEffect(() => {
-    const updateHumCard = () => {
-      const sensors = Object.entries(entities)
-        .filter(
-          ([key, entity]) =>
-            key.startsWith('sensor.') &&
-            (key.toLowerCase().includes('avghum')) &&
-            !isNaN(parseFloat(entity.state))
-        )
-        .map(([key, entity]) => ({
-          id: key,
-          value: parseFloat(entity.state),
-          unit: entity.attributes?.unit_of_measurement || 'ppm',
-          friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-        }));
+    let sensors = Object.entries(entities)
+      .filter(
+        ([key, entity]) =>
+          key.startsWith('sensor.') &&
+          (key.toLowerCase().includes('avghum')) &&
+          !isNaN(parseFloat(entity.state))
+      )
+      .map(([key, entity]) => ({
+        id: key,
+        value: parseFloat(entity.state),
+        unit: entity.attributes?.unit_of_measurement || '%',
+        friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+      }));
 
-      setHumSensors(sensors);
-    };
-
-    updateHumCard();
-
-    if (connection) {
-      connection.addEventListener('message', (event) => {
-        const data = JSON.parse(event.data);
-        if (
-          data.type === 'state_changed' &&
-          data.entity_id.startsWith('sensor.') &&
-          data.entity_id.toLowerCase().includes('co2')
-        ) {
-          updateHumCard();
-        }
-      });
+    if (filterByRoom && currentRoom) {
+      sensors = filterSensorsByRoom(sensors, currentRoom);
     }
-  }, [entities, connection]);
+
+    setHumSensors(sensors);
+  }, [entities, filterByRoom, currentRoom]);
 
   // Funktion zur Bestimmung der Farbe basierend auf dem CO2-Wert
   const getColorForValue = (value) => {
-    if (value < 30) return '#60a5fa'; // Blau (zu trocken)
-    if (value >= 30 && value <= 60) return '#34d399'; // Grün (optimal)
-    if (value > 60 && value <= 80) return '#fbbf24'; // Gelb (leicht feucht)
-    if (value > 80 && value <= 90) return '#fb923c'; // Orange (sehr feucht)
-    return '#ef4444'; // Rot (extrem feucht)
+    if (value < 30) return getThemeColor('--chart-primary-color'); // Theme blue (zu trocken)
+    if (value >= 30 && value <= 60) return getThemeColor('--chart-success-color'); // Theme green (optimal)
+    if (value > 60 && value <= 80) return getThemeColor('--chart-warning-color'); // Theme yellow (leicht feucht)
+    if (value > 80 && value <= 90) return getThemeColor('--warning-text-color'); // Theme orange (sehr feucht)
+    return getThemeColor('--chart-error-color'); // Theme red (extrem feucht)
   };
 
   const handleDataBoxClick = (sensorId) => {
@@ -115,7 +103,8 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;
@@ -158,7 +147,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--main-bg-color);
   z-index: 11;
   display: flex;
   justify-content: center;
@@ -167,7 +156,7 @@ const ModalOverlay = styled.div`
 
 
 const ModalContent = styled.div`
-  background: #fff;
+  background: var(--main-bg-card-color);
   width: 65%;
   height: 65%;
   position: relative;

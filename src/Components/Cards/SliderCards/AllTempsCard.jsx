@@ -4,6 +4,7 @@ import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize } from './sensorClassifier';
+import { getThemeColor } from '../../../utils/themeColors';
 
 const AllTemps = ({ pause, resume, isPlaying }) => {
   const { entities } = useHomeAssistant();
@@ -23,12 +24,12 @@ const AllTemps = ({ pause, resume, isPlaying }) => {
 
 
   const getColorForValue = (value) => {
-    if (value < 10) return '#34d399'; // Grün für sehr niedrige Werte unter 10°C
-    if (value >= 10 && value <= 18) return '#00aaff'; // Blau für Werte zwischen 10 und 18°C
-    if (value > 18 && value <= 25) return '#fbbf24'; // Gelb
-    if (value > 25 && value <= 35) return '#fb923c'; // Orange
-    if (value > 35 && value <= 40) return '#ef4444'; // Rot
-    return '#7f1d1d'; // Dunkelrot für sehr hohe Werte über 40°C
+    if (value < 10) return getThemeColor('--chart-success-color'); // Theme green für sehr niedrige Werte unter 10°C
+    if (value >= 10 && value <= 18) return getThemeColor('--chart-primary-color'); // Theme blue für Werte zwischen 10 und 18°C
+    if (value > 18 && value <= 25) return getThemeColor('--chart-warning-color'); // Theme yellow
+    if (value > 25 && value <= 35) return getThemeColor('--warning-text-color'); // Theme orange
+    if (value > 35 && value <= 40) return getThemeColor('--chart-error-color'); // Theme red
+    return getThemeColor('--error-text-color'); // Theme dark red für sehr hohe Werte über 40°C
   };
 
   const handleDataBoxClick = (sensorId) => {
@@ -81,7 +82,8 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;
@@ -123,7 +125,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--main-bg-color);
   z-index: 11;
   display: flex;
   justify-content: center;
@@ -131,7 +133,7 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: #fff;
+  background: var(--main-bg-card-color);
   width: 65%;
   height: 65%;
   position: relative;

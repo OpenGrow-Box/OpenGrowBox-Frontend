@@ -2,14 +2,13 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
-import { classifyAndNormalize } from './sensorClassifier';
+import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
+import { getThemeColor } from '../../../utils/themeColors';
 
-
-
-const WaterCard = ({pause,resume,isPlaying}) => {
-  const { entities } = useHomeAssistant();
+const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [waterSensors, setWaterensors] = useState([]);
-  const [selectedSensor, setSelectedSensor] = useState(null); // State für den ausgewählten Sensor
+  const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
     const ogbOrpSensor = Object.entries(entities)
@@ -35,11 +34,14 @@ const WaterCard = ({pause,resume,isPlaying}) => {
           s.context === 'water'
       );
 
-    // 🔥 Hier kombinieren wir beides:
-    const combinedSensors = [...normalizedSensors, ...ogbOrpSensor];
+    let combinedSensors = [...normalizedSensors, ...ogbOrpSensor];
+
+    if (filterByRoom && currentRoom) {
+      combinedSensors = filterSensorsByRoom(combinedSensors, currentRoom);
+    }
 
     setWaterensors(combinedSensors);
-  }, [entities]);
+  }, [entities, filterByRoom, currentRoom]);
 
 
   const getColorForValue = (value, unit) => {
@@ -54,43 +56,43 @@ const WaterCard = ({pause,resume,isPlaying}) => {
 
     // Farben für pH-Werte
     if (unitLower.includes('ph')) {
-      if (normalizedValue < 4.5) return '#ef4444';
-      if (normalizedValue >= 4.5 && normalizedValue < 5.5) return 'rgba(230, 63, 12, 0.85)';
-      if (normalizedValue >= 5.5 && normalizedValue < 6.0) return 'rgba(230, 212, 12, 0.85)';
-      if (normalizedValue >= 6.0 && normalizedValue <= 7.0) return 'rgba(85, 230, 12, 0.85)';
-      if (normalizedValue > 7.0 && normalizedValue <= 7.5) return 'rgba(197, 230, 12, 0.85)';
-      if (normalizedValue > 7.5 && normalizedValue <= 8.5) return 'rgba(12, 170, 230, 0.85)';
-      return '#60a5fa';
+      if (normalizedValue < 4.5) return getThemeColor('--chart-error-color');
+      if (normalizedValue >= 4.5 && normalizedValue < 5.5) return getThemeColor('--warning-accent-color');
+      if (normalizedValue >= 5.5 && normalizedValue < 6.0) return getThemeColor('--chart-warning-color');
+      if (normalizedValue >= 6.0 && normalizedValue <= 7.0) return getThemeColor('--chart-success-color');
+      if (normalizedValue > 7.0 && normalizedValue <= 7.5) return getThemeColor('--warning-text-color');
+      if (normalizedValue > 7.5 && normalizedValue <= 8.5) return getThemeColor('--chart-secondary-color');
+      return getThemeColor('--chart-primary-color');
     }
 
     // Farben für EC/TDS/Salinity (in mS/cm)
     if (unitLower.includes('ms/cm') || unitLower.includes('ms/us') || unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('salinity')) {
-      if (normalizedValue < 0.1) return '#60a5fa';
-      if (normalizedValue >= 0.1 && normalizedValue <= 0.5) return 'rgba(85, 230, 12, 0.85)';
-      if (normalizedValue > 0.5 && normalizedValue <= 1.5) return 'rgba(197, 230, 12, 0.85)';
-      if (normalizedValue > 1.5 && normalizedValue <= 2.5) return 'rgba(230, 212, 12, 0.85)';
-      if (normalizedValue > 2.5) return 'rgba(230, 63, 12, 0.85)';
+      if (normalizedValue < 0.1) return getThemeColor('--chart-primary-color');
+      if (normalizedValue >= 0.1 && normalizedValue <= 0.5) return getThemeColor('--chart-success-color');
+      if (normalizedValue > 0.5 && normalizedValue <= 1.5) return getThemeColor('--warning-text-color');
+      if (normalizedValue > 1.5 && normalizedValue <= 2.5) return getThemeColor('--chart-warning-color');
+      if (normalizedValue > 2.5) return getThemeColor('--warning-accent-color');
     }
 
     // Farben für PPM (TDS)
     if (unitLower.includes('ppm')) {
-      if (normalizedValue < 50) return '#60a5fa';
-      if (normalizedValue >= 50 && normalizedValue <= 250) return 'rgba(85, 230, 12, 0.85)';
-      if (normalizedValue > 250 && normalizedValue <= 750) return 'rgba(197, 230, 12, 0.85)';
-      if (normalizedValue > 750 && normalizedValue <= 1250) return 'rgba(230, 212, 12, 0.85)';
-      if (normalizedValue > 1250) return 'rgba(230, 63, 12, 0.85)';
+      if (normalizedValue < 50) return getThemeColor('--chart-primary-color');
+      if (normalizedValue >= 50 && normalizedValue <= 250) return getThemeColor('--chart-success-color');
+      if (normalizedValue > 250 && normalizedValue <= 750) return getThemeColor('--warning-text-color');
+      if (normalizedValue > 750 && normalizedValue <= 1250) return getThemeColor('--chart-warning-color');
+      if (normalizedValue > 1250) return getThemeColor('--warning-accent-color');
     }
 
     // Farben für Temperatur (Celsius)
     if (unitLower.includes('celsius') || unitLower.includes('°c')) {
-      if (normalizedValue < 10) return '#60a5fa';
-      if (normalizedValue >= 10 && normalizedValue <= 15) return 'rgba(12, 226, 230, 0.86)';
-      if (normalizedValue > 15 && normalizedValue <= 20) return 'rgba(12, 230, 165, 0.85)';
-      if (normalizedValue > 20 && normalizedValue <= 25) return 'rgba(230, 212, 12, 0.85)';
-      if (normalizedValue > 25) return 'rgba(230, 63, 12, 0.85)';
+      if (normalizedValue < 10) return getThemeColor('--chart-primary-color');
+      if (normalizedValue >= 10 && normalizedValue <= 15) return getThemeColor('--chart-primary-color');
+      if (normalizedValue > 15 && normalizedValue <= 20) return getThemeColor('--chart-secondary-color');
+      if (normalizedValue > 20 && normalizedValue <= 25) return getThemeColor('--chart-warning-color');
+      if (normalizedValue > 25) return getThemeColor('--warning-accent-color');
     }
 
-    return '#ffffff';
+    return 'var(--main-bg-card-color)';
   };
 
   // Formatierung mit Einheitskonvertierung
@@ -164,7 +166,8 @@ const CardContainer = styled.div``;
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;
@@ -207,7 +210,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--main-bg-color);
   z-index: 11;
   display: flex;
   justify-content: center;
@@ -215,7 +218,7 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: #fff;
+  background: var(--main-bg-card-color);
   width: 65%;
   height: 65%;
   position: relative;

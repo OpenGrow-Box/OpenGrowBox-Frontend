@@ -27,7 +27,7 @@ const Interface = () => {
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const { connection } = useHomeAssistant();
+  const { connection, connectionState, isConfigurationValid } = useHomeAssistant();
   const [loadingText, setLoadingText] = useState('');
 
   // Ladezeit in Millisekunden (z. B. 1000 = 1 Sekunde)
@@ -55,12 +55,31 @@ const Interface = () => {
   }, []);
 
   useEffect(() => {
-    if (!isLoading && isValidJWT(accessToken)) {
-      navigate('/home');
+    if (!isLoading) {
+      // If configuration is invalid, show setup page
+      if (!isConfigurationValid()) {
+        console.log('Configuration invalid, showing setup page');
+        return; // Stay on current page to show SetupPage
+      }
+
+      // If we have a valid token and configuration, proceed to home
+      if (isValidJWT(accessToken)) {
+        navigate('/home');
+      }
     }
-  }, [accessToken, isLoading]);
+  }, [accessToken, isLoading, isConfigurationValid, navigate]);
 
   if (isLoading) {
+    // Show different loading messages based on connection state
+    let displayText = loadingText;
+    if (connectionState === 'config_error') {
+      displayText = 'Home Assistant not configured. Redirecting to setup...';
+    } else if (connectionState === 'connecting') {
+      displayText = 'Connecting to Home Assistant...';
+    } else if (connectionState === 'network_error') {
+      displayText = 'Network connection issue. Please check your connection.';
+    }
+
     return (
       <LoaderWrapper>
         <ProgressCircle viewBox="0 0 100 100" width="120" height="120">
@@ -68,7 +87,7 @@ const Interface = () => {
           <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
             <stop offset="0%" stopColor="#00ff88" />
             <stop offset="25%" stopColor="#a4ff00" />
-            <stop offset="50%" stopColor="#ffe600" /> 
+            <stop offset="50%" stopColor="#ffe600" />
             <stop offset="75%" stopColor="#ff7b00" />
             <stop offset="90%" stopColor="#ff2a2a" />
             <stop offset="100%" stopColor="#8b4513" />
@@ -76,12 +95,40 @@ const Interface = () => {
           </defs>
           <Progress duration={loadingSeconds} />
         </ProgressCircle>
-        <LoadingText>{loadingText}</LoadingText>
+        <LoadingText>{displayText}</LoadingText>
       </LoaderWrapper>
     );
   }
 
-  return <>{token ? null : <SetupPage />}</>;
+  // Show setup page if configuration is invalid or no valid token
+  if (!isConfigurationValid() || !token) {
+    return <SetupPage />;
+  }
+
+  // If we have valid configuration but no connection yet, show loading
+  if (connectionState === 'connecting') {
+    return (
+      <LoaderWrapper>
+        <ProgressCircle viewBox="0 0 100 100" width="120" height="120">
+          <defs>
+          <linearGradient id="grad" x1="0%" y1="0%" x2="100%" y2="100%">
+            <stop offset="0%" stopColor="#00ff88" />
+            <stop offset="25%" stopColor="#a4ff00" />
+            <stop offset="50%" stopColor="#ffe600" />
+            <stop offset="75%" stopColor="#ff7b00" />
+            <stop offset="90%" stopColor="#ff2a2a" />
+            <stop offset="100%" stopColor="#8b4513" />
+        </linearGradient>
+          </defs>
+          <Progress duration={loadingSeconds} />
+        </ProgressCircle>
+        <LoadingText>Connecting to Home Assistant...</LoadingText>
+      </LoaderWrapper>
+    );
+  }
+
+  // Default fallback
+  return <SetupPage />;
 };
 
 export default Interface;

@@ -1,44 +1,45 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
-import HistoryChart from '../HistoryChart'; // Importiere die HistoryChart-Komponente
+import HistoryChart from '../HistoryChart';
+import { getThemeColor } from '../../../utils/themeColors';
+import { filterSensorsByRoom } from './sensorClassifier';
 
-const PPFDCard = ({ pause, resume, isPlaying }) => {
-  const { entities } = useHomeAssistant();
+const PPFDCard = ({ pause, resume, isPlaying, filterByRoom }) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [tempSensors, setTempSensors] = useState([]);
-  const [selectedSensor, setSelectedSensor] = useState(null); // State für den ausgewählten Sensor
+  const [selectedSensor, setSelectedSensor] = useState(null);
 
-  // Formatierung des Labels
   const formatLabel = (label) => {
     return label
-      .replace(/^OGB_/, '') // Entferne "OGB_"
-      .replace(/_/g, ' ') // Ersetze Unterstriche mit Leerzeichen
-      .replace(/\b\w/g, (c) => c.toUpperCase()); // Großbuchstaben bei Wörtern
+      .replace(/^OGB_/, '')
+      .replace(/_/g, ' ')
+      .replace(/\b\w/g, (c) => c.toUpperCase());
   };
 
   useEffect(() => {
-    const updatePPFDCard = () => {
-      const sensors = Object.entries(entities)
-        .filter(
-          ([key, entity]) =>
-            key.startsWith('sensor.ogb_') &&
-            entity.state != 0 &&
-            !key.toLowerCase().includes('ambient') &&
-            (key.toLowerCase().includes('ppfd') || key.toLowerCase().includes('dli')) &&
-            !isNaN(parseFloat(entity.state))
-        )
-        .map(([key, entity]) => ({
-          id: key,
-          value: parseFloat(entity.state),
-          unit: entity.attributes?.unit_of_measurement || '',
-          friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-        }));
+    let sensors = Object.entries(entities)
+      .filter(
+        ([key, entity]) =>
+          key.startsWith('sensor.ogb_') &&
+          entity.state != 0 &&
+          !key.toLowerCase().includes('ambient') &&
+          (key.toLowerCase().includes('ppfd') || key.toLowerCase().includes('dli')) &&
+          !isNaN(parseFloat(entity.state))
+      )
+      .map(([key, entity]) => ({
+        id: key,
+        value: parseFloat(entity.state),
+        unit: entity.attributes?.unit_of_measurement || '',
+        friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+      }));
 
-      setTempSensors(sensors);
-    };
+    if (filterByRoom && currentRoom) {
+      sensors = filterSensorsByRoom(sensors, currentRoom);
+    }
 
-    updatePPFDCard();
-  }, [entities]);
+    setTempSensors(sensors);
+  }, [entities, filterByRoom, currentRoom]);
 
   // Farb-Logik abhängig von Sensortyp (PPFD oder DLI)
   const getColorForSensor = (sensorId, value) => {
@@ -46,20 +47,20 @@ const PPFDCard = ({ pause, resume, isPlaying }) => {
 
     if (lowerId.includes('dli')) {
       // DLI Farben (z. B. mol/m²/day)
-      if (value < 10) return '#34d399'; // Grün
-      if (value >= 10 && value < 20) return '#00aaff'; // Blau
-      if (value >= 20 && value < 40) return '#fbbf24'; // Gelb
-      if (value >= 40 && value < 60) return '#fb923c'; // Orange
-      if (value >= 60 && value < 80) return '#ef4444'; // Rot
-      return '#7f1d1d'; // Dunkelrot
+      if (value < 10) return getThemeColor('--chart-success-color'); // Theme green
+      if (value >= 10 && value < 20) return getThemeColor('--chart-primary-color'); // Theme blue
+      if (value >= 20 && value < 40) return getThemeColor('--chart-warning-color'); // Theme yellow
+      if (value >= 40 && value < 60) return getThemeColor('--warning-text-color'); // Theme orange
+      if (value >= 60 && value < 80) return getThemeColor('--chart-error-color'); // Theme red
+      return getThemeColor('--error-text-color'); // Theme dark red
     } else {
       // PPFD Farben (z. B. µmol/m²/s)
-      if (value < 200) return '#34d399'; // Grün
-      if (value >= 200 && value < 600) return '#00aaff'; // Blau
-      if (value >= 600 && value < 900) return '#fbbf24'; // Gelb
-      if (value >= 900 && value < 1200) return '#fb923c'; // Orange
-      if (value >= 1200 && value < 1500) return '#ef4444'; // Rot
-      return '#7f1d1d'; // Dunkelrot
+      if (value < 200) return getThemeColor('--chart-success-color'); // Theme green
+      if (value >= 200 && value < 600) return getThemeColor('--chart-primary-color'); // Theme blue
+      if (value >= 600 && value < 900) return getThemeColor('--chart-warning-color'); // Theme yellow
+      if (value >= 900 && value < 1200) return getThemeColor('--warning-text-color'); // Theme orange
+      if (value >= 1200 && value < 1500) return getThemeColor('--chart-error-color'); // Theme red
+      return getThemeColor('--error-text-color'); // Theme dark red
     }
   };
 
@@ -114,7 +115,8 @@ const CardContainer = styled.div``;
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;
@@ -157,7 +159,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--main-bg-color);
   z-index: 11;
   display: flex;
   justify-content: center;
@@ -165,7 +167,7 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: #fff;
+  background: var(--main-bg-card-color);
   width: 65%;
   height: 65%;
   position: relative;

@@ -1,4 +1,5 @@
 import styled from 'styled-components';
+import { Shield } from 'lucide-react';
 import { useGlobalState } from '../Context/GlobalContext';
 import SettingsFooter from './SettingsFooter';
 import ControlMode from './ControlMode';
@@ -10,12 +11,17 @@ const SettingsPanel = () => {
   const { state, setDeep } = useGlobalState();
   const currentTheme = state.Design.theme;
   const availableThemes = state.Design.availableThemes;
+  const safeModeEnabled = state.Settings?.safeModeEnabled ?? true;
 
   // Funktion, um das Theme anzuwenden, indem CSS-Variablen gesetzt werden
 
   const ChangeTheme = (themeName) => {
     setDeep('Design.theme', themeName)
     window.location.reload();
+  }
+
+  const toggleSafeMode = () => {
+    setDeep('Settings.safeModeEnabled', !safeModeEnabled);
   }
   
   return (
@@ -32,6 +38,25 @@ const SettingsPanel = () => {
           </ThemeButton>
         ))}
       </ThemeList>
+
+      <SafeModeSection>
+        <SafeModeHeader>
+          <SafeModeIcon><Shield size={16} /></SafeModeIcon>
+          <SafeModeTitle>Safe Mode</SafeModeTitle>
+        </SafeModeHeader>
+        <SafeModeDescription>
+          Prevents accidental changes to controls by requiring confirmation before applying changes. 
+          Recommended for mobile devices to avoid unintended taps.
+        </SafeModeDescription>
+        <SafeModeToggle onClick={toggleSafeMode} $enabled={safeModeEnabled}>
+          <SafeModeToggleSlider $enabled={safeModeEnabled}>
+            <SafeModeToggleCircle $enabled={safeModeEnabled} />
+          </SafeModeToggleSlider>
+          <SafeModeToggleLabel>
+            {safeModeEnabled ? 'Enabled (Recommended)' : 'Disabled'}
+          </SafeModeToggleLabel>
+        </SafeModeToggle>
+      </SafeModeSection>
 
       <MenuControl>
         <ControlMode/>
@@ -98,5 +123,83 @@ const MenuFooter = styled.div`
   text-align: center;
   color: var(--main-text-color);
   border-top: 1px solid grey;
+`;
+
+const SafeModeSection = styled.div`
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: rgba(59, 130, 246, 0.05);
+  border: 1px solid rgba(59, 130, 246, 0.2);
+  border-radius: 12px;
+`;
+
+const SafeModeHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+`;
+
+const SafeModeIcon = styled.div`
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
+`;
+
+const SafeModeTitle = styled.h4`
+  margin: 0;
+  color: var(--main-text-color);
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+const SafeModeDescription = styled.p`
+  margin: 0 0 1rem 0;
+  color: var(--placeholder-text-color);
+  font-size: 0.85rem;
+  line-height: 1.5;
+`;
+
+const SafeModeToggle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  cursor: pointer;
+  padding: 12px;
+  background: ${props => props.$enabled ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.03)'};
+  border-radius: 8px;
+  transition: background 0.3s ease;
+
+  &:hover {
+    background: ${props => props.$enabled ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.08)'};
+  }
+`;
+
+const SafeModeToggleSlider = styled.div`
+  position: relative;
+  width: 56px;
+  height: 28px;
+  background: ${props => props.$enabled ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'var(--disabled-text-color)'};
+  border-radius: 14px;
+  transition: background 0.3s ease;
+  box-shadow: ${props => props.$enabled ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'};
+`;
+
+const SafeModeToggleCircle = styled.div`
+  position: absolute;
+  top: 3px;
+  left: ${props => props.$enabled ? '31px' : '3px'};
+  width: 22px;
+  height: 22px;
+  background: white;
+  border-radius: 50%;
+  transition: left 0.3s ease;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+`;
+
+const SafeModeToggleLabel = styled.span`
+  color: var(--main-text-color);
+  font-size: 0.9rem;
+  font-weight: 500;
+  flex: 1;
 `;
 

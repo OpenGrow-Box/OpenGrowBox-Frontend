@@ -3,6 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import styled from 'styled-components';
 import { usePremium } from '../Context/OGBPremiumContext';
 import OGBIcon from '../../misc/OGBIcon';
+import { getThemeColor } from '../../utils/themeColors';
+import { FaLeaf } from 'react-icons/fa';
 
 export default function LoginModal({ onClose, selectedRoom }) {
   const { login, isPremium, authStatus, authProvider } = usePremium();
@@ -127,7 +129,7 @@ export default function LoginModal({ onClose, selectedRoom }) {
             </FormWrapper>
 
         <FooterNote>
-          🌱 Open Source Grow Automation - Fully controllable with your OpenGrowBox account
+          <FaLeaf /> Open Source Grow Automation - Fully controllable with your OpenGrowBox account
         </FooterNote>
       </ModalContainer>
     </ModalBackdrop>
@@ -138,7 +140,7 @@ export default function LoginModal({ onClose, selectedRoom }) {
 const ModalBackdrop = styled.div`
   position: fixed;
   inset: 0;
-  background-color: rgba(0, 0, 0, 0.7);
+  background-color: var(--main-bg-color);
   backdrop-filter: blur(4px);
   z-index: 50;
   display: flex;
@@ -148,17 +150,15 @@ const ModalBackdrop = styled.div`
 `;
 
 const ModalContainer = styled.div`
-  background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--main-bg-card-color);
+  border: var(--border-color);
   border-radius: 1.5rem;
   padding: 2.5rem;
   width: 100%;
   max-width: 32rem;
   min-height: auto;
   position: relative;
-  box-shadow: 
-    0 25px 50px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
+  box-shadow: var(--main-shadow-art);
   animation: modalSlideIn 0.3s ease-out;
 
   @keyframes modalSlideIn {
@@ -177,9 +177,9 @@ const CloseButton = styled.button`
   position: absolute;
   top: 1.25rem;
   right: 1.25rem;
-  color: #94a3b8;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  color: var(--placeholder-text-color);
+  background: var(--input-bg-color);
+  border: var(--border-color);
   border-radius: 0.5rem;
   width: 2rem;
   height: 2rem;
@@ -191,9 +191,9 @@ const CloseButton = styled.button`
   transition: all 0.2s ease;
 
   &:hover {
-    color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-    border-color: rgba(16, 185, 129, 0.3);
+    color: var(--main-arrow-up);
+    background: ${getThemeColor('--chart-success-color')}1A;
+    border-color: ${getThemeColor('--chart-success-color')}4D;
     transform: scale(1.05);
   }
 `;
@@ -202,22 +202,20 @@ const IconWrapper = styled.div`
   width: 4.5rem;
   height: 4.5rem;
   padding:0.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--main-arrow-up) 0%, var(--cannabis-active-color) 100%);
   border-radius: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 1.5rem auto;
-  box-shadow: 
-    0 8px 25px rgba(16, 185, 129, 0.4),
-    0 0 0 1px rgba(16, 185, 129, 0.2);
+  box-shadow: 0 8px 25px ${getThemeColor('--chart-success-color')}66;
   position: relative;
 
   &::after {
     content: '';
     position: absolute;
     inset: -2px;
-    background: linear-gradient(135deg, #10b981, #059669);
+    background: linear-gradient(135deg, var(--main-arrow-up), var(--cannabis-active-color));
     border-radius: 1rem;
     z-index: -1;
     opacity: 0.5;
@@ -235,25 +233,25 @@ const Title = styled.h2`
   font-size: 1.75rem;
   font-weight: 700;
   margin-bottom: 0.5rem;
-  background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+  background: linear-gradient(135deg, var(--main-text-color) 0%, var(--second-text-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 `;
 
 const Subtitle = styled.p`
-  color: #94a3b8;
+  color: var(--placeholder-text-color);
   font-size: 1rem;
   font-weight: 400;
 `;
 
 const FooterNote = styled.div`
   text-align: center;
-  color: #64748b;
+   color: var(--muted-text-color);
   font-size: 0.875rem;
   margin-top: 2rem;
   padding-top: 1.5rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
+  border-top: var(--border-color);
 `;
 
 const FormWrapper = styled.div`
@@ -279,26 +277,26 @@ const Label = styled.label`
 `;
 
 const Input = styled.input`
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--input-bg-color);
+  border: var(--input-border-color);
   border-radius: 12px;
   padding: 14px 16px;
-  color: white;
+  color: var(--main-text-color);
   font-size: 16px;
   transition: all 0.2s ease;
 
   &::placeholder {
-    color: rgba(255, 255, 255, 0.5);
+    color: var(--placeholder-text-color);
   }
 
   &:focus {
     outline: none;
-    border-color: #10b981;
-    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.1);
+    border-color: var(--input-focus-border-color);
+    box-shadow: 0 0 0 3px ${getThemeColor('--chart-success-color')}1A;
   }
 
   &:hover:not(:focus) {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--border-hover-color);
   }
 
   &:disabled {
@@ -308,7 +306,7 @@ const Input = styled.input`
 `;
 
 const SubmitButton = styled.button`
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--main-arrow-up) 0%, var(--cannabis-active-color) 100%);
   border: none;
   border-radius: 12px;
   padding: 14px 20px;
@@ -321,7 +319,7 @@ const SubmitButton = styled.button`
 
   &:hover:not(:disabled) {
     transform: translateY(-1px);
-    box-shadow: 0 4px 20px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 4px 20px ${getThemeColor('--chart-success-color')}4D;
   }
 
   &:active {
@@ -345,14 +343,14 @@ const LinksContainer = styled.div`
 const LinkButton = styled.button`
   background: none;
   border: none;
-  color: #10b981;
+   color: var(--main-arrow-up);
   font-size: 14px;
   cursor: pointer;
   text-align: center;
   transition: color 0.2s ease;
 
   &:hover:not(:disabled) {
-    color: #059669;
+     color: var(--cannabis-active-color);
     text-decoration: underline;
   }
 
@@ -363,21 +361,21 @@ const LinkButton = styled.button`
 `;
 
 const ErrorMessage = styled.div`
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: ${getThemeColor('--chart-error-color')}1A;
+  border: 1px solid ${getThemeColor('--chart-error-color')}4D;
   border-radius: 8px;
   padding: 12px;
-  color: #fca5a5;
+   color: var(--error-text-color);
   font-size: 14px;
   text-align: center;
 `;
 
 const SuccessMessage = styled.div`
-  background: rgba(16, 185, 129, 0.1);
-  border: 1px solid rgba(16, 185, 129, 0.3);
+  background: ${getThemeColor('--chart-success-color')}1A;
+  border: 1px solid ${getThemeColor('--chart-success-color')}4D;
   border-radius: 8px;
   padding: 12px;
-  color: #6ee7b7;
+   color: var(--chart-success-color);
   font-size: 14px;
   text-align: center;
 `;
@@ -395,11 +393,11 @@ const OAuthButton = styled.button`
   justify-content: center;
   gap: 10px;
 
-  background: rgba(255, 255, 255, 0.08);
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  background: var(--input-bg-color);
+  border: var(--input-border-color);
   border-radius: 12px;
   padding: 14px 16px;
-  color: white;
+  color: var(--main-text-color);
   font-size: 16px;
   font-weight: 500;
   cursor: pointer;
@@ -410,9 +408,9 @@ const OAuthButton = styled.button`
   }
 
   &:hover:not(:disabled) {
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-    color: #10b981;
+    border-color: var(--main-arrow-up);
+    background: ${getThemeColor('--chart-success-color')}1A;
+    color: var(--main-arrow-up);
   }
 
   &:disabled {
@@ -434,8 +432,8 @@ const LoadingContainer = styled.div`
 const LoadingSpinner = styled.div`
   width: 32px;
   height: 32px;
-  border: 3px solid rgba(255, 255, 255, 0.2);
-  border-top-color: #10b981;
+  border: 3px solid var(--border-color);
+  border-top-color: var(--main-arrow-up);
   border-radius: 50%;
   animation: spin 1s linear infinite;
 
@@ -454,7 +452,7 @@ const LoadingText = styled.div`
 `;
 
 const LoadingSubtext = styled.div`
-  color: #94a3b8;
+  color: var(--placeholder-text-color);
   font-size: 14px;
   text-align: center;
   max-width: 250px;
@@ -471,11 +469,11 @@ const Divider = styled.div`
 const DividerLine = styled.div`
   flex: 1;
   height: 1px;
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--border-color);
 `;
 
 const DividerText = styled.span`
-  color: #94a3b8;
+  color: var(--placeholder-text-color);
   font-size: 14px;
   font-weight: 500;
 `;
@@ -484,8 +482,8 @@ const DividerText = styled.span`
 const ButtonSpinner = styled.div`
   width: 18px;
   height: 18px;
-  border: 2px solid rgba(255, 255, 255, 0.4);
-  border-top-color: white;
+  border: 2px solid var(--border-color);
+  border-top-color: var(--main-text-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 

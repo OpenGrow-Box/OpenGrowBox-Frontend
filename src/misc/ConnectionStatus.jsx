@@ -1,6 +1,7 @@
 
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
+import { FaWifi } from 'react-icons/fa';
 
 const ConnectionStatus = () => {
   const { isOnline, loading, error, reconnect } = useHomeAssistant();
@@ -14,7 +15,7 @@ const ConnectionStatus = () => {
     <StatusContainer>
       {!isOnline && (
         <StatusMessage type="error">
-          <StatusIcon>📡</StatusIcon>
+          <StatusIcon><FaWifi /></StatusIcon>
           <div>
             <StatusTitle>Offline</StatusTitle>
             <StatusDetail>Please check your internet connection</StatusDetail>

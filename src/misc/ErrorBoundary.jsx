@@ -1,4 +1,5 @@
 import React from 'react';
+import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -25,6 +26,16 @@ class ErrorBoundary extends React.Component {
   handleRefresh = () => {
     // Simple page refresh
     window.location.reload();
+  }
+
+  handleReconnect = () => {
+    // Try to reconnect if reconnect function is provided
+    if (this.props.onReconnect) {
+      this.props.onReconnect();
+    } else {
+      // Fallback to refresh
+      this.handleRefresh();
+    }
   }
 
   render() {
@@ -57,7 +68,21 @@ class ErrorBoundary extends React.Component {
           >
             Refresh Page
           </button>
-          
+          <button
+            onClick={this.handleReconnect}
+            style={{
+              padding: '10px 20px',
+              backgroundColor: '#2196F3',
+              color: 'white',
+              border: 'none',
+              borderRadius: '4px',
+              cursor: 'pointer',
+              margin: '10px'
+            }}
+          >
+            Try Reconnect
+          </button>
+
           <details style={{ marginTop: '20px', textAlign: 'left' }}>
             <summary>Error Details (for developers)</summary>
             <p>{this.state.error && this.state.error.toString()}</p>

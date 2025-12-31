@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize } from './sensorClassifier';
+import { getThemeColor } from '../../../utils/themeColors';
 
 const AllHums = ({ pause, resume, isPlaying }) => {
   const { entities,currentRoom } = useHomeAssistant();
@@ -25,11 +26,11 @@ useEffect(() => {
 
 
   const getColorForValue = (value) => {
-    if (value < 30) return '#60a5fa'; // Blau (zu trocken)
-    if (value >= 30 && value <= 60) return '#34d399'; // Grün (optimal)
-    if (value > 60 && value <= 80) return '#fbbf24'; // Gelb (leicht feucht)
-    if (value > 80 && value <= 90) return '#fb923c'; // Orange (sehr feucht)
-    return '#ef4444'; // Rot (extrem feucht)
+    if (value < 30) return getThemeColor('--chart-primary-color'); // Theme blue (zu trocken)
+    if (value >= 30 && value <= 60) return getThemeColor('--chart-success-color'); // Theme green (optimal)
+    if (value > 60 && value <= 80) return getThemeColor('--chart-warning-color'); // Theme yellow (leicht feucht)
+    if (value > 80 && value <= 90) return getThemeColor('--warning-text-color'); // Theme orange (sehr feucht)
+    return getThemeColor('--chart-error-color'); // Theme red (extrem feucht)
   };
 
   const handleDataBoxClick = (sensorId) => {
@@ -82,7 +83,8 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;
@@ -124,7 +126,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--main-bg-color);
   z-index: 11;
   display: flex;
   justify-content: center;
@@ -132,7 +134,7 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: #fff;
+  background: var(--main-bg-card-color);
   width: 65%;
   height: 65%;
   position: relative;

@@ -2,23 +2,26 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
-import { classifyAndNormalize } from './sensorClassifier';
+import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 
-const SoilCard = ({ pause, resume, isPlaying }) => {
-  const { entities } = useHomeAssistant();
+const SoilCard = ({ pause, resume, isPlaying, filterByRoom }) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [ecSensors, setEcSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
-
   useEffect(() => {
-    const normalizedSensors = classifyAndNormalize(entities)
+    let normalizedSensors = classifyAndNormalize(entities)
       .filter(s => 
-        (s.category === "moisture" || s.category === "ec" || s.category === "ph") && 
-        s.context === "soil"  // ← Hier der zusätzliche Filter!
+        (s.category === "moisture" || s.category === "ec" || s.category === "ph" || s.category === "temperature") && 
+        s.context === "soil"
       );
 
+    if (filterByRoom && currentRoom) {
+      normalizedSensors = filterSensorsByRoom(normalizedSensors, currentRoom);
+    }
+
     setEcSensors(normalizedSensors);
-  }, [entities]);
+  }, [entities, filterByRoom, currentRoom]);
 
   // Farb-Logik nach Einheit
   const getColorForValue = (value, unit) => {
@@ -90,7 +93,8 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;

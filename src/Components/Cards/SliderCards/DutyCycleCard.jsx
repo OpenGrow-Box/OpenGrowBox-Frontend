@@ -2,9 +2,10 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
+import { filterSensorsByRoom } from './sensorClassifier';
 
-const DutyCycleCard = ({pause,resume,isPlaying}) => {
-  const { entities } = useHomeAssistant();
+const DutyCycleCard = ({pause, resume, isPlaying, filterByRoom}) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [dewSensors, setDewSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
@@ -18,27 +19,28 @@ const DutyCycleCard = ({pause,resume,isPlaying}) => {
   };
 
   useEffect(() => {
-    const updateDutyCycleSensor = () => {
-      const sensors = Object.entries(entities)
-        .filter(
-          ([key, entity]) =>
-            key.startsWith('sensor.') &&
-            key.toLowerCase().includes('duty') &&
-            !isNaN(parseFloat(entity.state)) && 
-            entity.state != 0
-        )
-        .map(([key, entity]) => ({
-          id: key,
-          value: parseFloat(entity.state),
-          unit: entity.attributes?.unit_of_measurement,
-          friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-          entity_id: entity.entity_id,
-        }));
-      setDewSensors(sensors);
-    };
+    let sensors = Object.entries(entities)
+      .filter(
+        ([key, entity]) =>
+          key.startsWith('sensor.') &&
+          key.toLowerCase().includes('duty') &&
+          !isNaN(parseFloat(entity.state)) && 
+          entity.state != 0
+      )
+      .map(([key, entity]) => ({
+        id: key,
+        value: parseFloat(entity.state),
+        unit: entity.attributes?.unit_of_measurement,
+        friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+        entity_id: entity.entity_id,
+      }));
 
-    updateDutyCycleSensor();
-  }, [entities]);
+    if (filterByRoom && currentRoom) {
+      sensors = filterSensorsByRoom(sensors, currentRoom);
+    }
+
+    setDewSensors(sensors);
+  }, [entities, filterByRoom, currentRoom]);
 
   const handleDataBoxClick = (sensorId) => {
     pause(); 
@@ -103,7 +105,8 @@ const CardContainer = styled.div`
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
 `;
 
 const Content = styled.div``;

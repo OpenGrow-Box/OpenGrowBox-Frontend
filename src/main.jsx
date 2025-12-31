@@ -1,49 +1,51 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
-import { StyleSheetManager } from 'styled-components';
+import { StyleSheetManager, createGlobalStyle } from 'styled-components';
 import App from './App.jsx';
+
+// Force styled-components to use a consistent style injection method
+const StyleSheetTarget = ({ children, target }) => (
+  <StyleSheetManager target={target} enableVendorPrefixes>
+    {children}
+  </StyleSheetManager>
+);
 
 // Funktion, die ein simuliertes Shadow DOM erstellt, auch im DEV‑Modus
 function mountWithShadow(container) {
   // Erstelle ein temporäres Element als Shadow Host
   const shadowHost = document.createElement('div');
+  shadowHost.style.cssText = `
+    display: block;
+    width: 100%;
+    height: 100%;
+    min-height: 100vh;
+  `;
   container.appendChild(shadowHost);
   const shadowRoot = shadowHost.attachShadow({ mode: 'open' });
 
-  // Füge Deine globalen Styles in das Shadow DOM ein
-  const style = document.createElement('style');
-  style.textContent = `
-    :host {
-      all: initial;
-      display: block;
-      width: 100%;
-      height: 100%;
-      font-family: Arial, sans-serif;
-    }
-    ::part(toggle-background) {
-      background-color: #4caf50;
-    }
+   // Füge minimale strukturelle Styles in das Shadow DOM ein
+   const style = document.createElement('style');
+        style.textContent = `
+          :host {
+            all: initial;
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
+          }
 
-
-    html, body {
-      margin: 0;
-      padding: 0;
-      min-height: 100%;
-    }
-
-    #react-container {
-      font-family: Arial, sans-serif;
-      font-size: 1rem;
-      overscroll-behavior: none;
-      margin: 0;
-      padding: 0;
-      width: 100%;
-      min-height: 100%;
-      background: linear-gradient(135deg, #1a1a1a, #2c3e50);
-      color: var(--main-text-color);
-    }
-  `;
-  shadowRoot.appendChild(style);
+          #react-container {
+            font-family: Arial, sans-serif;
+            font-size: 1rem;
+            overscroll-behavior: none;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            position: relative;
+          }
+        `;
+       shadowRoot.appendChild(style);
   
   // Erstelle den React-Container im Shadow DOM
   const reactContainer = document.createElement('div');
@@ -53,19 +55,27 @@ function mountWithShadow(container) {
   // Mounte die App in den Shadow Root
   createRoot(reactContainer).render(
     <StrictMode>
-      <StyleSheetManager target={shadowRoot}>
+      <StyleSheetTarget target={shadowRoot}>
         <App />
-      </StyleSheetManager>
+      </StyleSheetTarget>
     </StrictMode>
   );
 }
 
 if (import.meta.env.DEV) {
-  // DEV-Modus: Erstelle einen Container (falls noch nicht vorhanden) und simuliere Shadow DOM
-  let devContainer = document.getElementById('react-container');
+  // DEV-Modus: Mit Shadow DOM wie PROD für konsistentes Verhalten
+  let devContainer = document.getElementById('ogb-dev-root');
   if (!devContainer) {
     devContainer = document.createElement('div');
-    devContainer.id = 'react-container';
+    devContainer.id = 'ogb-dev-root';
+    devContainer.style.cssText = `
+      display: block;
+      width: 100%;
+      height: 100%;
+      min-height: 100vh;
+      margin: 0;
+      padding: 0;
+    `;
     document.body.appendChild(devContainer);
   }
   mountWithShadow(devContainer);
@@ -77,33 +87,27 @@ if (import.meta.env.DEV) {
       this.attachShadow({ mode: 'open' });
       // Basis-Styles für das Shadow DOM
       const style = document.createElement('style');
-      style.textContent = `
-        :host {
-          all: initial;
-          display: block;
-          width: 100%;
-          height: 100%;
-          font-family: Arial, sans-serif;
+       style.textContent = `
+          :host {
+            all: initial;
+            display: block;
+            width: 100%;
+            height: 100%;
+            position: relative;
           }
-        
-        html, body {
-          margin: 0;
-          padding: 0;
-          min-height: 100%;
-        }
-        #react-container {
-          font-family: Arial, sans-serif;
-          font-size: 1rem;
-          overscroll-behavior: none;
-          margin: 0;
-          padding: 0;
-          width: 100%;
-          min-height: 100%;
-          background: linear-gradient(135deg, #1a1a1a, #2c3e50);
-          color: var(--main-text-color);
-        }
-      `;
-      this.shadowRoot.appendChild(style);
+
+          #react-container {
+            font-family: Arial, sans-serif;
+            font-size: 1rem;
+            overscroll-behavior: none;
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            min-height: 100vh;
+            position: relative;
+          }
+        `;
+       this.shadowRoot.appendChild(style);
       // Container für die React-App
       this.container = document.createElement('div');
       this.container.id = 'react-container';
@@ -119,9 +123,9 @@ if (import.meta.env.DEV) {
       }
       createRoot(container).render(
         <StrictMode>
-          <StyleSheetManager target={this.shadowRoot}>
+          <StyleSheetTarget target={this.shadowRoot}>
             <App />
-          </StyleSheetManager>
+          </StyleSheetTarget>
         </StrictMode>
       );
     }

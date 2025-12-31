@@ -1,202 +1,125 @@
-# OpenGrowBox Frontend
+# OpenGrowBox Home Assistant GUI
 
-[![License](https://img.shields.io/github/license/OpenGrow-Box/OpenGrowBox-Frontend)](LICENSE)
-[![Repo Size](https://img.shields.io/github/repo-size/OpenGrow-Box/OpenGrowBox-Frontend)](https://github.com/OpenGrow-Box/OpenGrowBox-Frontend)
-[![Version](https://img.shields.io/github/v/release/OpenGrow-Box/OpenGrowBox-Frontend)](https://github.com/OpenGrow-Box/OpenGrowBox-Frontend/releases)
-[![Issues](https://img.shields.io/github/issues/OpenGrow-Box/OpenGrowBox-Frontend)](https://github.com/OpenGrow-Box/OpenGrowBox-Frontend/issues)
+🌱 Modern React-based dashboard for managing grow rooms through Home Assistant.
 
-**OpenGrowBox Frontend** is the companion web application for the [OpenGrowBox Home Assistant Integration](https://github.com/OpenGrow-Box/OpenGrowBox-HA). It provides a modern, responsive UI for monitoring and controlling your growing environment, visualizing sensor data, reviewing logs, and managing device settings.
+![Version](https://img.shields.io/badge/version-1.0.8-blue)
+![License](https://img.shields.io/badge/license-MIT-green)
+![Home Assistant](https://img.shields.io/badge/home%20assistant-2024.12-orange)
 
----
+## Features
 
-## 📋 Table of Contents
+- 🌡️ **Real-time Monitoring**: Temperature, humidity, VPD, CO2, and more
+- 🎛️ **Device Control**: Lights, fans, pumps, and climate devices
+- 📊 **Data Visualization**: Interactive charts and historical data
+- 📝 **Grow Logs**: Real-time event logging with room-based filtering
+- 🔒 **Secure Authentication**: JWT-based premium features
+- 🎨 **Modern UI**: Dark theme with color-coded rooms
+- 📱 **Responsive Design**: Works on desktop, tablet, and mobile
 
-* [🚀 Features](#-features)
-* [💻 Demo / Screenshot](#-demo--screenshot)
-* [📦 Installation](#-installation)
-* [⚙️ Configuration](#️-configuration)
-* [🏗️ Project Structure](#️-project-structure)
-* [📖 Usage](#-usage)
-* [🛠️ Development](#️-development)
-* [🛣️ Roadmap](#️-roadmap)
-* [🤝 Contributing](#-contributing)
-* [❓ Getting Help](#-getting-help)
-* [📝 License](#-license)
+## Quick Start
 
----
+### For Users
 
-## 🚀 Features
+1. Install via [HACS](https://hacs.xyz/) (Home Assistant Community Store)
+2. Search for "OpenGrowBox"
+3. Click "Download" and follow setup wizard
+4. Access dashboard through Home Assistant sidebar
 
-* **Real-time Monitoring**: Live updates of temperature, humidity, CO₂, pH, EC and other sensor readings.
-* **Device Control**: Toggle pumps, fans, lights and other actuators directly from the dashboard.
-* **Historical Charts**: Interactive graphs showing environmental trends over time.
-* **Notes & Reports**: Add and save grow notes per room or tent, powered by the `text` entity.
-* **Configuration Panel**: Adjust thresholds, schedules and modes (e.g. hydro, auto, manual).
-* **Responsive Design**: Mobile-first, works on any screen size.
-* **Theming**: Multiple built-in themes (Unicorn, Hacky, BookWorm, BlueOcean, CyberPunk, Darkness) via styled-components.
+For detailed user documentation, see [docs/USER.md](docs/USER.md).
 
----
+### For Developers
 
-## 💻 Demo / Screenshot
-![Dashboard Preview](https://github.com/user-attachments/assets/eea1aa9f-06b7-4d06-a386-f4b1d49e80ae)
----
+```bash
+# Clone repository
+git clone <repository-url>
+cd ogb-ha-gui
 
-## 📦 Installation
+# Install dependencies
+npm install
 
-1. **Prerequisites**
+# Start development server
+npm run dev
 
-   * [Node.js](https://nodejs.org/) v14 or newer
-   * [Yarn](https://yarnpkg.com/) (optional, npm also works)
-   * A running Home Assistant instance with the [OpenGrowBox-HA](https://github.com/OpenGrow-Box/OpenGrowBox-HA) integration.
-
-2. **Clone this repository**
-
-   ```bash
-   git clone https://github.com/OpenGrow-Box/OpenGrowBox-Frontend.git
-   cd OpenGrowBox-Frontend
-   ```
-
-3. **Install dependencies**
-
-   ```bash
-   yarn install
-   # or
-   npm install
-   ```
-
-4. **Configure environment variables**
-
-   ```bash
-   cp .env.example .env
-   ```
-
-   Edit `.env` and set your Home Assistant URL and access token:
-
-   ```ini
-   REACT_APP_HA_URL=https://your-homeassistant.local:8123
-   REACT_APP_HA_TOKEN=YOUR_LONG_LIVED_ACCESS_TOKEN
-   ```
-
-5. **Start development server**
-
-   ```bash
-   yarn start
-   # or
-   npm start
-   ```
-
-   Open [http://localhost:5173/ogb-gui/static/](http://localhost:5173/ogb-gui/static/) in your browser.
-
----
-
-## ⚙️ Configuration
-
-### Home Assistant Integration
-
-Install the [OpenGrowBox-HA](https://github.com/OpenGrow-Box/OpenGrowBox-HA) custom component in your Home Assistant `custom_components` folder. In `configuration.yaml`:
-
-```yaml
-opengrowbox:
-  host: 192.168.1.100   # IP of your OpenGrowBox device
-  port: 12345           # TCP port
-  hydro_mode: true      # start hydro mode on HA startup
+# Open browser to http://localhost:3004
 ```
 
-Restart Home Assistant after adding the integration.
+For developer documentation, see [docs/DEVELOPER.md](docs/DEVELOPER.md).
 
-### Frontend Environment
+## Documentation
 
-The `.env` file should contain:
+Comprehensive documentation is available in the `docs/` directory:
 
-```ini
-REACT_APP_HA_URL=https://homeassistant.local:8123
-REACT_APP_HA_TOKEN=YOUR_LONG_LIVED_TOKEN
+| Document | Description |
+|----------|-------------|
+| [README](docs/README.md) | Documentation overview and table of contents |
+| [USER.md](docs/USER.md) | Complete user guide for using the application |
+| [DEVELOPER.md](docs/DEVELOPER.md) | Developer guide for contributing and extending |
+| [ARCHITECTURE.md](docs/ARCHITECTURE.md) | System architecture and design patterns |
+| [API.md](docs/API.md) | WebSocket events and API reference |
+| [DEPLOYMENT.md](docs/DEPLOYMENT.md) | Production deployment instructions |
+
+## Technology Stack
+
+- **Frontend**: React 18, Vite, styled-components
+- **Communication**: WebSocket to Home Assistant
+- **State Management**: React Context API
+- **Routing**: React Router
+- **Icons**: React Icons (FontAwesome, etc.)
+
+## Project Structure
+
+```
+ogb-ha-gui/
+├── src/
+│   ├── Components/      # React components
+│   ├── Pages/         # Route pages
+│   ├── hooks/         # Custom hooks
+│   ├── utils/         # Utility functions
+│   ├── App.jsx        # Main app
+│   └── main.jsx       # Entry point
+├── docs/             # Documentation
+├── public/           # Static assets
+├── package.json      # Dependencies
+└── vite.config.ts    # Build config
 ```
 
----
+## Development
 
-## 🏗️ Project Structure
+```bash
+# Start development server
+npm run dev
 
+# Run type checking
+npm run typecheck
+
+# Run linter
+npm run lint
+
+# Build for production
+npm run build
+
+# Preview production build
+npm run preview
 ```
-OpenGrowBox-Frontend/
-├── public/              # Static assets, index.html, favicon
-├── src/                 # React sources
-│   ├── assets/          # Images, logos, icons
-│   ├── components/      # Reusable UI components (DeviceCard, OGBNotes, etc.)
-│   ├── context/         # HomeAssistantContext, ThemeContext
-│   ├── pages/           # Route-based views (Dashboard, Settings)
-├── docs/                # Documentation assets (screenshots, diagrams)
-├── .envtemplate         # Env vars example
-├── package.json         # Scripts & dependencies
-└── README.md            # This file
-```
+
+## Contributing
+
+We welcome contributions! Please read our [contributing guidelines](docs/DEVELOPER.md#contributing) before submitting pull requests.
+
+## Known Issues
+
+See [bugs.md](bugs.md) for known bugs and their status.
+
+## License
+
+This project is licensed under the MIT License.
+
+## Support
+
+- 🐛 **Report Bugs**: Check existing issues or create a new one
+- 💬 **Community**: Join our community forum
+- 📖 **Documentation**: See [docs/](docs/) for detailed guides
 
 ---
 
-## 📖 Usage
-
-* **Dashboard**: Overview of all rooms/grow tents and key metrics.
-* **Room View**: Detailed sensor data, control buttons, logs, and note-taking (`OGBNotes`).
-* **Settings**: Theme selector, HA connection details, user preferences.
-
----
-
-## 🛠️ Development
-
-* **Lint & Format**
-
-  ```bash
-  yarn lint      # runs ESLint
-  yarn format    # runs Prettier
-  ```
-
-* **Build for Production**
-
-  ```bash
-  yarn build
-  ```
-
-  Outputs to `build/`.
-
-* **Run Tests**
-
-  ```bash
-  yarn test
-  ```
-
----
-
-## 🛣️ Roadmap
-
-* [x] Add multi-room map view
-* [ ] Support custom dashboard layouts
-* [ ] Export data CSV/Excel
-
----
-
-## 🤝 Contributing
-
-Contributions are welcome! Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details:
-
-1. Fork the repo
-2. Create a feature branch (`git checkout -b feature/my-change`)
-3. Commit your changes (`git commit -m "feat: add new widget"`)
-4. Push (`git push origin feature/my-change`)
-5. Open a Pull Request
-
-Be sure to follow the existing code style and include tests where applicable.
-
----
-
-## ❓ Getting Help
-
-If you run into issues or have questions, please open an issue on GitHub or join our Discord channel:
-
-* Issues: [https://github.com/OpenGrow-Box/OpenGrowBox-Frontend/issues](https://github.com/OpenGrow-Box/OpenGrowBox-Frontend/issues)
-* Discord: [https://discord.gg/your-invite-link](https://discord.gg/TUeFmhDJKf)
-
----
-
-## 📝 License
-This project is licensed under the [OGBCL license](LICENSE).
-Additional premium features are only provided to paying customers and are not part of this project. They are subject to a separate proprietary license.
+**Happy Growing! 🌱**

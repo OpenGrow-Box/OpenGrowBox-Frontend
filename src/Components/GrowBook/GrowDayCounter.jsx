@@ -1,199 +1,264 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useMedium } from '../Context/MediumContext';
+import {
+  FaCheck, FaTimes, FaEdit, FaSeedling,
+  FaChartBar, FaLeaf, FaClock, FaFlagCheckered, FaFlask
+} from "react-icons/fa";
 
 const GrowDayCounter = () => {
-  const { entities, connection, currentRoom } = useHomeAssistant();
+  const { connection, currentRoom, isConnectionValid } = useHomeAssistant();
+  const { 
+    currentMedium, 
+    currentMediumIndex, 
+    updateMediumPlantDates, 
+    startEditing, 
+    stopEditing,
+    isFieldEditing,
+    debouncedUpdate 
+  } = useMedium();
 
-  // Zustände für die Sensoren
+  // States for editing
+  const [isEditingPlant, setIsEditingPlant] = useState(false);
+  const [breederNameInputValue, setBreederNameInputValue] = useState('');
+  const [plantNameInputValue, setPlantNameInputValue] = useState('');
+  const [updateStatus, setUpdateStatus] = useState('');
+
+  // Local state for inputs
   const [breederTarget, setBreederTarget] = useState('');
   const [growStartDate, setGrowStartDate] = useState('');
   const [bloomSwitchDate, setBloomSwitchDate] = useState('');
-  const [totalBloomDays, setTotalBloomDays] = useState('');
-  const [plantTotalDays, setPlantTotalDays] = useState('');
-  const [remainingDays, setRemainingDays] = useState('');
-  const [strainName, setStrainName] = useState('');
   
-  // Neue States für Strain-Name Bearbeitung
-  const [isEditingStrain, setIsEditingStrain] = useState(false);
-  const [strainInputValue, setStrainInputValue] = useState('');
-  const [strainUpdateStatus, setStrainUpdateStatus] = useState('');
+  // Refs for debounce timers
+  const breederTimeoutRef = useRef(null);
+  const growStartTimeoutRef = useRef(null);
+  const bloomSwitchTimeoutRef = useRef(null);
 
-  // Memoized roomKey to prevent unnecessary recalculations
-  const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
-
-  // Ref für vorherige Entity-Werte um Änderungen zu tracken
-  const prevEntitiesRef = useRef({});
-
-  // Memoized entity IDs für bessere Performance
-  const entityIds = useMemo(() => ({
-    breederTarget: `number.ogb_breederbloomdays_${roomKey}`,
-    growStartDate: `date.ogb_growstartdate_${roomKey}`,
-    bloomSwitchDate: `date.ogb_bloomswitchdate_${roomKey}`,
-    totalBloomDays: `sensor.ogb_totalbloomdays_${roomKey}`,
-    plantTotalDays: `sensor.ogb_planttotaldays_${roomKey}`,
-    remainingDays: `sensor.ogb_chopchoptime_${roomKey}`,
-    strainName: `text.ogb_strainname_${roomKey}`
-  }), [roomKey]);
-
-  // Memoized relevante Entities um nur bei Änderungen zu re-rendern
-  const relevantEntities = useMemo(() => {
-    const relevant = {};
-    Object.entries(entityIds).forEach(([key, entityId]) => {
-      if (entities[entityId]) {
-        relevant[key] = entities[entityId].state;
+  // Sync local state from currentMedium (only when not editing)
+  useEffect(() => {
+    if (currentMedium) {
+      // Only update if not actively editing these fields
+      if (!isFieldEditing('plant_name') && !isEditingPlant) {
+        setPlantNameInputValue(currentMedium.plant_name || '');
       }
-    });
-    return relevant;
-  }, [entities, entityIds]);
+      if (!isFieldEditing('breeder_name') && !isEditingPlant) {
+        setBreederNameInputValue(currentMedium.breeder_name || '');
+      }
+      if (!isFieldEditing('breeder_bloom_days')) {
+        setBreederTarget(currentMedium.dates?.breederbloomdays?.toString() || '');
+      }
+      if (!isFieldEditing('grow_start')) {
+        setGrowStartDate(currentMedium.dates?.growstartdate || '');
+      }
+      if (!isFieldEditing('bloom_switch')) {
+        setBloomSwitchDate(currentMedium.dates?.bloomswitchdate || '');
+      }
+    }
+  }, [currentMedium, isFieldEditing, isEditingPlant]);
 
-  // Hilfsfunktion: Formatiert Zahlen, sodass .0 entfernt wird
+  // Cleanup timeouts on unmount
+  useEffect(() => {
+    return () => {
+      if (breederTimeoutRef.current) clearTimeout(breederTimeoutRef.current);
+      if (growStartTimeoutRef.current) clearTimeout(growStartTimeoutRef.current);
+      if (bloomSwitchTimeoutRef.current) clearTimeout(bloomSwitchTimeoutRef.current);
+    };
+  }, []);
+
+  // Format numbers
   const formatNumber = (value) => {
     const num = parseFloat(value);
-    if (isNaN(num)) return value;
+    if (isNaN(num)) return value || '0';
     return Number.isInteger(num) ? num.toString() : num.toString();
   };
 
   // Progress calculation
   const getProgress = () => {
-    const total = parseFloat(breederTarget);
-    const current = parseFloat(totalBloomDays);
+    if (!currentMedium?.dates) return 0;
+    const total = parseFloat(currentMedium.dates.breederbloomdays);
+    const current = parseFloat(currentMedium.dates.bloomdays);
     if (isNaN(total) || isNaN(current) || total <= 0) return 0;
     return Math.min((current / total) * 100, 100);
   };
 
   // Get growth phase
   const getGrowthPhase = () => {
-    const bloomDays = parseFloat(totalBloomDays);
-    const remaining = parseFloat(remainingDays);
+    if (!currentMedium) return 'Unknown';
+    return currentMedium.plant_stage || currentMedium.current_phase || 'Unknown';
+  };
+
+  // Update plant name and strain
+  const handlePlantUpdate = async () => {
+    if (!isConnectionValid() || currentMediumIndex === null) {
+      setUpdateStatus('error');
+      setTimeout(() => setUpdateStatus(''), 2000);
+      return;
+    }
+
+    try {
+      await updateMediumPlantDates(currentMediumIndex, {
+        plant_name: plantNameInputValue.trim(),
+        breeder_name: breederNameInputValue.trim(),
+      });
+      setIsEditingPlant(false);
+      setUpdateStatus('success');
+    } catch (error) {
+      console.error('Error updating plant info:', error);
+      setUpdateStatus('error');
+    }
+
+    setTimeout(() => setUpdateStatus(''), 2000);
+  };
+
+  // Handle breeder target update with debounce
+  const handleBreederTargetChange = useCallback((value) => {
+    setBreederTarget(value);
+    startEditing('breeder_bloom_days');
     
-    if (isNaN(bloomDays) || bloomDays === 0) return 'Vegetative';
-    if (remaining > 0) return 'Flowering';
-    return 'Ready to Harvest';
-  };
-
-  // Aktualisieren von Zahlensensoren (z. B. Breeder Bloom Days)
-  const handleNumberUpdate = async (entityId, value) => {
-    if (connection) {
-      try {
-        await connection.sendMessagePromise({
-          type: 'call_service',
-          domain: 'number',
-          service: 'set_value',
-          service_data: { entity_id: entityId, value },
-        });
-      } catch (error) {
-        console.error('Error updating entity:', error);
-      }
+    // Clear existing timeout
+    if (breederTimeoutRef.current) {
+      clearTimeout(breederTimeoutRef.current);
     }
-  };
-
-  // Aktualisieren von Datumssensoren
-  const handleDateUpdate = async (entityId, value) => {
-    if (connection) {
-      try {
-        await connection.sendMessagePromise({
-          type: 'call_service',
-          domain: 'opengrowbox',
-          service: 'update_date',
-          service_data: { entity_id: entityId, date: value },
-        });
-      } catch (error) {
-        console.error('Error updating entity:', error);
-      }
-    }
-  };
-
-  // Strain-Name aktualisieren
-  const handleStrainUpdate = async () => {
-    if (connection && strainInputValue.trim()) {
-      try {
-        await connection.sendMessagePromise({
-          type: 'call_service',
-          domain: 'opengrowbox',
-          service: 'update_text',
-          service_data: {
-            entity_id: entityIds.strainName,
-            text: strainInputValue.trim(),
-          },
-        });
-        setStrainName(strainInputValue.trim());
-        setIsEditingStrain(false);
-        setStrainUpdateStatus('success');
-      } catch (error) {
-        console.error('Error updating strain name:', error);
-        setStrainUpdateStatus('error');
-      }
+    
+    // Debounce the actual update
+    breederTimeoutRef.current = setTimeout(async () => {
+      if (!isConnectionValid() || currentMediumIndex === null) return;
       
-      // Status nach 2 Sekunden zurücksetzen
-      setTimeout(() => setStrainUpdateStatus(''), 2000);
+      try {
+        await updateMediumPlantDates(currentMediumIndex, {
+          breeder_bloom_days: parseInt(value) || 0,
+        });
+      } catch (error) {
+        console.error('Error updating breeder target:', error);
+      }
+    }, 800);
+  }, [currentMediumIndex, isConnectionValid, updateMediumPlantDates, startEditing]);
+
+  // Handle grow start date update with debounce
+  const handleGrowStartChange = useCallback((value) => {
+    setGrowStartDate(value);
+    startEditing('grow_start');
+    
+    if (growStartTimeoutRef.current) {
+      clearTimeout(growStartTimeoutRef.current);
+    }
+    
+    growStartTimeoutRef.current = setTimeout(async () => {
+      if (!isConnectionValid() || currentMediumIndex === null) return;
+      
+      try {
+        await updateMediumPlantDates(currentMediumIndex, {
+          grow_start: value,
+        });
+      } catch (error) {
+        console.error('Error updating grow start date:', error);
+      }
+    }, 800);
+  }, [currentMediumIndex, isConnectionValid, updateMediumPlantDates, startEditing]);
+
+  // Handle bloom switch date update with debounce
+  const handleBloomSwitchChange = useCallback((value) => {
+    setBloomSwitchDate(value);
+    startEditing('bloom_switch');
+    
+    if (bloomSwitchTimeoutRef.current) {
+      clearTimeout(bloomSwitchTimeoutRef.current);
+    }
+    
+    bloomSwitchTimeoutRef.current = setTimeout(async () => {
+      if (!isConnectionValid() || currentMediumIndex === null) return;
+      
+      try {
+        await updateMediumPlantDates(currentMediumIndex, {
+          bloom_switch: value,
+        });
+      } catch (error) {
+        console.error('Error updating bloom switch date:', error);
+      }
+    }, 800);
+  }, [currentMediumIndex, isConnectionValid, updateMediumPlantDates, startEditing]);
+
+  // Grow Finish Handler
+  const handleGrowFinish = async () => {
+    if (!isConnectionValid() || !currentMedium) {
+      console.warn('No connection or medium available for grow finish');
+      return;
+    }
+
+    try {
+      await connection.sendMessagePromise({
+        type: 'call_service',
+        domain: 'opengrowbox',
+        service: 'finish_grow',
+        service_data: {
+          room: currentRoom,
+          medium_index: currentMediumIndex,
+          medium_name: currentMedium.medium_name,
+          plant_name: currentMedium.plant_name,
+          plant_strain: currentMedium.plant_strain,
+          total_days: currentMedium.dates?.planttotaldays || 0,
+          bloom_days: currentMedium.dates?.bloomdays || 0,
+        }
+      });
+
+      console.log('Grow finish signal sent to backend');
+    } catch (error) {
+      console.error('Failed to send grow finish signal:', error);
     }
   };
 
-  // Strain-Name Bearbeitung starten
-  const startEditingStrain = () => {
-    setStrainInputValue(strainName || '');
-    setIsEditingStrain(true);
+  // Start editing plant info
+  const startEditingPlant = () => {
+    setPlantNameInputValue(currentMedium?.plant_name || '');
+    setBreederNameInputValue(currentMedium?.breeder_name || '');
+    setIsEditingPlant(true);
+    startEditing('plant_name');
+    startEditing('breeder_name');
   };
 
-  // Strain-Name Bearbeitung abbrechen
-  const cancelEditingStrain = () => {
-    setStrainInputValue('');
-    setIsEditingStrain(false);
-    setStrainUpdateStatus('');
+  // Cancel editing
+  const cancelEditing = () => {
+    setPlantNameInputValue(currentMedium?.plant_name || '');
+    setBreederNameInputValue(currentMedium?.breeder_name || '');
+    setIsEditingPlant(false);
+    setUpdateStatus('');
+    stopEditing('plant_name');
+    stopEditing('breeder_name');
   };
 
-  // Enter-Taste zum Speichern
-  const handleStrainKeyPress = (e) => {
+  // Enter key handler
+  const handleKeyPress = (e) => {
     if (e.key === 'Enter') {
-      handleStrainUpdate();
+      handlePlantUpdate();
     } else if (e.key === 'Escape') {
-      cancelEditingStrain();
+      cancelEditing();
     }
   };
 
-  // ✅ OPTIMIERTER useEffect - triggert nur bei tatsächlichen Änderungen der relevanten Entities
-  useEffect(() => {
-    // Vergleiche nur die tatsächlichen Werte und update nur wenn sich etwas geändert hat
-    const prev = prevEntitiesRef.current;
-    let hasChanges = false;
-
-    if (relevantEntities.breederTarget !== prev.breederTarget) {
-      setBreederTarget(relevantEntities.breederTarget || '');
-      hasChanges = true;
-    }
-    if (relevantEntities.growStartDate !== prev.growStartDate) {
-      setGrowStartDate(relevantEntities.growStartDate || '');
-      hasChanges = true;
-    }
-    if (relevantEntities.bloomSwitchDate !== prev.bloomSwitchDate) {
-      setBloomSwitchDate(relevantEntities.bloomSwitchDate || '');
-      hasChanges = true;
-    }
-    if (relevantEntities.totalBloomDays !== prev.totalBloomDays) {
-      setTotalBloomDays(relevantEntities.totalBloomDays || '');
-      hasChanges = true;
-    }
-    if (relevantEntities.plantTotalDays !== prev.plantTotalDays) {
-      setPlantTotalDays(relevantEntities.plantTotalDays || '');
-      hasChanges = true;
-    }
-    if (relevantEntities.remainingDays !== prev.remainingDays) {
-      setRemainingDays(relevantEntities.remainingDays || '');
-      hasChanges = true;
-    }
-    if (relevantEntities.strainName !== prev.strainName) {
-      setStrainName(relevantEntities.strainName || '');
-      hasChanges = true;
-    }
-
-    // Speichere aktuelle Werte für nächsten Vergleich
-    prevEntitiesRef.current = { ...relevantEntities };
-  }, [currentRoom]); // Dependency auf memoized relevantEntities
+  if (!currentMedium) {
+    return (
+      <MotionContainer
+        initial={{ opacity: 0, y: -20 }}
+        animate={{ opacity: 1, y: 0 }}
+        exit={{ opacity: 0, y: -20 }}
+        transition={{ duration: 0.6 }}
+      >
+        <CounterCard>
+          <NoDataMessage>
+            <FaSeedling size={48} />
+            <p>No medium selected</p>
+            <small>Select a medium from the dropdown above</small>
+          </NoDataMessage>
+        </CounterCard>
+      </MotionContainer>
+    );
+  }
 
   const progress = getProgress();
   const phase = getGrowthPhase();
+  const dates = currentMedium.dates || {};
 
   return (
     <MotionContainer
@@ -204,52 +269,72 @@ const GrowDayCounter = () => {
     >
       <CounterCard>
         <CardHeader>
-          <StrainTitleContainer>
-            {isEditingStrain ? (
-              <StrainEditContainer>
-                <StrainInput
+          <PlantTitleContainer>
+            {isEditingPlant ? (
+              <PlantEditContainer>
+                <PlantInput
                   type="text"
-                  value={strainInputValue}
-                  onChange={(e) => setStrainInputValue(e.target.value)}
-                  onKeyDown={handleStrainKeyPress}
-                  placeholder="Strain name eingeben..."
+                  value={plantNameInputValue}
+                  onChange={(e) => setPlantNameInputValue(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Plant name..."
                   autoFocus
                 />
-                <StrainEditButtons>
-                  <StrainButton onClick={handleStrainUpdate} success>
-                    ✓
-                  </StrainButton>
-                  <StrainButton onClick={cancelEditingStrain} cancel>
-                    ✕
-                  </StrainButton>
-                </StrainEditButtons>
-              </StrainEditContainer>
-            ) : (
-              <StrainTitleWrapper onClick={startEditingStrain}>
-                <StrainTitle>{strainName || 'Unknown Strain'}</StrainTitle>
-                <EditIcon>✏️</EditIcon>
-              </StrainTitleWrapper>
-            )}
+                <BreederInput
+                  type="text"
+                  value={breederNameInputValue}
+                  onChange={(e) => setBreederNameInputValue(e.target.value)}
+                  onKeyDown={handleKeyPress}
+                  placeholder="Breeder name..."
+                />
+                 <PlantEditButtons>
+                   <PlantButton onClick={handlePlantUpdate} $success>
+                     <FaCheck size={16} />
+                   </PlantButton>
+                   <PlantButton onClick={cancelEditing} $cancel>
+                     <FaTimes size={16} />
+                   </PlantButton>
+                 </PlantEditButtons>
+              </PlantEditContainer>
+             ) : (
+                <PlantTitleWrapper onClick={startEditingPlant}>
+                  <PlantTitle>{currentMedium.plant_name || currentMedium.medium_name || 'Unknown Plant'}</PlantTitle>
+                  <BreederSubtitle>{currentMedium.breeder_name || 'Unknown Breeder'}</BreederSubtitle>
+                  <MediumBadge>
+                    <FaFlask size={12} />
+                    {currentMedium.medium_name || `Medium ${currentMediumIndex + 1}`}
+                  </MediumBadge>
+                  <EditIcon><FaEdit size={16} /></EditIcon>
+                </PlantTitleWrapper>
+             )}
             
-            {strainUpdateStatus && (
-              <StrainStatus success={strainUpdateStatus === 'success'}>
-                {strainUpdateStatus === 'success' ? '✓ Gespeichert' : '✗ Fehler'}
-              </StrainStatus>
-            )}
-          </StrainTitleContainer>
+             {updateStatus && (
+               <UpdateStatus $success={updateStatus === 'success'}>
+                 {updateStatus === 'success' ? (
+                   <>
+                     <FaCheck size={14} /> Saved
+                   </>
+                 ) : (
+                   <>
+                     <FaTimes size={14} /> Error
+                   </>
+                 )}
+               </UpdateStatus>
+             )}
+          </PlantTitleContainer>
           
-          <PhaseIndicator phase={phase}>{phase}</PhaseIndicator>
-          <CardTitle>🌱 Grow Day Counter - <Highlight>{currentRoom}</Highlight></CardTitle>
+          <PhaseIndicator $phase={phase}>{phase}</PhaseIndicator>
+           <CardTitle><FaSeedling size={20} /> Grow Day Counter - <Highlight>{currentRoom}</Highlight></CardTitle>
         </CardHeader>
 
         <ProgressSection>
           <ProgressLabel>Bloom Progress</ProgressLabel>
           <ProgressBarContainer>
-            <ProgressBar progress={progress} />
+            <ProgressBar $progress={progress} />
             <ProgressText>{progress.toFixed(1)}%</ProgressText>
           </ProgressBarContainer>
           <ProgressInfo>
-            {formatNumber(totalBloomDays)} / {formatNumber(breederTarget)} days
+            {formatNumber(dates.bloomdays)} / {formatNumber(dates.breederbloomdays)} days
           </ProgressInfo>
         </ProgressSection>
 
@@ -259,11 +344,12 @@ const GrowDayCounter = () => {
               <InputLabel>Bloom Days Target</InputLabel>
               <StyledInput
                 type="number"
-                value={formatNumber(breederTarget)}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setBreederTarget(value);
-                  handleNumberUpdate(entityIds.breederTarget, value);
+                value={breederTarget}
+                onChange={(e) => handleBreederTargetChange(e.target.value)}
+                onFocus={() => startEditing('breeder_bloom_days')}
+                onBlur={() => {
+                  // Delay stop editing to allow debounced update to complete
+                  setTimeout(() => stopEditing('breeder_bloom_days'), 1000);
                 }}
               />
             </InputGroup>
@@ -275,10 +361,10 @@ const GrowDayCounter = () => {
               <StyledInput
                 type="date"
                 value={growStartDate}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setGrowStartDate(value);
-                  handleDateUpdate(entityIds.growStartDate, value);
+                onChange={(e) => handleGrowStartChange(e.target.value)}
+                onFocus={() => startEditing('grow_start')}
+                onBlur={() => {
+                  setTimeout(() => stopEditing('grow_start'), 1000);
                 }}
               />
             </InputGroup>
@@ -287,10 +373,10 @@ const GrowDayCounter = () => {
               <StyledInput
                 type="date"
                 value={bloomSwitchDate}
-                onChange={(e) => {
-                  const value = e.target.value;
-                  setBloomSwitchDate(value);
-                  handleDateUpdate(entityIds.bloomSwitchDate, value);
+                onChange={(e) => handleBloomSwitchChange(e.target.value)}
+                onFocus={() => startEditing('bloom_switch')}
+                onBlur={() => {
+                  setTimeout(() => stopEditing('bloom_switch'), 1000);
                 }}
               />
             </InputGroup>
@@ -298,264 +384,446 @@ const GrowDayCounter = () => {
         </InputSection>
 
         <StatsGrid>
-          <StatCard>
-            <StatIcon>📊</StatIcon>
-            <StatValue>{formatNumber(plantTotalDays)}</StatValue>
-            <StatLabel>Total Days</StatLabel>
-          </StatCard>
-          <StatCard>
-            <StatIcon>🌸</StatIcon>
-            <StatValue>{formatNumber(totalBloomDays)}</StatValue>
-            <StatLabel>Bloom Days</StatLabel>
-          </StatCard>
-          <StatCard highlight={parseFloat(remainingDays) <= 7}>
-            <StatIcon>⏰</StatIcon>
-            <StatValue>{formatNumber(remainingDays)}</StatValue>
-            <StatLabel>Days Left</StatLabel>
-          </StatCard>
-        </StatsGrid>
-      </CounterCard>
-    </MotionContainer>
-  );
+           <StatCard>
+             <StatIcon><FaChartBar size={24} /></StatIcon>
+             <StatValue>{formatNumber(dates.planttotaldays)}</StatValue>
+             <StatLabel>Total Days</StatLabel>
+           </StatCard>
+           <StatCard>
+             <StatIcon><FaLeaf size={24} /></StatIcon>
+             <StatValue>{formatNumber(dates.bloomdays)}</StatValue>
+             <StatLabel>Bloom Days</StatLabel>
+           </StatCard>
+           <StatCard $highlight={parseFloat(dates.daysToChopChop) <= 7}>
+             <StatIcon><FaClock size={24} /></StatIcon>
+             <StatValue>{formatNumber(dates.daysToChopChop)}</StatValue>
+             <StatLabel>Days Left</StatLabel>
+           </StatCard>
+          </StatsGrid>
+
+          {/* Grow Finish Button */}
+          <FinishSection>
+            <FinishButton onClick={handleGrowFinish} disabled={!isConnectionValid()}>
+              <FaFlagCheckered size={18} />
+              <span>Finish Grow Cycle</span>
+            </FinishButton>
+            <FinishNote>
+              This will complete the current grow cycle for this medium.
+            </FinishNote>
+          </FinishSection>
+       </CounterCard>
+     </MotionContainer>
+   );
 };
 
 export default GrowDayCounter;
 
-// Styled Components bleiben unverändert...
+// Styled Components
 const MotionContainer = motion(styled.div``);
 
 const CounterCard = styled.div`
-  background: var(--main-bg-card-color);
-  border-radius: 20px;
-  padding: 1.5rem;
-  max-width: 28rem;
-  margin: 0.5rem auto;
-  box-shadow: var(--main-shadow-art);
+  background: linear-gradient(135deg,
+    var(--main-bg-card-color)
+  );
+  backdrop-filter: blur(20px);
+  border-radius: 24px;
+  padding: 2rem;
+  max-width: 32rem;
+  margin: 1rem auto;
+  box-shadow:
+    0 8px 32px rgba(0, 0, 0, 0.12),
+    0 2px 8px rgba(0, 0, 0, 0.08),
+    var(--glass-shadow-inset);
   color: var(--main-text-color);
-  font-family: 'Arial', sans-serif;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
+  font-family: 'Inter', 'Segoe UI', system-ui, sans-serif;
+  border: 1px solid var(--glass-border-light);
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(74, 222, 128, 0.3) 20%,
+      rgba(59, 130, 246, 0.3) 50%,
+      rgba(147, 51, 234, 0.3) 80%,
+      transparent 100%
+    );
+  }
+`;
+
+const NoDataMessage = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 2rem;
+  text-align: center;
+  color: var(--second-text-color);
+
+  svg {
+    margin-bottom: 1rem;
+    opacity: 0.5;
+  }
+
+  p {
+    font-size: 1.125rem;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+    color: var(--main-text-color);
+  }
+
+  small {
+    font-size: 0.875rem;
+    opacity: 0.8;
+  }
 `;
 
 const CardHeader = styled.div`
   text-align: center;
-  margin-bottom: 1.5rem;
-  padding-bottom: 1rem;
-  border-bottom: 2px solid rgba(74, 222, 128, 0.3);
-`;
+  margin-bottom: 2.5rem;
+  padding-bottom: 2rem;
+  position: relative;
 
-const StrainTitleContainer = styled.div`
-  margin-bottom: 1rem;
-`;
-
-const StrainTitleWrapper = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: 0.5rem;
-  cursor: pointer;
-  padding: 0.5rem;
-  border-radius: 8px;
-  transition: background 0.2s ease;
-  
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 60%;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(74, 222, 128, 0.6) 30%,
+      rgba(74, 222, 128, 0.8) 50%,
+      rgba(74, 222, 128, 0.6) 70%,
+      transparent 100%
+    );
+    border-radius: 1px;
   }
 `;
 
-const StrainTitle = styled.h1`
-  font-size: 1.8rem;
-  font-weight: 700;
+const PlantTitleContainer = styled.div`
+  margin-bottom: 1rem;
+`;
+
+const PlantTitleWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  padding: 0.75rem 1rem;
+  border-radius: 12px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+
+  &:hover {
+    background: linear-gradient(135deg,
+      rgba(74, 222, 128, 0.08) 0%,
+      rgba(34, 197, 94, 0.05) 100%
+    );
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+  }
+`;
+
+const PlantTitle = styled.h1`
+  font-size: 2rem;
+  font-weight: 800;
   margin: 0;
-  color: #4ade80;
-  text-shadow: 0 2px 4px rgba(74, 222, 128, 0.3);
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.025em;
+  line-height: 1.1;
+
+  @media (max-width: 480px) {
+    font-size: 1.75rem;
+  }
+`;
+
+const BreederSubtitle = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--second-text-color);
+  opacity: 0.8;
+`;
+
+const MediumBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  margin-top: 0.5rem;
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 16px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #22c55e;
+  box-shadow: 0 2px 6px rgba(74, 222, 128, 0.2);
+
+  svg {
+    opacity: 0.8;
+  }
 `;
 
 const EditIcon = styled.span`
   font-size: 1rem;
-  opacity: 0.6;
-  transition: opacity 0.2s ease;
-  
-  ${StrainTitleWrapper}:hover & {
+  opacity: 0.7;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  color: #4ade80;
+
+  ${PlantTitleWrapper}:hover & {
     opacity: 1;
+    transform: rotate(360deg) scale(1.1);
+    color: #22c55e;
   }
 `;
 
-const StrainEditContainer = styled.div`
+const PlantEditContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.75rem;
   align-items: center;
+  width: 100%;
 `;
 
-const StrainInput = styled.input`
-  font-size: 1.8rem;
-  font-weight: 700;
+const PlantInput = styled.input`
+  font-size: 1.5rem;
+  font-weight: 800;
   color: #4ade80;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(74, 222, 128, 0.5);
-  border-radius: 8px;
-  padding: 0.5rem;
+  background: linear-gradient(135deg,
+    var(--main-bg-Innercard-color) 0%,
+    var(--main-bg-Innercard-color) 100%
+  );
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(74, 222, 128, 0.4);
+  border-radius: 12px;
+  padding: 0.75rem 1rem;
   text-align: center;
-  min-width: 200px;
-  
+  width: 100%;
+  max-width: 400px;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.15);
+
   &:focus {
     outline: none;
-    border-color: #4ade80;
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.2);
-    background: rgba(255, 255, 255, 0.15);
+    border-color: #22c55e;
+    box-shadow:
+      0 0 0 3px rgba(74, 222, 128, 0.15),
+      0 4px 16px rgba(74, 222, 128, 0.2);
+    transform: translateY(-1px);
   }
-  
+
   &::placeholder {
-    color: rgba(74, 222, 128, 0.5);
+    color: rgba(74, 222, 128, 0.6);
+    font-weight: 600;
   }
 `;
 
-const StrainEditButtons = styled.div`
-  display: flex;
-  gap: 0.5rem;
+const BreederInput = styled(PlantInput)`
+  font-size: 1.125rem;
+  font-weight: 600;
 `;
 
-const StrainButton = styled.button`
-  width: 2rem;
-  height: 2rem;
+const PlantEditButtons = styled.div`
+  display: flex;
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+`;
+
+const PlantButton = styled.button`
+  width: 3rem;
+  height: 3rem;
   border: none;
   border-radius: 50%;
   cursor: pointer;
-  font-size: 0.9rem;
-  font-weight: bold;
-  transition: all 0.2s ease;
-  
-  ${props => props.success && `
-    background: rgba(34, 197, 94, 0.8);
+  font-size: 1.125rem;
+  font-weight: 700;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+
+  ${props => props.$success && `
+    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
     color: white;
+
     &:hover {
-      background: rgba(34, 197, 94, 1);
-      transform: scale(1.1);
+      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
     }
   `}
-  
-  ${props => props.cancel && `
-    background: rgba(239, 68, 68, 0.8);
+
+  ${props => props.$cancel && `
+    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
     color: white;
+
     &:hover {
-      background: rgba(239, 68, 68, 1);
-      transform: scale(1.1);
+      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      transform: scale(1.1) translateY(-2px);
+      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
     }
   `}
+
+  &:active {
+    transform: scale(0.95) translateY(0);
+  }
 `;
 
-const StrainStatus = styled.div`
-  margin-top: 0.5rem;
-  padding: 0.3rem 0.8rem;
-  font-size: 0.8rem;
-  border-radius: 12px;
-  background: ${props => props.success ? 'rgba(34, 197, 94, 0.1)' : 'rgba(239, 68, 68, 0.1)'};
-  color: ${props => props.success ? '#22c55e' : '#ef4444'};
-  border: 1px solid ${props => props.success ? 'rgba(34, 197, 94, 0.3)' : 'rgba(239, 68, 68, 0.3)'};
+const UpdateStatus = styled.div`
+  margin-top: 1rem;
+  padding: 0.625rem 1.25rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  border-radius: 20px;
+  background: ${props => props.$success
+    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.1) 100%)'
+    : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%)'
+  };
+  color: ${props => props.$success ? '#16a34a' : '#dc2626'};
+  border: 1px solid ${props => props.$success
+    ? 'rgba(34, 197, 94, 0.3)'
+    : 'rgba(239, 68, 68, 0.3)'
+  };
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  justify-content: center;
 `;
 
 const PhaseIndicator = styled.div`
   display: inline-block;
-  padding: 0.4rem 1rem;
-  border-radius: 20px;
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
-  background: ${props => {
-    switch(props.phase) {
-      case 'Vegetative': return 'rgba(34, 197, 94, 0.2)';
-      case 'Flowering': return 'rgba(251, 191, 36, 0.2)';
-      case 'Ready to Harvest': return 'rgba(239, 68, 68, 0.2)';
-      default: return 'rgba(156, 163, 175, 0.2)';
-    }
-  }};
-  color: ${props => {
-    switch(props.phase) {
-      case 'Vegetative': return '#22c55e';
-      case 'Flowering': return '#fbbf24';
-      case 'Ready to Harvest': return '#ef4444';
-      default: return '#9ca3af';
-    }
-  }};
-  border: 1px solid ${props => {
-    switch(props.phase) {
-      case 'Vegetative': return 'rgba(34, 197, 94, 0.3)';
-      case 'Flowering': return 'rgba(251, 191, 36, 0.3)';
-      case 'Ready to Harvest': return 'rgba(239, 68, 68, 0.3)';
-      default: return 'rgba(156, 163, 175, 0.3)';
-    }
-  }};
+  padding: 0.625rem 1.5rem;
+  border-radius: 24px;
+  font-size: 0.875rem;
+  font-weight: 700;
+  margin-bottom: 1.5rem;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  background: rgba(74, 222, 128, 0.15);
+  color: #16a34a;
+  border: 1px solid rgba(74, 222, 128, 0.4);
+  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.15);
 `;
 
 const CardTitle = styled.h2`
-  font-size: 1.1rem;
+  font-size: 1.125rem;
+  font-weight: 600;
   margin: 0;
-  opacity: 0.9;
+  opacity: 0.85;
+  color: var(--second-text-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  letter-spacing: 0.025em;
 `;
 
 const ProgressSection = styled.div`
-  margin-bottom: 1.5rem;
-  padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  margin-bottom: 2.5rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  backdrop-filter: blur(8px);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
 `;
 
 const ProgressLabel = styled.div`
-  font-size: 0.9rem;
-  font-weight: 600;
-  margin-bottom: 0.5rem;
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: 1rem;
   text-align: center;
-  opacity: 0.8;
+  color: var(--main-text-color);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  opacity: 0.9;
+`;
+
+const ProgressInfo = styled.div`
+  text-align: center;
+  font-size: 0.875rem;
+  font-weight: 500;
+  opacity: 0.75;
+  margin-top: 0.75rem;
+  color: var(--second-text-color);
+  background: var(--glass-bg-secondary);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
 `;
 
 const ProgressBarContainer = styled.div`
   position: relative;
   width: 100%;
-  height: 8px;
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 4px;
+  height: 12px;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.1) 0%,
+    rgba(255, 255, 255, 0.05) 100%
+  );
+  border-radius: 8px;
   overflow: hidden;
-  margin-bottom: 0.5rem;
+  margin-bottom: 1rem;
+  box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+  border: 1px solid var(--glass-border);
 `;
 
 const ProgressBar = styled.div`
   height: 100%;
-  width: ${props => props.progress}%;
-  background: linear-gradient(90deg, #4ade80, #22c55e);
-  border-radius: 4px;
-  transition: width 0.5s ease;
-  box-shadow: 0 0 10px rgba(74, 222, 128, 0.5);
+  width: ${props => props.$progress}%;
+  background: linear-gradient(135deg,
+    #4ade80 0%,
+    #22c55e 50%,
+    #16a34a 100%
+  );
+  border-radius: 8px;
+  transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
 `;
 
 const ProgressText = styled.div`
   text-align: center;
-  font-size: 1rem;
-  font-weight: 700;
-  color: #4ade80;
-`;
-
-const ProgressInfo = styled.div`
-  text-align: center;
-  font-size: 0.8rem;
-  opacity: 0.7;
-  margin-top: 0.25rem;
+  font-size: 1.25rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: 0.025em;
 `;
 
 const InputSection = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  margin-bottom: 1.5rem;
+  gap: 1.5rem;
+  margin-bottom: 2.5rem;
+  padding: 1.5rem;
+  background: var(--glass-bg-secondary);
+  border-radius: 16px;
+  border: 1px solid var(--glass-border);
 `;
 
 const InputRow = styled.div`
   display: flex;
-  gap: 1rem;
-  
-  @media (max-width: 480px) {
+  gap: 1.25rem;
+
+  @media (max-width: 640px) {
     flex-direction: column;
+    gap: 1rem;
   }
 `;
 
@@ -566,86 +834,159 @@ const InputGroup = styled.div`
 `;
 
 const InputLabel = styled.label`
-  font-size: 0.85rem;
-  margin-bottom: 0.3rem;
+  font-size: 0.875rem;
+  margin-bottom: 0.5rem;
   font-weight: 600;
-  opacity: 0.9;
+  color: var(--main-text-color);
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
+  opacity: 0.85;
 `;
 
-
 const StyledInput = styled.input`
-  background: rgba(30, 41, 59, 0.8);
-  color: #f1f5f9;
-  border: 1px solid rgba(56, 189, 248, 0.2);
-  padding: 0.75rem;
-  border-radius: 10px;
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(8px);
+  color: var(--main-text-color);
+  border: 1px solid var(--glass-border-light);
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
   font-size: 0.875rem;
+  font-weight: 500;
   width: 100%;
-  transition: all 0.3s ease;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 
   &:focus {
     outline: none;
-    border-color: #38bdf8;
-    background: rgba(30, 41, 59, 1);
-    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.1);
+    border-color: rgba(59, 130, 246, 0.5);
+    background: var(--main-bg-Innercard-color);
+    box-shadow:
+      0 0 0 3px rgba(59, 130, 246, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
   }
 
-  /* Browser Datepicker Icon – weiß machen */
-  &::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    opacity: 1;
-  }
-
-  @media (min-width: 768px) {
-    padding: 0.75rem 1rem;
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
   }
 `;
 
 const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
-  gap: 1rem;
+  gap: 1.25rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    gap: 1rem;
+  }
 `;
 
 const StatCard = styled.div`
-  background: ${props => props.highlight 
-    ? 'rgba(239, 68, 68, 0.1)' 
-    : 'rgba(255, 255, 255, 0.05)'
+  background: ${props => props.$highlight
+    ? 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%)'
+    : 'linear-gradient(135deg, rgba(255, 255, 255, 0.08) 0%, rgba(255, 255, 255, 0.04) 100%)'
   };
-  border: 1px solid ${props => props.highlight 
-    ? 'rgba(239, 68, 68, 0.3)' 
-    : 'rgba(255, 255, 255, 0.1)'
+  backdrop-filter: blur(8px);
+  border: 1px solid ${props => props.$highlight
+    ? 'rgba(239, 68, 68, 0.3)'
+    : 'rgba(255, 255, 255, 0.12)'
   };
-  border-radius: 12px;
-  padding: 1rem;
+  border-radius: 16px;
+  padding: 1.5rem 1rem;
   text-align: center;
-  transition: all 0.3s ease;
-  
+  transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+    transform: translateY(-4px) scale(1.02);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
   }
 `;
 
 const StatIcon = styled.div`
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.75rem;
+  margin-bottom: 0.75rem;
+  opacity: 0.8;
 `;
 
 const StatValue = styled.div`
-  font-size: 1.4rem;
-  font-weight: 700;
-  color: #4ade80;
-  margin-bottom: 0.2rem;
+  font-size: 1.5rem;
+  font-weight: 800;
+  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 0.5rem;
+  letter-spacing: -0.025em;
 `;
 
 const StatLabel = styled.div`
-  font-size: 0.75rem;
-  opacity: 0.7;
-  font-weight: 500;
+  font-size: 0.8125rem;
+  font-weight: 600;
+  color: var(--second-text-color);
+  opacity: 0.8;
+  letter-spacing: 0.025em;
+  text-transform: uppercase;
 `;
 
 const Highlight = styled.span`
-  color: var(--second-text-color);
-  font-weight: bold;
+  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  font-weight: 700;
+  letter-spacing: 0.025em;
+`;
+
+const FinishSection = styled.div`
+  margin-top: 2rem;
+  padding: 1.5rem;
+  background: linear-gradient(135deg,
+    rgba(239, 68, 68, 0.05) 0%,
+    rgba(220, 38, 38, 0.08) 100%
+  );
+  border: 1px solid rgba(239, 68, 68, 0.2);
+  border-radius: 16px;
+  text-align: center;
+`;
+
+const FinishButton = styled.button`
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 12px;
+  font-size: 1rem;
+  font-weight: 600;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+
+  &:hover:not(:disabled) {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
+    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
+const FinishNote = styled.p`
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  color: rgba(255, 255, 255, 0.7);
+  line-height: 1.4;
 `;

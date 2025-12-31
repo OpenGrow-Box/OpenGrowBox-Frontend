@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import { useGlobalState } from '../Components/Context/GlobalContext';
 import { useNavigate } from 'react-router-dom';
@@ -19,12 +19,47 @@ const GradientDefs = () => (
 
 const SetupPage = () => {
   const [inputToken, setInputToken] = useState('');
+  const [inputServerUrl, setInputServerUrl] = useState(import.meta.env.VITE_HA_HOST || '');
+  const [isConnecting, setIsConnecting] = useState(false);
+  const [pendingToken, setPendingToken] = useState(null);
   const { setDeep, accessToken } = useGlobalState();
   const navigate = useNavigate();
-  const { connection } = useHomeAssistant();
+  const { connection, reconnect, loading, error } = useHomeAssistant();
+  
+  const isDev = import.meta.env.DEV;
+
+  // Watch for connection after token is set
+  useEffect(() => {
+    if (pendingToken && connection && !loading) {
+      // Connection established with the new token
+      const completeSetup = async () => {
+        try {
+          await handleTokenChange("text.ogb_accesstoken", pendingToken);
+          localStorage.setItem(import.meta.env.PROD ? 'haToken' : 'devToken', pendingToken);
+          setPendingToken(null);
+          setIsConnecting(false);
+          navigate("/home");
+        } catch (err) {
+          console.error('Error completing setup:', err);
+          setIsConnecting(false);
+          setPendingToken(null);
+        }
+      };
+      completeSetup();
+    } else if (pendingToken && error && !loading) {
+      // Connection failed
+      alert('Invalid token! Please enter a valid Token.');
+      setIsConnecting(false);
+      setPendingToken(null);
+    }
+  }, [connection, loading, error, pendingToken, navigate]);
 
   const handleInputChange = (e) => {
     setInputToken(e.target.value);
+  };
+
+  const handleServerUrlChange = (e) => {
+    setInputServerUrl(e.target.value);
   };
 
   const handleSubmit = async () => {
@@ -33,24 +68,35 @@ const SetupPage = () => {
       return;
     }
 
-    if (import.meta.env.PROD) {
-      setDeep('Conf.haToken', inputToken);
-      if (connection) {
+    // In dev mode, require server URL
+    if (isDev && !inputServerUrl) {
+      alert('Please enter your Home Assistant server URL!');
+      return;
+    }
+
+    // Save the configuration
+    setDeep('Conf.haToken', inputToken);
+    if (isDev) {
+      setDeep('Conf.hassServer', inputServerUrl);
+      localStorage.setItem('devServerUrl', inputServerUrl);
+    }
+    localStorage.setItem(import.meta.env.PROD ? 'haToken' : 'devToken', inputToken);
+    
+    // If already connected, complete immediately
+    if (connection) {
+      try {
         await handleTokenChange("text.ogb_accesstoken", inputToken);
-        localStorage.setItem('haToken', inputToken);
         navigate("/home");
-      } else {
-        alert('Invalid token! Please enter a valid Token.');
+      } catch (err) {
+        console.error('Error updating token:', err);
+        alert('Error saving token. Please try again.');
       }
     } else {
-      setDeep('Conf.haToken', inputToken);
-      if (connection) {
-        await handleTokenChange("text.ogb_accesstoken", inputToken);
-        localStorage.setItem('devToken', inputToken);
-        navigate("/home");
-      } else {
-        alert('Invalid token! Please enter a valid Token.');
-      }
+      // Set pending token and wait for connection
+      setIsConnecting(true);
+      setPendingToken(inputToken);
+      // Trigger reconnect with the new token
+      setTimeout(() => reconnect(), 100);
     }
   };
 
@@ -80,16 +126,29 @@ const SetupPage = () => {
         Welcome to OpenGrowBox
       </Header>
       <SubText>
-        Please enter your Home Assistant Long-Lived Access Token to proceed.
+        {isDev 
+          ? 'Please enter your Home Assistant server URL and Long-Lived Access Token to proceed.'
+          : 'Please enter your Home Assistant Long-Lived Access Token to proceed.'
+        }
       </SubText>
       <InputWrapper>
+        {isDev && (
+          <Input
+            type="url"
+            placeholder="Home Assistant Server URL (e.g., http://homeassistant.local:8123)"
+            value={inputServerUrl}
+            onChange={handleServerUrlChange}
+          />
+        )}
         <Input
           type="text"
           placeholder="Enter Assistant Long-Lived Token..."
           value={inputToken}
           onChange={handleInputChange}
         />
-        <SubmitButton onClick={handleSubmit}>Save Token</SubmitButton>
+        <SubmitButton onClick={handleSubmit} disabled={isConnecting}>
+          {isConnecting ? 'Connecting...' : 'Save Token'}
+        </SubmitButton>
       </InputWrapper>
       <Footer>
         🪴 Grow smarter with OpenGrowBox! 🪴 Harvest Better
@@ -244,15 +303,21 @@ const SubmitButton = styled.button`
   transition: all 0.3s ease;
   animation: ${pulse} 2s infinite;
 
-  &:hover {
+  &:hover:not(:disabled) {
     background: #48CAE4;
     transform: translateY(-2px);
     box-shadow: 0 4px 15px rgba(72, 202, 228, 0.5);
   }
 
-  &:active {
+  &:active:not(:disabled) {
     transform: translateY(0);
     box-shadow: none;
+  }
+
+  &:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    animation: none;
   }
 
   @media (max-width: 768px) {

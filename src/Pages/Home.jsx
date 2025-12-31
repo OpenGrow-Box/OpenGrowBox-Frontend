@@ -12,7 +12,7 @@ import DeviceCard from '../Components/Cards/ControlCards/DeviceCard';
 import DashboardSlider from '../Components/Dashboard/DashboardSlider';
 import DashboardStats from '../Components/Dashboard/DashboardStats';
 import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
-import HeatMap from '../Components/Premium/HeatMap';
+
 import OtherSensors from '../Components/Cards/OtherSensors';
 import { usePremium } from '../Components/Context/OGBPremiumContext';
 
@@ -68,22 +68,7 @@ const Home = () => {
               )}
             </TabButton>
 
-            {isPremium && (
-              <TabButton
-                active={activeTab === 'heatmap'}
-                onClick={() => setActiveTab('heatmap')}
-              >
-                <MdShowChart size={20} />
-                <span>Heat Map</span>
-                {activeTab === 'heatmap' && (
-                  <ActiveIndicator
-                    layoutId="activeTab"
-                    initial={false}
-                    transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                  />
-                )}
-              </TabButton>
-            )}
+
 
             <TabButton
               active={activeTab === 'others'}
@@ -127,17 +112,7 @@ const Home = () => {
                 </motion.div>
               )}
               
-              {isPremium && activeTab === 'heatmap' && (
-                <motion.div
-                  key="heatmap"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <HeatMap />
-                </motion.div>
-              )}
+
               
               {activeTab === 'others' && (
                 <motion.div
@@ -212,7 +187,7 @@ const DataSection = styled.section`
 const TabContainer = styled.div`
   display: flex;
   gap: 0.5rem;
-  background: rgba(0, 0, 0, 0.3);
+  background: var(--main-bg-card-color);
   padding: 0.5rem;
   border-radius: 12px;
   backdrop-filter: blur(10px);
@@ -227,7 +202,7 @@ const TabButton = styled.button`
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: ${props => props.active ? '#fff' : 'rgba(255, 255, 255, 0.6)'};
+  color: ${props => props.active ? 'var(--main-text-color)' : 'var(--placeholder-text-color)'};
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
@@ -235,7 +210,7 @@ const TabButton = styled.button`
   z-index: 1;
 
   &:hover {
-    color: #fff;
+    color: var(--main-text-color);
     transform: translateY(-1px);
   }
 
@@ -252,10 +227,10 @@ const ActiveIndicator = styled(motion.div)`
   left: 0;
   right: 0;
   bottom: 0;
-  background: linear-gradient(135deg, rgba(76, 175, 80, 0.3), rgba(56, 142, 60, 0.3));
+  background: linear-gradient(135deg, var(--main-arrow-up), var(--cannabis-active-color));
   border-radius: 8px;
   z-index: -1;
-  box-shadow: 0 4px 12px rgba(76, 175, 80, 0.3);
+  box-shadow: 0 4px 12px var(--main-arrow-up);
 `;
 
 const TabContent = styled.div`
@@ -272,6 +247,6 @@ const ContainerHeader = styled.div`
   height: 3.5vh;
   margin-bottom: 0.5rem;
   padding: 0 2rem;
-  background: rgba(0, 0, 0, 0.4);
-  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  background: var(--main-bg-nav-color);
+  box-shadow: var(--main-shadow-art);
 `;

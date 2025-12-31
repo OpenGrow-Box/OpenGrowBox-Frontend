@@ -3,20 +3,20 @@ import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
+import { getThemeColor } from '../../../utils/themeColors';
+import { filterSensorsByRoom } from './sensorClassifier';
 
-const TankLevelCard = ({pause,resume,isPlaying}) => {
-  const { entities } = useHomeAssistant();
+const TankLevelCard = ({pause, resume, isPlaying, filterByRoom}) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [tankLevelSensors, setTankLevelSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
-    const updateTankLevelCard = () => {
-      const sensors = Object.entries(entities)
+    let sensors = Object.entries(entities)
       .filter(([key, entity]) => {
         const rawValue = parseFloat(entity.state);
         const id = key.toLowerCase();
 
-        // Tank level sensor patterns
         const patterns = [
           /tank_level($|[^a-zA-Z])/,
           /water_level($|[^a-zA-Z])/,
@@ -34,54 +34,55 @@ const TankLevelCard = ({pause,resume,isPlaying}) => {
           !isNaN(rawValue)
         );
       })
-        .map(([key, entity]) => {
-          const rawValue = parseFloat(entity.state);
-          const unit = entity.attributes?.unit_of_measurement || '%';
-          return {
-            id: key,
-            value: rawValue,
-            unit: unit,
-            friendlyName: formatLabel(entity.attributes?.friendly_name || key),
-          };
-        });
+      .map(([key, entity]) => {
+        const rawValue = parseFloat(entity.state);
+        const unit = entity.attributes?.unit_of_measurement || '%';
+        return {
+          id: key,
+          value: rawValue,
+          unit: unit,
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+        };
+      });
 
-      setTankLevelSensors(sensors);
-    };
+    if (filterByRoom && currentRoom) {
+      sensors = filterSensorsByRoom(sensors, currentRoom);
+    }
 
-    updateTankLevelCard();
-  }, [entities]);
+    setTankLevelSensors(sensors);
+  }, [entities, filterByRoom, currentRoom]);
 
   const getColorForValue = (value, unit) => {
     const unitLower = unit.toLowerCase();
   
     // Farben für Prozent-Werte (Tank Level)
     if (unitLower.includes('%')) {
-      if (value <= 10) return '#ef4444'; // Kritisch niedrig (Rot)
-      if (value > 10 && value <= 25) return 'rgba(230, 63, 12, 0.85)'; // Niedrig (Orange-Rot)
-      if (value > 25 && value <= 50) return 'rgba(230, 212, 12, 0.85)'; // Medium (Gelb)
-      if (value > 50 && value <= 75) return 'rgba(197, 230, 12, 0.85)'; // Gut (Gelb-Grün)
-      return 'rgba(85, 230, 12, 0.85)'; // Voll (Grün)
+      if (value <= 10) return getThemeColor('--chart-error-color'); // Kritisch niedrig (Theme red)
+      if (value > 10 && value <= 25) return getThemeColor('--warning-accent-color'); // Niedrig (Theme orange)
+      if (value > 25 && value <= 50) return getThemeColor('--chart-warning-color'); // Medium (Theme yellow)
+      if (value > 50 && value <= 75) return getThemeColor('--warning-text-color'); // Gut (Theme amber)
+      return getThemeColor('--chart-success-color'); // Voll (Theme green)
     }
 
     // Farben für Liter-Werte
     if (unitLower.includes('l') || unitLower.includes('liter')) {
-      if (value <= 50) return '#ef4444'; // Niedrig
-      if (value > 50 && value <= 150) return 'rgba(230, 63, 12, 0.85)';
-      if (value > 150 && value <= 300) return 'rgba(230, 212, 12, 0.85)';
-      if (value > 300 && value <= 500) return 'rgba(197, 230, 12, 0.85)';
-      return 'rgba(85, 230, 12, 0.85)';
+      if (value <= 50) return getThemeColor('--chart-error-color'); // Niedrig (Theme red)
+      if (value > 50 && value <= 150) return getThemeColor('--warning-accent-color'); // Theme orange
+      if (value > 150 && value <= 300) return getThemeColor('--chart-warning-color'); // Theme yellow
+      if (value > 300 && value <= 500) return getThemeColor('--warning-text-color'); // Theme amber
+      return getThemeColor('--chart-success-color'); // Theme green
     }
 
     // Farben für cm/m Werte (Füllstand)
     if (unitLower.includes('cm') || unitLower.includes('m')) {
-      if (value <= 10) return '#ef4444';
-      if (value > 10 && value <= 25) return 'rgba(230, 63, 12, 0.85)';
-      if (value > 25 && value <= 50) return 'rgba(230, 212, 12, 0.85)';
-      if (value > 50 && value <= 75) return 'rgba(197, 230, 12, 0.85)';
-      return 'rgba(85, 230, 12, 0.85)';
+      if (value <= 10) return getThemeColor('--chart-error-color');
+      if (value > 10 && value <= 25) return getThemeColor('--warning-accent-color');
+      if (value > 25 && value <= 50) return getThemeColor('--chart-warning-color');
+      if (value > 50 && value <= 75) return getThemeColor('--warning-text-color');
+      return getThemeColor('--chart-success-color');
     }
 
-    return '#ffffff'; // Standard: Weiß
+    return 'var(--main-bg-card-color)'; // Standard: Theme background
   };
 
   const formatValue = (value) => {
@@ -138,7 +139,8 @@ const CardContainer = styled.div``;
 const Header = styled.div`
   font-size: 0.8rem;
   color: var(--main-unit-color);
-  margin-top: -2rem;
+  margin-top: 0.5rem;
+  margin-bottom: 0.5rem;
   @media (max-width: 768px) {
     width: 10%;
     transition: color 0.3s ease;
@@ -181,7 +183,7 @@ const ModalOverlay = styled.div`
   left: 0;
   right: 0;
   bottom: 0;
-  background: rgba(0, 0, 0, 0.5);
+  background: var(--main-bg-color);
   z-index: 11;
   display: flex;
   justify-content: center;
@@ -189,7 +191,7 @@ const ModalOverlay = styled.div`
 `;
 
 const ModalContent = styled.div`
-  background: #fff;
+  background: var(--main-bg-card-color);
   width: 65%;
   height: 65%;
   position: relative;

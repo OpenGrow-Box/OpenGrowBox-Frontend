@@ -1,28 +1,38 @@
 'use client';
 import styled from 'styled-components';
-import { FaTrophy } from 'react-icons/fa';
+import { FaTrophy, FaChevronDown, FaChevronUp } from 'react-icons/fa';
+import { useState } from 'react';
 
 const DevBageHallOfFame = ({ users = [] }) => {
+  const [isExpanded, setIsExpanded] = useState(false);
+
   return (
     <HallOfFameCard>
-      <Title>
-        <TrophyIcon />
-        Hall of Fame
-      </Title>
-      <NameList>
-        {users.length > 0 ? (
-          users.map((user, index) => (
-            <NameItem key={index} rank={index + 1}>
-              <RankBadge rank={index + 1}>
-                {index < 3 ? <FaTrophy /> : `#${index + 1}`}
-              </RankBadge>
-              {user.name}
-            </NameItem>
-          ))
-        ) : (
-          <EmptyText>Keine Teilnehmer:innen eingetragen.</EmptyText>
-        )}
-      </NameList>
+      <ExpandableHeader onClick={() => setIsExpanded(!isExpanded)}>
+        <Title>
+          <TrophyIcon />
+          Hall of Fame
+        </Title>
+        <ExpandIcon>
+          {isExpanded ? <FaChevronUp /> : <FaChevronDown />}
+        </ExpandIcon>
+      </ExpandableHeader>
+      <ExpandableContent $isExpanded={isExpanded}>
+        <NameList>
+          {users.length > 0 ? (
+            users.map((user, index) => (
+              <NameItem key={index} $rank={index + 1}>
+                <RankBadge $rank={index + 1}>
+                  {index < 3 ? <FaTrophy /> : `#${index + 1}`}
+                </RankBadge>
+                {user.name}
+              </NameItem>
+            ))
+          ) : (
+            <EmptyText>Keine Teilnehmer:innen eingetragen.</EmptyText>
+          )}
+        </NameList>
+      </ExpandableContent>
     </HallOfFameCard>
   );
 };
@@ -50,6 +60,18 @@ const HallOfFameCard = styled.div`
     padding: 1.5rem;
     margin: 1rem;
   }
+ `;
+
+const ExpandableHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  cursor: pointer;
+
+  &:hover {
+    opacity: 0.8;
+  }
 `;
 
 const Title = styled.h3`
@@ -59,7 +81,6 @@ const Title = styled.h3`
   font-size: 1.5rem;
   font-weight: 700;
   color: #1e3a8a; /* Dunkles Blau für hohen Kontrast */
-  text-align: center;
   margin: 0;
   text-transform: uppercase;
   letter-spacing: 1px;
@@ -70,6 +91,19 @@ const Title = styled.h3`
   @media (max-width: 600px) {
     font-size: 1.2rem;
   }
+ `;
+
+const ExpandIcon = styled.div`
+  color: var(--primary-accent);
+  font-size: 1.5rem;
+  transition: transform 0.3s ease;
+`;
+
+const ExpandableContent = styled.div`
+  width: 100%;
+  max-height: ${props => props.$isExpanded ? '1000px' : '0'};
+  overflow: hidden;
+  transition: max-height 0.5s ease;
 `;
 
 
@@ -92,26 +126,26 @@ const NameItem = styled.li`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  background: ${({ rank }) =>
-    rank === 1
+  background: ${({ $rank }) =>
+    $rank === 1
       ? 'linear-gradient(45deg, #f59e0b, #fcd34d)' /* Gold */
-      : rank === 2
+      : $rank === 2
       ? 'linear-gradient(45deg, #9ca3af, #d1d5db)' /* Silber */
-      : rank === 3
+      : $rank === 3
       ? 'linear-gradient(45deg, #b45309, #f97316)' /* Bronze */
       : 'rgba(59, 130, 246, 0.1)'}; /* Blauer Hintergrund für andere Ränge */
-  color: ${({ rank }) => (rank <= 3 ? '#fff' : '#1e3a8a')}; /* Weiß für Top-3, Dunkelblau für andere */
+  color: ${({ $rank }) => ($rank <= 3 ? '#fff' : '#1e3a8a')}; /* Weiß für Top-3, Dunkelblau für andere */
   font-weight: 600;
   font-size: 1rem;
   padding: 0.75rem 1rem;
   border-radius: 12px;
   border: 1px solid
-    ${({ rank }) =>
-      rank === 1
+    ${({ $rank }) =>
+      $rank === 1
         ? '#d97706'
-        : rank === 2
+        : $rank === 2
         ? '#6b7280'
-        : rank === 3
+        : $rank === 3
         ? '#92400e'
         : '#3b82f6'}; /* Kontrastreiche Rahmenfarben */
   transition: all 0.3s ease;
@@ -122,9 +156,9 @@ const NameItem = styled.li`
   &:hover {
     transform: translateY(-3px);
     box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
-    background: ${({ rank }) =>
-      rank <= 3 ? undefined : '#3b82f6'}; /* Blauer Hover-Effekt für Nicht-Top-3 */
-    color: ${({ rank }) => (rank <= 3 ? undefined : '#fff')}; /* Weißer Text beim Hover */
+    background: ${({ $rank }) =>
+      $rank <= 3 ? undefined : '#3b82f6'}; /* Blauer Hover-Effekt für Nicht-Top-3 */
+    color: ${({ $rank }) => ($rank <= 3 ? undefined : '#fff')}; /* Weißer Text beim Hover */
   }
 
   @media (max-width: 600px) {
@@ -140,12 +174,12 @@ const RankBadge = styled.span`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: ${({ rank }) =>
-    rank === 1
+  background: ${({ $rank }) =>
+    $rank === 1
       ? '#b45309'
-      : rank === 2
+      : $rank === 2
       ? '#4b5563'
-      : rank === 3
+      : $rank === 3
       ? '#7c2d12'
       : '#1e3a8a'}; /* Kontrastreiche Farben für Badges */
   color: #fff;

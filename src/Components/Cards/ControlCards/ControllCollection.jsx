@@ -117,6 +117,74 @@ const dynamicFilters = {
     }
   },
 
+  light_farred_control: {
+    selectEntity: 'ogb_light_farred_enabled_',
+    activeInGroups: ['Lights'],
+    conditions: {
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ['farred_start', 'farred_end', 'farred_intensity'],
+        additionalTooltips: {}
+      },
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      }
+    }
+  },
+
+  light_uv_control: {
+    selectEntity: 'ogb_light_uv_enabled_',
+    activeInGroups: ['Lights'],
+    conditions: {
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ['uv_delay', 'uv_stop', 'uv_max', 'uv_intensity'],
+        additionalTooltips: {}
+      },
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      }
+    }
+  },
+
+  light_blue_control: {
+    selectEntity: 'ogb_light_blue_enabled_',
+    activeInGroups: ['Lights'],
+    conditions: {
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ['blue_morning', 'blue_evening', 'blue_transition'],
+        additionalTooltips: {}
+      },
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      }
+    }
+  },
+
+  light_red_control: {
+    selectEntity: 'ogb_light_red_enabled_',
+    activeInGroups: ['Lights'],
+    conditions: {
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ['red_morning', 'red_evening', 'red_transition'],
+        additionalTooltips: {}
+      },
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      }
+    }
+  },
+
   co2_control: {
     selectEntity: 'ogb_co2_control_',
     activeInGroups: ['CO₂ Control'], 
@@ -239,7 +307,7 @@ const dynamicFilters = {
     conditions: {
       'Crop-Steering': {
         includeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot',],
-        excludeKeywords: ['pump', 'leaf',   'cycle', 'Retrive','drying','plan','tolerance','plant','medium',],
+        excludeKeywords: ['pump', 'leaf',   'cycle', 'Retrive','drying','plan','tolerance','plant','medium','light'],
         additionalTooltips: {
           'ogb_crop_dry_back_': 'Set the dry-back percentage for crop steering cycles',
           'ogb_crop_wet_time_': 'Set duration for wet phase in crop steering',
@@ -411,8 +479,8 @@ const groupMappings = {
     excludeKeywords: ['Device', 'water', 'hydro'],
   },
   'Special Settings': {
-    includeKeywords: ['area','determination','medium','console','planttype'],
-    excludeKeywords: ["mediumctrl"],
+    includeKeywords: ['area','medium','console','planttype'],
+    excludeKeywords: ["mediumctrl",'determination'],
   },
   'Targets': {
     includeKeywords: ['weight', 'min', 'max'],
@@ -458,6 +526,31 @@ const ControllCollection = ({ option }) => {
     [`ogb_light_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to use custom min/max light voltage. Set values before enabling.',
     [`ogb_light_volt_min_${currentRoom?.toLowerCase()}`]: 'Set the minimum voltage. Requires Light Min/Max enabled.',
     [`ogb_light_volt_max_${currentRoom?.toLowerCase()}`]: 'Set the maximum voltage. Requires Light Min/Max enabled.',
+
+    // Far Red Light Controls
+    [`ogb_light_farred_enabled_${currentRoom?.toLowerCase()}`]: 'Enable Far Red light control for sunrise/sunset enhancement.',
+    [`ogb_light_farred_start_duration_${currentRoom?.toLowerCase()}`]: 'Set Far Red duration at start of light cycle (minutes).',
+    [`ogb_light_farred_end_duration_${currentRoom?.toLowerCase()}`]: 'Set Far Red duration at end of light cycle (minutes).',
+    [`ogb_light_farred_intensity_${currentRoom?.toLowerCase()}`]: 'Set Far Red light intensity (%).',
+
+    // UV Light Controls
+    [`ogb_light_uv_enabled_${currentRoom?.toLowerCase()}`]: 'Enable UV light control for enhanced resin production.',
+    [`ogb_light_uv_delay_start_${currentRoom?.toLowerCase()}`]: 'Set delay after lights on before UV starts (minutes).',
+    [`ogb_light_uv_stop_before_end_${currentRoom?.toLowerCase()}`]: 'Set time before lights off to stop UV (minutes).',
+    [`ogb_light_uv_max_duration_${currentRoom?.toLowerCase()}`]: 'Set maximum UV exposure duration (hours).',
+    [`ogb_light_uv_intensity_${currentRoom?.toLowerCase()}`]: 'Set UV light intensity (%).',
+
+    // Blue Light Controls
+    [`ogb_light_blue_enabled_${currentRoom?.toLowerCase()}`]: 'Enable Blue light spectrum control for vegetative growth.',
+    [`ogb_light_blue_morning_boost_${currentRoom?.toLowerCase()}`]: 'Set Blue light boost in the morning (%).',
+    [`ogb_light_blue_evening_reduce_${currentRoom?.toLowerCase()}`]: 'Set Blue light reduction in the evening (%).',
+    [`ogb_light_blue_transition_${currentRoom?.toLowerCase()}`]: 'Set Blue light transition duration (minutes).',
+
+    // Red Light Controls
+    [`ogb_light_red_enabled_${currentRoom?.toLowerCase()}`]: 'Enable Red light spectrum control for flowering.',
+    [`ogb_light_red_morning_reduce_${currentRoom?.toLowerCase()}`]: 'Set Red light reduction in the morning (%).',
+    [`ogb_light_red_evening_boost_${currentRoom?.toLowerCase()}`]: 'Set Red light boost in the evening (%).',
+    [`ogb_light_red_transition_${currentRoom?.toLowerCase()}`]: 'Set Red light transition duration (minutes).',
 
     [`ogb_co2_control_${currentRoom?.toLowerCase()}`]: 'Enable CO₂-based environmental control.',
     [`ogb_co2minvalue_${currentRoom?.toLowerCase()}`]: 'Set minimum CO₂ value.',
@@ -618,9 +711,16 @@ const ControllCollection = ({ option }) => {
             lowerKey.includes(keyword.toLowerCase())
           );
         
-        const matchesExclude = allExcludeKeywords.some((keyword) =>
-          lowerKey.includes(keyword.toLowerCase())
-        );
+        // Skip exclude keywords that are part of the room name (e.g., 'drying' when room is 'dryingtent')
+        const roomLower = currentRoom?.toLowerCase() || '';
+        const matchesExclude = allExcludeKeywords.some((keyword) => {
+          const keywordLower = keyword.toLowerCase();
+          // If the room name contains this keyword, don't use it as an exclude filter
+          if (roomLower.includes(keywordLower)) {
+            return false;
+          }
+          return lowerKey.includes(keywordLower);
+        });
         
         const roomMatches = currentRoom
           ? lowerKey.includes(currentRoom.toLowerCase())
@@ -630,7 +730,18 @@ const ControllCollection = ({ option }) => {
       })
       .map(([key, entity]) => {
         const cleanKey = entity.entity_id.split('.').pop();
-        const tooltip = mergedTooltips[cleanKey] || '';
+        // Try exact match first, then try with normalized room name
+        let tooltip = mergedTooltips[cleanKey] || '';
+        if (!tooltip) {
+          // Fallback: find tooltip by matching the base key pattern (without room suffix)
+          const baseKey = cleanKey.replace(/_[^_]+$/, '_'); // e.g., ogb_temperatureweight_
+          const matchingTooltipKey = Object.keys(mergedTooltips).find(k => 
+            k.startsWith(baseKey) || cleanKey.startsWith(k.replace(/_[^_]+$/, '_'))
+          );
+          if (matchingTooltipKey) {
+            tooltip = mergedTooltips[matchingTooltipKey];
+          }
+        }
 
         return {
           title: formatTitle(entity.attributes?.friendly_name || entity.entity_id),

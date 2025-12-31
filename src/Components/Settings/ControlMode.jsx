@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import LoginModal from '../Premium/LoginModal';
+import { FaRocket, FaGift } from 'react-icons/fa';
 
 import { formatDateTime } from '../../misc/formatDateTime';
 import { usePremium } from '../Context/OGBPremiumContext';
@@ -36,10 +37,10 @@ const capitalize = (str) => {
 
 // Fixed Launch Configuration
 const FIXED_LAUNCH_CONFIG = {
-  // Set your fixed launch date here - example: January 1, 2026
-  LAUNCH_DATE: new Date('2026-01-01T00:00:00Z'),
-  IS_LAUNCHED: false, // Set to true when you want to enable premium features immediately
-  LAUNCH_MESSAGE: 'Enterprise Features launching soon!'
+  // Premium is now LIVE!
+  LAUNCH_DATE: new Date('2024-12-20T00:00:00Z'),
+  IS_LAUNCHED: true, // Premium features are now available!
+  LAUNCH_MESSAGE: 'Premium Features are now available!'
 };
 
 // Simplified Launch Date Functions (No API Calls)
@@ -103,11 +104,6 @@ const ControlMode = ({ onSelectChange }) => {
   const [filteredRooms, setFilteredRooms] = useState([]);
   const initializedRef = useRef(false);
   const [showLoginModal, setShowLoginModal] = useState(false);
-  const [showTestUserModal, setShowTestUserModal] = useState(false);
-  const [testUserData, setTestUserData] = useState({ email: '', ogbAccessToken: '',ogbBetaToken:''});
-  const [testUserLoading, setTestUserLoading] = useState(false);
-  const [testUserMessage, setTestUserMessage] = useState('');
-  const [testUserAccess, setTestUserAccess] = useState(null);
   
   // Launch Date States - Simplified
   const [daysUntilLaunch, setDaysUntilLaunch] = useState(0);
@@ -121,7 +117,8 @@ const ControlMode = ({ onSelectChange }) => {
   });
 
   const {subscription, isPremium, ogbSessions, ogbMaxSessions, logout, 
-    canAddNewRoom, userEmail, userId,devUserLogin,devTestUser } = usePremium();
+    canAddNewRoom, isMaxRoomsReached, disconnectRoom, switchPremiumRoom, 
+    getPremiumRooms, maxRoomsReached, isLoggedIn, userEmail, userId } = usePremium();
 
   // Load launch information - Now using fixed configuration
   useEffect(() => {
@@ -275,20 +272,56 @@ const ControlMode = ({ onSelectChange }) => {
 
   const selectControl = async option => {
     if (option === 'Premium') {
-      if (!isPremium) {
-        setShowTestUserModal(true);
+      // If not logged in, show login modal
+      if (!isLoggedIn) {
+        setShowLoginModal(true);
         return;
       }
 
-      const isMaxReached = await canAddNewRoom(); 
-      console.log("canAddNewRoom result:", isMaxReached, option);
+      // Check if this room is already in Premium mode
+      const currentRoomControl = controlMapping[selectedRoom];
+      if (currentRoomControl === 'Premium') {
+        console.log(`Room ${selectedRoom} is already in Premium mode`);
+        return;
+      }
 
-      if (isMaxReached) {
-        window.alert("⚠️ Too many rooms! You cannot create more. Deactivate one first, then activate the new one");
+      // Check if we can add a new room
+      const canAdd = canAddNewRoom();
+      console.log("canAddNewRoom result:", canAdd, "ogbSessions:", ogbSessions, "ogbMaxSessions:", ogbMaxSessions);
+
+      if (!canAdd) {
+        // Get list of rooms currently in Premium mode
+        const premiumRooms = getPremiumRooms();
+
+        if (premiumRooms.length > 0) {
+          // Offer to switch from another room
+          const roomList = premiumRooms.map(r => r.charAt(0).toUpperCase() + r.slice(1)).join(', ');
+          const shouldSwitch = window.confirm(
+            `⚠️ Room limit reached (${ogbSessions}/${ogbMaxSessions}).\n\n` +
+            `Currently active Premium rooms: ${roomList}\n\n` +
+            `Do you want to switch Premium from one of these rooms to "${selectedRoom}"?\n\n` +
+            `Click OK to disconnect the first active room and activate this one.`
+          );
+
+          if (shouldSwitch && premiumRooms.length > 0) {
+            try {
+              await switchPremiumRoom(premiumRooms[0], selectedRoom);
+              setControlMapping(prev => ({ ...prev, [selectedRoom]: option }));
+              onSelectChange?.(selectedRoom, option, notificationMapping[selectedRoom]);
+            } catch (error) {
+              window.alert(`❌ Failed to switch Premium room: ${error.message}`);
+            }
+          }
+        } else {
+          window.alert(
+            `⚠️ Room limit reached (${ogbSessions}/${ogbMaxSessions}).\n\n` +
+            `You cannot activate more rooms. Please upgrade your plan or disconnect an existing Premium room first.`
+          );
+        }
         return;
       }
     }
-    
+
     setControlMapping(prev => ({ ...prev, [selectedRoom]: option }));
     callService('maincontrol', option);
     onSelectChange?.(selectedRoom, option, notificationMapping[selectedRoom]);
@@ -326,55 +359,6 @@ const ControlMode = ({ onSelectChange }) => {
     } catch (error) {
       console.error("Logout failed:", error);
     }
-  };
-
-  // Handle Test User Form
-  const handleTestUserSubmit = async (e) => {
-    e.preventDefault();
-    
-    if (!testUserData.ogbBetaToken.trim() || !testUserData.email.trim()|| !testUserData.ogbAccessToken.trim()) {
-      setTestUserMessage('Please fill in all fields');
-      return;
-    }
-    
-    setTestUserLoading(true);
-    setTestUserMessage('');
-    
-    try {
-      const accessResult = await devUserLogin(
-        testUserData.email.trim(),
-        testUserData.ogbAccessToken.trim(),
-        testUserData.ogbBetaToken.trim()
-      );
-      
-      setTestUserAccess(accessResult);
-      console.log(accessResult);
-      
-      if (accessResult.success) {
-        setTestUserMessage('✅ Test access granted! You can now use Premium features.');
-        
-        // Nach 2 Sekunden Modal schließen
-        setTimeout(() => {
-          setShowTestUserModal(false);
-          setShowLoginModal(true);
-          setTestUserMessage('');
-        }, 2000);
-      } else {
-        setTestUserMessage(accessResult.message || '❌ Access denied. You are not authorized for test access.');
-      }
-    } catch (error) {
-      setTestUserMessage('❌ Error checking access. Please try again.');
-      console.error('Test user access error:', error);
-    } finally {
-      setTestUserLoading(false);
-    }
-  };
-
-  const resetTestUserModal = () => {
-    setTestUserData({ email: '', ogbBetaToken: '', ogbAccessToken: '' });
-    setTestUserMessage('');
-    setTestUserAccess(null);
-    setTestUserLoading(false);
   };
 
   return (
@@ -416,78 +400,6 @@ const ControlMode = ({ onSelectChange }) => {
       </TagsContainer>
 
       {showLoginModal && <LoginModal selectedRoom={selectedRoom} onClose={() => setShowLoginModal(false)} />}
-      
-      {/* Test User Modal */}
-      {showTestUserModal && (
-        <TestUserModal onClick={(e) => e.target === e.currentTarget && (setShowTestUserModal(false), resetTestUserModal())}>
-          <TestUserModalContent>
-            <TestUserModalHeader>
-              <PremiumCrown>
-                <svg viewBox="0 0 24 24" fill="currentColor" width="24" height="24">
-                  <path d="M5 16L3 5l4.5 2.5L12 4l4.5 3.5L21 5l-2 11H5zm2.7-2h8.6l.9-5.4-2.1 1.2L12 8l-3.1 1.8-2.1-1.2L7.7 14z"/>
-                </svg>
-              </PremiumCrown>
-              <TestUserModalTitle>Test User Access</TestUserModalTitle>
-            </TestUserModalHeader>
-            
-            <p style={{ color: 'var(--main-text-color)', marginBottom: '1.5rem', fontSize: '0.9rem' }}>
-              Premium features are launching soon! Enter your test credentials to get early access.
-            </p>
-            
-            <TestUserForm onSubmit={handleTestUserSubmit}>
-              <TestUserInput
-                type="email"
-                placeholder="Email"
-                value={testUserData.email}
-                onChange={(e) => setTestUserData(prev => ({ ...prev, email: e.target.value }))}
-                disabled={testUserLoading}
-                required
-              />
-              <TestUserInput
-                type="password"
-                placeholder="Your Beta OGB Token"
-                value={testUserData.ogbBetaToken}
-                onChange={(e) => setTestUserData(prev => ({ ...prev, ogbBetaToken: e.target.value }))}
-                disabled={testUserLoading}
-                required
-              />
-              <TestUserInput
-                type="password"
-                placeholder="Your Private OGB Token"
-                value={testUserData.ogbAccessToken}
-                onChange={(e) => setTestUserData(prev => ({ ...prev, ogbAccessToken: e.target.value }))}
-                disabled={testUserLoading}
-                required
-              />     
-              <TestUserButtonGroup>
-                <TestUserButton 
-                  type="button" 
-                  onClick={() => {setShowTestUserModal(false); resetTestUserModal();}}
-                  disabled={testUserLoading}
-                >
-                  Cancel
-                </TestUserButton>
-                <TestUserButton 
-                  type="submit" 
-                  primary
-                  disabled={testUserLoading}
-                >
-                  {testUserLoading ? 'Checking...' : 'Check Access'}
-                </TestUserButton>
-              </TestUserButtonGroup>
-            </TestUserForm>
-            
-            {testUserMessage && (
-              <TestUserMessage 
-                error={testUserMessage.includes('❌')} 
-                success={testUserMessage.includes('✅')}
-              >
-                {testUserMessage}
-              </TestUserMessage>
-            )}
-          </TestUserModalContent>
-        </TestUserModal>
-      )}
 
       <InfoTitle>Notifications - {selectedRoom}</InfoTitle>
       <TagsContainer>
@@ -515,8 +427,7 @@ const ControlMode = ({ onSelectChange }) => {
           <PlanInfoGrid>
             <InfoCard>
               <InfoLabel>Current Plan</InfoLabel>
-              <InfoValue>{capitalize(subscription?.plan_name)}</InfoValue>
-              <InfoValue>{`${ogbSessions} / ${ogbMaxSessions} : Sessions`}</InfoValue>
+              <InfoValue>{capitalize(subscription?.plan_name || 'free')}</InfoValue>
             </InfoCard>
 
             <InfoCard>
@@ -524,7 +435,7 @@ const ControlMode = ({ onSelectChange }) => {
               <InfoValue>
                 <StatusBadge>
                   <StatusDot />
-                  Active
+                  {subscription?.status ? capitalize(subscription.status) : 'Active'}
                 </StatusBadge>
               </InfoValue>
             </InfoCard>
@@ -536,65 +447,138 @@ const ControlMode = ({ onSelectChange }) => {
             
             <InfoCard>
               <InfoLabel>Next Renewal</InfoLabel>
-              <InfoValue>{formatDateTime(subscription?.current_period_end)}</InfoValue>
+              <InfoValue>
+                {subscription?.current_period_end 
+                  ? formatDateTime(subscription.current_period_end)
+                  : 'Never (Free Plan)'}
+              </InfoValue>
             </InfoCard>
+
+            {/* Show plan limits with usage - API uses camelCase */}
+            {subscription?.limits && (
+              <>
+                <UsageCard>
+                  <UsageHeader>
+                    <InfoLabel>Rooms</InfoLabel>
+                    <UsageText>
+                      {subscription.usage?.roomsUsed || 0} / {subscription.limits.maxRooms || '∞'}
+                    </UsageText>
+                  </UsageHeader>
+                  <UsageBar>
+                    <UsageProgress 
+                      percent={subscription.limits.maxRooms 
+                        ? Math.min(100, ((subscription.usage?.roomsUsed || 0) / subscription.limits.maxRooms) * 100) 
+                        : 0} 
+                    />
+                  </UsageBar>
+                </UsageCard>
+
+                <UsageCard>
+                  <UsageHeader>
+                    <InfoLabel>Grow Plans</InfoLabel>
+                    <UsageText>
+                      {subscription.usage?.growPlansUsed || 0} / {subscription.limits.maxGrowPlans || '∞'}
+                    </UsageText>
+                  </UsageHeader>
+                  <UsageBar>
+                    <UsageProgress 
+                      percent={subscription.limits.maxGrowPlans 
+                        ? Math.min(100, ((subscription.usage?.growPlansUsed || 0) / subscription.limits.maxGrowPlans) * 100) 
+                        : 0} 
+                    />
+                  </UsageBar>
+                </UsageCard>
+
+                <UsageCard>
+                  <UsageHeader>
+                    <InfoLabel>API Calls (Total)</InfoLabel>
+                    <UsageText>
+                      {subscription.usage?.apiCallsThisMonth || 0} / {subscription.limits.maxApiCallsPerMonth || '∞'}
+                    </UsageText>
+                  </UsageHeader>
+                  <UsageBar>
+                    <UsageProgress 
+                      percent={subscription.limits.maxApiCallsPerMonth 
+                        ? Math.min(100, ((subscription.usage?.apiCallsThisMonth || 0) / subscription.limits.maxApiCallsPerMonth) * 100) 
+                        : 0} 
+                    />
+                  </UsageBar>
+                </UsageCard>
+
+                <UsageCard>
+                  <UsageHeader>
+                    <InfoLabel>Storage</InfoLabel>
+                    <UsageText>
+                      {subscription.usage?.storageUsedGB || 0} GB / {subscription.limits.storageLimitGB || '∞'} GB
+                    </UsageText>
+                  </UsageHeader>
+                  <UsageBar>
+                    <UsageProgress 
+                      percent={subscription.limits.storageLimitGB 
+                        ? Math.min(100, ((subscription.usage?.storageUsedGB || 0) / subscription.limits.storageLimitGB) * 100) 
+                        : 0} 
+                    />
+                  </UsageBar>
+                </UsageCard>
+
+                <UsageCard>
+                  <UsageHeader>
+                    <InfoLabel>Active Connections</InfoLabel>
+                    <UsageText>
+                      {subscription.usage?.activeConnections || ogbSessions || 0} / {subscription.limits.maxConcurrentConnections || ogbMaxSessions || '∞'}
+                    </UsageText>
+                  </UsageHeader>
+                  <UsageBar>
+                    <UsageProgress 
+                      percent={subscription.limits.maxConcurrentConnections 
+                        ? Math.min(100, ((subscription.usage?.activeConnections || ogbSessions || 0) / subscription.limits.maxConcurrentConnections) * 100) 
+                        : 0} 
+                    />
+                  </UsageBar>
+                </UsageCard>
+
+                <InfoCard>
+                  <InfoLabel>Data Retention</InfoLabel>
+                  <InfoValue>{subscription.limits.maxDataRetentionDays || 'N/A'} days</InfoValue>
+                </InfoCard>
+              </>
+            )}
           </PlanInfoGrid>
+
+          {/* Show enabled features - API uses camelCase */}
+          {subscription?.features && (
+            <FeaturesList>
+              <InfoLabel style={{ marginBottom: '0.5rem' }}>Enabled Features:</InfoLabel>
+              <FeaturesGrid>
+                {Object.entries(subscription.features)
+                  .filter(([key, value]) => value === true)
+                  .map(([key, value]) => (
+                    <FeatureTag key={key}>
+                      ✓ {key
+                          .replace(/([A-Z])/g, ' $1')  // Add space before capitals (camelCase)
+                          .replace(/_/g, ' ')          // Also handle snake_case
+                          .replace(/^\s/, '')          // Remove leading space
+                          .replace(/\b\w/g, l => l.toUpperCase())}
+                    </FeatureTag>
+                  ))}
+              </FeaturesGrid>
+            </FeaturesList>
+          )}
         </PremiumPlanCard>
       ) : (
         <NoSubWrapper>
-          <NoSubTitle>🚀 Premium Launch Soon</NoSubTitle>
+          <NoSubTitle><FaRocket /> Premium Now Available!</NoSubTitle>
           <NoSubDescription>
-            Unlock exclusive features from our Premium Add-On and get access to advanced functionality.
+            Unlock exclusive features with OpenGrowBox Premium and get access to advanced functionality.
           </NoSubDescription>
           
-          {/* Launch Info Display - Now using fixed configuration */}
-          {isLaunched ? (
-            <LaunchInfo>
-              🎉 Premium Features are now available! Sign up today to get started.
-            </LaunchInfo>
-          ) : (
-            <>
-              <LaunchInfo>
-                {daysUntilLaunch === 0 
-                  ? "🚀 Enterprise Features launching today!" 
-                  : `⏰ Launch in ${daysUntilLaunch} Day${daysUntilLaunch > 1 ? "s" : ""} - at ${launchDateString}`}
-              </LaunchInfo>
-              
-              {/* Detailed Countdown */}
-              {daysUntilLaunch > 0 && (
-                <CountdownContainer>
-                  {launchCountdown.days > 0 && (
-                    <CountdownBox>
-                      <CountdownNumber>{launchCountdown.days}</CountdownNumber>
-                      <CountdownLabel>Days</CountdownLabel>
-                    </CountdownBox>
-                  )}
-                  <CountdownBox>
-                    <CountdownNumber>{launchCountdown.hours}</CountdownNumber>
-                    <CountdownLabel>Hours</CountdownLabel>
-                  </CountdownBox>
-                  <CountdownBox>
-                    <CountdownNumber>{launchCountdown.minutes}</CountdownNumber>
-                    <CountdownLabel>Minutes</CountdownLabel>
-                  </CountdownBox>
-                  <CountdownBox>
-                    <CountdownNumber>{launchCountdown.seconds}</CountdownNumber>
-                    <CountdownLabel>Seconds</CountdownLabel>
-                  </CountdownBox>
-                </CountdownContainer>
-              )}
-            </>
-          )}
+          <LaunchInfo>
+            <FaGift /> Premium Features are now live! Sign up today to get started.
+          </LaunchInfo>
           
           <UpgradeButton onClick={() => window.open("https://opengrowbox.net", "_blank")}>
-            Get your Account Now !
+            Get your Account Now!
           </UpgradeButton>
-            <LaunchInfo>
-              🎉 You might be one of the first to become a Beta Premium tester! 🎉
-            </LaunchInfo>
-            <LaunchInfo>
-              🚀 Head over to your OGB-Account Page and choose if you want to join the program. 🚀
-            </LaunchInfo>
 
         </NoSubWrapper>
       )}
@@ -873,6 +857,46 @@ const InfoCard = styled.div`
   backdrop-filter: blur(10px);
 `;
 
+const UsageCard = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  backdrop-filter: blur(10px);
+`;
+
+const UsageHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+`;
+
+const UsageText = styled.span`
+  color: var(--main-text-color);
+  font-size: 0.9rem;
+  font-weight: 600;
+`;
+
+const UsageBar = styled.div`
+  width: 100%;
+  height: 8px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 4px;
+  overflow: hidden;
+`;
+
+const UsageProgress = styled.div`
+  height: 100%;
+  width: ${props => props.percent || 0}%;
+  background: ${props => 
+    props.percent > 90 ? '#ef4444' : 
+    props.percent > 70 ? '#f59e0b' : 
+    '#4ade80'};
+  border-radius: 4px;
+  transition: width 0.3s ease;
+`;
+
 const InfoLabel = styled.div`
   color: rgba(255, 215, 0, 0.8);
   font-size: 0.85rem;
@@ -909,6 +933,40 @@ const StatusDot = styled.div`
   background: #fff;
   border-radius: 50%;
   animation: ${glow} 2s ease-in-out infinite;
+`;
+
+const FeaturesList = styled.div`
+  margin-top: 1.5rem;
+  padding: 1rem;
+  background: rgba(251, 191, 36, 0.05);
+  border-radius: 12px;
+  border: 1px solid rgba(251, 191, 36, 0.2);
+`;
+
+const FeaturesGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  gap: 0.75rem;
+  margin-top: 0.5rem;
+`;
+
+const FeatureTag = styled.div`
+  background: linear-gradient(135deg, rgba(251, 191, 36, 0.1), rgba(245, 158, 11, 0.15));
+  border: 1px solid rgba(251, 191, 36, 0.3);
+  color: #f59e0b;
+  padding: 0.5rem 0.75rem;
+  border-radius: 8px;
+  font-size: 0.85rem;
+  font-weight: 500;
+  text-align: center;
+  transition: all 0.2s ease;
+  
+  &:hover {
+    background: linear-gradient(135deg, rgba(251, 191, 36, 0.2), rgba(245, 158, 11, 0.25));
+    border-color: rgba(251, 191, 36, 0.5);
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(251, 191, 36, 0.2);
+  }
 `;
 
 const UpgradeButton = styled.button`
@@ -967,132 +1025,6 @@ const NoSubDescription = styled.p`
   font-size: 14px;
   margin: 0 0 20px 0;
   line-height: 1.5;
-`;
-
-// Styled Components für Test User Modal
-const TestUserModal = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.9);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  z-index: 1000;
-`;
-
-const TestUserModalContent = styled.div`
-  background: var(--main-bg-card-color);
-  border-radius: 16px;
-  padding: 2rem;
-  max-width: 400px;
-  width: 90%;
-  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
-  border: 1px solid rgba(255, 215, 0, 0.3);
-`;
-
-const TestUserModalHeader = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  margin-bottom: 1.5rem;
-`;
-
-const TestUserModalTitle = styled.h3`
-  color: #FFD700;
-  margin: 0;
-  font-size: 1.2rem;
-  font-weight: 600;
-  text-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-  flex: 1;
-`;
-
-const TestUserForm = styled.form`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`;
-
-const TestUserInput = styled.input`
-  padding: 0.75rem;
-  border: 1px solid rgba(255, 215, 0, 0.3);
-  border-radius: 8px;
-  background: rgba(255, 255, 255, 0.05);
-  color: var(--main-text-color);
-  font-size: 0.9rem;
-  
-  &:focus {
-    outline: none;
-    border-color: #FFD700;
-    box-shadow: 0 0 10px rgba(255, 215, 0, 0.3);
-  }
-  
-  &::placeholder {
-    color: rgba(255, 255, 255, 0.5);
-  }
-`;
-
-const TestUserButtonGroup = styled.div`
-  display: flex;
-  gap: 0.75rem;
-  margin-top: 1rem;
-`;
-
-const TestUserButton = styled.button`
-  flex: 1;
-  padding: 0.75rem;
-  border: none;
-  border-radius: 8px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.3s ease;
-  
-  ${props => props.primary ? css`
-    background: linear-gradient(135deg, #FFD700, #FFA500);
-    color: #000;
-    
-    &:hover {
-      background: linear-gradient(135deg, #FFA500, #FF8C00);
-    }
-    
-    &:disabled {
-      background: #666;
-      color: #999;
-      cursor: not-allowed;
-    }
-  ` : css`
-    background: rgba(255, 255, 255, 0.1);
-    color: var(--main-text-color);
-    border: 1px solid rgba(255, 255, 255, 0.2);
-    
-    &:hover {
-      background: rgba(255, 255, 255, 0.2);
-    }
-  `}
-`;
-
-const TestUserMessage = styled.div`
-  padding: 0.75rem;
-  border-radius: 8px;
-  margin-top: 0.5rem;
-  text-align: center;
-  font-size: 0.9rem;
-  
-  ${props => props.error ? css`
-    background: rgba(255, 0, 0, 0.1);
-    border: 1px solid rgba(255, 0, 0, 0.3);
-    color: #ff6b6b;
-  ` : props.success ? css`
-    background: rgba(0, 255, 0, 0.1);
-    border: 1px solid rgba(0, 255, 0, 0.3);
-    color: #51cf66;
-  ` : css`
-    background: rgba(255, 165, 0, 0.1);
-    border: 1px solid rgba(255, 165, 0, 0.3);
-    color: #ffa726;
-  `}
 `;
 
 const LaunchInfo = styled.div`

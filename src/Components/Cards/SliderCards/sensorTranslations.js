@@ -84,6 +84,7 @@ const FIXED_CONTEXT_SENSORS = {
   co2: "air",
   dewpoint: "air",
   vpd: "air",
+  temperature: "air",
   humidity: "air",
   moisture: "soil",
   weight: "soil",

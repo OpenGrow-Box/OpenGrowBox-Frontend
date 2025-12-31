@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import BottomBar from '../Components/Navigation/BottomBar';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import SettingsPanel from '../Components/Settings/SettingsPanel';
+import AdminPanel from '../Components/Settings/AdminPanel';
 
 const Settings = () => {
   return (
@@ -14,9 +15,11 @@ const Settings = () => {
       <InnerContent>
         <MainSection>
 
-        <SettingsPanel/>
+         <SettingsPanel/>
 
-        </MainSection>
+         <AdminPanel/>
+
+         </MainSection>
 
       </InnerContent>
       <BottomBar/>
@@ -29,21 +32,20 @@ export default Settings;
 const MainContainer = styled.div`
   overflow-y: auto;
   padding-bottom: 10vh;
+  background: inherit;
   @media (max-width: 480px) {
     transition: color 0.3s ease;
   }
   @media (max-width: 768px) {
     height: calc(100vh - 12.0vh);
   }
-  @media (max-width: 1024px) {
-  }
-`;
+ `;
 
 const InnerContent= styled.div`
-display:flex;
-height:100%;
-gap:0.5rem;
-margin:1rem;
+ display:flex;
+ height:100%;
+ gap:0.5rem;
+ margin:1rem;
 
     @media (max-width: 1024px) {
         transition: color 0.3s ease;
@@ -58,6 +60,38 @@ margin:1rem;
         transition: color 0.3s ease;
     }
 
+ `
+
+
+
+
+
+const SettingsHelp = styled.div`
+  background: var(--main-bg-card-color);
+  border-radius: 12px;
+  padding: 1rem;
+  box-shadow: var(--main-shadow-art);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`
+
+const HelpCard = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 1rem;
+`
+
+const HelpTitle = styled.h4`
+  margin: 0 0 0.5rem 0;
+  color: var(--primary-accent);
+  font-size: 1rem;
+`
+
+const HelpText = styled.p`
+  margin: 0;
+  color: var(--second-text-color);
+  font-size: 0.9rem;
 `
 
 const MainSection = styled.section`
