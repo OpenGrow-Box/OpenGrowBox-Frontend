@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { useCallback, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
 import { useSafeMode } from "../../../hooks/useSafeMode";
@@ -8,6 +8,25 @@ import { Shield, Lock } from 'lucide-react';
 const SliderCard = ({ entities }) => {
   const { connection, isConnectionValid, sendCommand } = useHomeAssistant();
   const { isSafeModeEnabled, confirmChange, confirmationState, handleConfirm, handleCancel } = useSafeMode();
+
+  // Local state for visual feedback during slider drag
+  const [localValues, setLocalValues] = useState({});
+
+  // Helper functions to manage local values per entity
+  const getLocalValue = (entityId) => {
+    return localValues[entityId] ?? null;
+  };
+
+  const setLocalValue = (entityId, value) => {
+    setLocalValues(prev => ({ ...prev, [entityId]: value }));
+  };
+
+  const clearLocalValue = (entityId) => {
+    setLocalValues(prev => {
+      const { [entityId]: _, ...rest } = prev;
+      return rest;
+    });
+  };
 
   if (!entities || entities.length === 0) {
     return <p>No slider entities available</p>;
@@ -121,7 +140,7 @@ const SliderCard = ({ entities }) => {
             <CardHeader>
               <Tooltip>{entity.tooltip}</Tooltip>
                <Title $hasLockIcons={isSafeModeEnabled || isLocked}>{entity.title}</Title>
-              <Value>{getValuePrefix(entity.entity_id)}{entity.state}</Value>
+              <Value>{getValuePrefix(entity.entity_id)}{getLocalValue(entity.entity_id) ?? entity.state}</Value>
               <Unit>{entity.unit}</Unit>
               
               {/* Lock indicators */}
@@ -142,15 +161,20 @@ const SliderCard = ({ entities }) => {
                 min={entity.min}
                 max={entity.max}
                 step={entity.step}
-                value={entity.state}
+                value={getLocalValue(entity.entity_id) ?? entity.state}
                 disabled={isLocked}
-                onChange={(e) => handleSliderChange(entity, e.target.value)}
+                onChange={(e) => setLocalValue(entity.entity_id, parseFloat(e.target.value))}
+                onPointerUp={(e) => {
+                  const value = parseFloat(e.target.value);
+                  clearLocalValue(entity.entity_id);
+                  handleSliderChange(entity, value);
+                }}
                 onKeyDown={(e) => handleKeyDown(e, entity)}
                 tabIndex={isLocked ? -1 : 0}
                 aria-label={entity.title}
                 aria-valuemin={entity.min}
                 aria-valuemax={entity.max}
-                aria-valuenow={entity.state}
+                aria-valuenow={getLocalValue(entity.entity_id) ?? entity.state}
               />
             </SliderWrapper>
           </Card>
