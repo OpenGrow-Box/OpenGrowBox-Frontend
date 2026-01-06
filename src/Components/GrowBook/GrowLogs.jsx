@@ -728,8 +728,30 @@ const LogItem = ({ room, date, info }) => {
   const formatMediumData = (data) => {
     if (!data.medium) return null;
 
+    // Formatiert einen numerischen Wert auf 2 Dezimalstellen
+    const formatValue = (v) => {
+      if (v === undefined || v === null || v === "") return null;
+      const num = parseFloat(v);
+      return isNaN(num) ? null : num.toFixed(2);
+    };
+
+    // Formatiert EC-Wert: Konvertiert mS/cm zu μS/cm wenn < 1 mS/cm
+    const formatEC = (v) => {
+      if (v === undefined || v === null || v === "") return { value: null, unit: "" };
+      const num = parseFloat(v);
+      if (isNaN(num)) return { value: null, unit: "" };
+      
+      // Wenn der Wert < 1 mS/cm ist, zeige in μS/cm an
+      if (num < 1) {
+        return { value: (num * 1000).toFixed(1), unit: "μS/cm" };
+      }
+      return { value: num.toFixed(2), unit: "mS/cm" };
+    };
+
     const safe = (v, unit = "") =>
-      (v === undefined || v === null || v === "" ? "NO DATA" : `${v}${unit ? " " + unit : ""}`);
+      (v === null ? "NO DATA" : `${v}${unit ? " " + unit : ""}`);
+
+    const ecFormatted = formatEC(data.medium_ec);
 
     return (
       <MediumContainer>
@@ -738,7 +760,7 @@ const LogItem = ({ room, date, info }) => {
           <div>
             <MediumTitle>Medium Status</MediumTitle>
             <MediumSubtitle>
-              {safe(data.medium_type.toUpperCase())} • {safe(data.medium_sensors_total)} Sensors
+              {data.medium_type ? data.medium_type.toUpperCase() : "NO DATA"} • {data.medium_sensors_total ?? "NO DATA"} Sensors
             </MediumSubtitle>
           </div>
         </MediumHeader>
@@ -752,7 +774,7 @@ const LogItem = ({ room, date, info }) => {
                 <MetricLabel>Moisture</MetricLabel>
               </MetricHeader>
               <MetricValue status={getMetricStatus('moisture', data.medium_moisture)}>
-                {safe(data.medium_moisture, GROW_METRICS_CONFIG.moisture.unit)}
+                {safe(formatValue(data.medium_moisture), GROW_METRICS_CONFIG.moisture.unit)}
               </MetricValue>
               <MetricStatus status={getMetricStatus('moisture', data.medium_moisture)}>
                 {getStatusText(getMetricStatus('moisture', data.medium_moisture))}
@@ -765,7 +787,7 @@ const LogItem = ({ room, date, info }) => {
                 <MetricLabel>Temperature</MetricLabel>
               </MetricHeader>
               <MetricValue status={getMetricStatus('temperature', data.medium_temp)}>
-                {safe(data.medium_temp, GROW_METRICS_CONFIG.temperature.unit)}
+                {safe(formatValue(data.medium_temp), GROW_METRICS_CONFIG.temperature.unit)}
               </MetricValue>
               <MetricStatus status={getMetricStatus('temperature', data.medium_temp)}>
                 {getStatusText(getMetricStatus('temperature', data.medium_temp))}
@@ -781,7 +803,7 @@ const LogItem = ({ room, date, info }) => {
                 <MetricLabel>EC</MetricLabel>
               </MetricHeader>
               <MetricValue status={getMetricStatus('ec', data.medium_ec)}>
-                {safe(data.medium_ec, GROW_METRICS_CONFIG.ec.unit)}
+                {safe(ecFormatted.value, ecFormatted.unit)}
               </MetricValue>
               <MetricStatus status={getMetricStatus('ec', data.medium_ec)}>
                 {getStatusText(getMetricStatus('ec', data.medium_ec))}
@@ -794,7 +816,7 @@ const LogItem = ({ room, date, info }) => {
                 <MetricLabel>pH</MetricLabel>
               </MetricHeader>
               <MetricValue status={getMetricStatus('ph', data.medium_ph)}>
-                {safe(data.medium_ph)}
+                {safe(formatValue(data.medium_ph))}
               </MetricValue>
               <MetricStatus status={getMetricStatus('ph', data.medium_ph)}>
                 {getStatusText(getMetricStatus('ph', data.medium_ph))}
@@ -805,7 +827,7 @@ const LogItem = ({ room, date, info }) => {
 
         <SensorStatus>
           <MediumStatusIndicator status="online" />
-          <MediumStatusText>{safe(data.medium_sensors_total)} sensors connected</MediumStatusText>
+          <MediumStatusText>{data.medium_sensors_total ?? "NO DATA"} sensors connected</MediumStatusText>
         </SensorStatus>
       </MediumContainer>
     );
@@ -896,25 +918,293 @@ const LogItem = ({ room, date, info }) => {
   };
 
  const formatCSData = (data) => {
-   if (data.Type === "CSLOG") {
-     return (
-       <CropSteeringContainer>
-         <CropSteeringHeader>
-           <CropSteeringIcon><FaSeedling /></CropSteeringIcon>
-           <CropSteeringInfo>
-             <CropSteeringTitle>Crop Steering</CropSteeringTitle>
-             <CropSteeringType>Automated Adjustment</CropSteeringType>
-           </CropSteeringInfo>
-         </CropSteeringHeader>
+   if (data.Type !== "CSLOG") return null;
 
-         <CropSteeringMessage>
-           {data.Message}
-         </CropSteeringMessage>
-       </CropSteeringContainer>
+   const message = data.Message || "";
+   
+   // Parse message to extract phase and type
+   const parseCSMessage = (msg) => {
+     const result = {
+       phase: null,
+       type: 'info',
+       shotNumber: null,
+       maxShots: null,
+       vwc: null,
+       vwcTarget: null,
+       duration: null,
+       nextInterval: null,
+       dryback: null,
+       fromPhase: null,
+       toPhase: null,
+     };
+
+     // Detect phase from message
+     if (msg.includes('P0') || msg.includes('p0')) result.phase = 'p0';
+     else if (msg.includes('P1') || msg.includes('p1')) result.phase = 'p1';
+     else if (msg.includes('P2') || msg.includes('p2')) result.phase = 'p2';
+     else if (msg.includes('P3') || msg.includes('p3')) result.phase = 'p3';
+
+     // Detect message type
+     if (msg.includes('WARNING') || msg.includes('stuck')) result.type = 'warning';
+     else if (msg.includes('ERROR') || msg.includes('failed')) result.type = 'error';
+     else if (msg.includes('Started') || msg.includes('started')) result.type = 'success';
+     else if (msg.includes('->') || msg.includes('→')) result.type = 'transition';
+     else if (msg.includes('Shot') && msg.includes('/')) result.type = 'shot';
+     else if (msg.includes('Emergency')) result.type = 'warning';
+
+     // Parse shot info: "P1 Shot 1/13" or "Shot 1/13"
+     const shotMatch = msg.match(/Shot\s+(\d+)\/(\d+)/i);
+     if (shotMatch) {
+       result.shotNumber = parseInt(shotMatch[1]);
+       result.maxShots = parseInt(shotMatch[2]);
+     }
+
+     // Parse VWC: "VWC: 19.0%" or "VWC 19.0%"
+     const vwcMatch = msg.match(/VWC[:\s]+(\d+\.?\d*)%/i);
+     if (vwcMatch) {
+       result.vwc = parseFloat(vwcMatch[1]);
+     }
+
+     // Parse VWC target: "(target: 65.0%)"
+     const targetMatch = msg.match(/target[:\s]+(\d+\.?\d*)%/i);
+     if (targetMatch) {
+       result.vwcTarget = parseFloat(targetMatch[1]);
+     }
+
+     // Parse duration: "Duration: 91s" or "(45s)"
+     const durationMatch = msg.match(/Duration[:\s]+(\d+)s|[\(](\d+)s[\)]/i);
+     if (durationMatch) {
+       result.duration = parseInt(durationMatch[1] || durationMatch[2]);
+     }
+
+     // Parse next interval: "Next in: 35min" or "Next in: 45min"
+     const intervalMatch = msg.match(/Next\s+in[:\s]+(\d+)min/i);
+     if (intervalMatch) {
+       result.nextInterval = parseInt(intervalMatch[1]);
+     }
+
+     // Parse dryback: "Dryback was 15.2%" or "dryback 10.5%"
+     const drybackMatch = msg.match(/[Dd]ryback[:\s]+was?\s*(\d+\.?\d*)%?/i);
+     if (drybackMatch) {
+       result.dryback = parseFloat(drybackMatch[1]);
+     }
+
+     // Parse phase transition: "P1 → P2" or "p0 -> p1"
+     const transitionMatch = msg.match(/([Pp][0-3])\s*[→\->]+\s*([Pp][0-3])/);
+     if (transitionMatch) {
+       result.fromPhase = transitionMatch[1].toLowerCase();
+       result.toPhase = transitionMatch[2].toLowerCase();
+       result.type = 'transition';
+     }
+
+     return result;
+   };
+
+   const parsed = parseCSMessage(message);
+   
+   // Phase display names and icons
+   const phaseInfo = {
+     p0: { name: 'Monitor', icon: <FaSearch size={14} />, description: 'Waiting for dryback signal' },
+     p1: { name: 'Saturate', icon: <MdOutlineWaterDrop size={16} />, description: 'Block saturation in progress' },
+     p2: { name: 'Maintain', icon: <FaBullseye size={14} />, description: 'Maintaining moisture level' },
+     p3: { name: 'Night', icon: <FaMoon size={14} />, description: 'Night dryback phase' },
+   };
+
+   // Get phase for styling (use parsed phase or default based on type)
+   const displayPhase = parsed.phase || (parsed.type === 'warning' ? 'warning' : 'info');
+   const currentPhaseInfo = phaseInfo[parsed.phase] || { name: 'Crop Steering', icon: <FaSeedling size={14} /> };
+
+   // Render shot progress dots (max 15 visible)
+   const renderShotDots = () => {
+     if (!parsed.maxShots) return null;
+     const maxVisible = Math.min(parsed.maxShots, 15);
+     const dots = [];
+     for (let i = 1; i <= maxVisible; i++) {
+       dots.push(
+         <CSShotDot 
+           key={i} 
+           completed={i <= parsed.shotNumber} 
+           phase={displayPhase}
+         />
+       );
+     }
+     return dots;
+   };
+
+   // Render VWC progress bar
+   const renderVWCProgress = () => {
+     if (parsed.vwc === null) return null;
+     const target = parsed.vwcTarget || 65;
+     const percent = Math.min((parsed.vwc / target) * 100, 100);
+     
+     return (
+       <CSProgressContainer>
+         <CSProgressHeader>
+           <CSProgressLabel>VWC Progress</CSProgressLabel>
+           <CSProgressValue phase={displayPhase}>
+             {parsed.vwc.toFixed(1)}% / {target.toFixed(0)}%
+           </CSProgressValue>
+         </CSProgressHeader>
+         <CSProgressBar>
+           <CSProgressFill percent={percent} phase={displayPhase} />
+         </CSProgressBar>
+       </CSProgressContainer>
      );
-   }
-   return null;
+   };
+
+   // Determine subtitle based on message type
+   const getSubtitle = () => {
+     if (parsed.type === 'shot' && parsed.shotNumber) {
+       return `Shot ${parsed.shotNumber} of ${parsed.maxShots}`;
+     }
+     if (parsed.type === 'transition') {
+       return 'Phase Transition';
+     }
+     if (parsed.type === 'warning') {
+       return 'Attention Required';
+     }
+     if (parsed.type === 'success') {
+       return 'System Active';
+     }
+     return currentPhaseInfo.description || 'Automated Adjustment';
+   };
+
+   return (
+     <CSContainerEnhanced phase={displayPhase}>
+       <CSHeaderEnhanced>
+         <CSHeaderLeft>
+           <CSIconEnhanced phase={displayPhase}>
+             {currentPhaseInfo.icon}
+           </CSIconEnhanced>
+           <CSInfoEnhanced>
+             <CSTitleEnhanced phase={displayPhase}>
+               {parsed.phase ? `${currentPhaseInfo.name} Phase` : 'Crop Steering'}
+             </CSTitleEnhanced>
+             <CSSubtitle>{getSubtitle()}</CSSubtitle>
+           </CSInfoEnhanced>
+         </CSHeaderLeft>
+         
+         {parsed.phase && (
+           <CSPhaseBadge phase={displayPhase}>
+             {parsed.phase.toUpperCase()}
+           </CSPhaseBadge>
+         )}
+       </CSHeaderEnhanced>
+
+       {/* Shot counter for P1 irrigation shots */}
+       {parsed.type === 'shot' && parsed.shotNumber && (
+         <CSShotCounter>
+           <CSShotDots>
+             {renderShotDots()}
+           </CSShotDots>
+           <span style={{ fontSize: '0.8rem', color: 'rgba(255,255,255,0.7)' }}>
+             {parsed.shotNumber}/{parsed.maxShots}
+           </span>
+         </CSShotCounter>
+       )}
+
+       {/* Metrics grid for detailed info */}
+       {(parsed.vwc !== null || parsed.duration || parsed.nextInterval || parsed.dryback !== null) && (
+         <CSContentGrid>
+           {parsed.vwc !== null && parsed.vwcTarget && renderVWCProgress()}
+           
+           {parsed.duration && (
+             <CSMetricCard>
+               <CSMetricLabel>Duration</CSMetricLabel>
+               <CSMetricValue phase={displayPhase} highlight>{parsed.duration}s</CSMetricValue>
+             </CSMetricCard>
+           )}
+           
+           {parsed.nextInterval && (
+             <CSMetricCard>
+               <CSMetricLabel>Next Shot</CSMetricLabel>
+               <CSMetricValue>{parsed.nextInterval} min</CSMetricValue>
+             </CSMetricCard>
+           )}
+           
+           {parsed.dryback !== null && (
+             <CSMetricCard>
+               <CSMetricLabel>Dryback</CSMetricLabel>
+               <CSMetricValue phase={displayPhase} highlight>{parsed.dryback.toFixed(1)}%</CSMetricValue>
+             </CSMetricCard>
+           )}
+         </CSContentGrid>
+       )}
+
+       {/* Phase transition badge */}
+       {parsed.type === 'transition' && parsed.fromPhase && parsed.toPhase && (
+         <CSTransitionBadge fromPhase={parsed.fromPhase} toPhase={parsed.toPhase}>
+           <CSPhaseBadge phase={parsed.fromPhase} style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}>
+             {parsed.fromPhase.toUpperCase()}
+           </CSPhaseBadge>
+           <CSTransitionArrow>→</CSTransitionArrow>
+           <CSPhaseBadge phase={parsed.toPhase} style={{ padding: '0.2rem 0.4rem', fontSize: '0.7rem' }}>
+             {parsed.toPhase.toUpperCase()}
+           </CSPhaseBadge>
+         </CSTransitionBadge>
+       )}
+
+       {/* Warning banner for alerts */}
+       {parsed.type === 'warning' && (
+         <CSWarningBanner>
+           <FaExclamationTriangle size={16} />
+           <span>{message}</span>
+         </CSWarningBanner>
+       )}
+
+       {/* Standard message display for non-parsed content */}
+       {parsed.type !== 'warning' && (
+         <CSMessageEnhanced phase={displayPhase}>
+           {message}
+         </CSMessageEnhanced>
+       )}
+     </CSContainerEnhanced>
+   );
  };
+
+ // Format Missing Pumps / Invalid Dripper Devices
+  const formatMissingPumpsData = (data) => {
+    if (data.Type !== "INVALID PUMPS") return null;
+
+    return (
+      <MissingPumpsContainer>
+        <MissingPumpsHeader>
+          <MissingPumpsIconWrapper>
+            <MdOutlineWaterDrop size={28} />
+            <MissingPumpsPulse />
+          </MissingPumpsIconWrapper>
+          <MissingPumpsInfo>
+            <MissingPumpsTitle>Pump Configuration Issue</MissingPumpsTitle>
+            <MissingPumpsRoom>{data.Name || 'Unknown Room'}</MissingPumpsRoom>
+          </MissingPumpsInfo>
+          <MissingPumpsStatusBadge>
+            <FaExclamationTriangle size={14} />
+            Setup Required
+          </MissingPumpsStatusBadge>
+        </MissingPumpsHeader>
+
+        <MissingPumpsContent>
+          <MissingPumpsMessage>
+            <MissingPumpsMessageIcon>
+              <FaPlug size={18} />
+            </MissingPumpsMessageIcon>
+            <MissingPumpsMessageText>
+              {data.message || 'No valid dripper devices found'}
+            </MissingPumpsMessageText>
+          </MissingPumpsMessage>
+
+          <MissingPumpsHint>
+            <MissingPumpsHintIcon>
+              <FaCog size={14} />
+            </MissingPumpsHintIcon>
+            <MissingPumpsHintText>
+              Please configure dripper/pump devices in Home Assistant and assign them to this room.
+            </MissingPumpsHintText>
+          </MissingPumpsHint>
+        </MissingPumpsContent>
+      </MissingPumpsContainer>
+    );
+  };
 
  const formatDeviceCDData = (data) => {
    if (data.blocked_actions !== 0 && Array.isArray(data.emergency_conditions)) {
@@ -980,6 +1270,7 @@ const LogItem = ({ room, date, info }) => {
   const rotationData = formatRotationData(parsedInfo);
   const csData = formatCSData(parsedInfo);
   const deviceCDData = formatDeviceCDData(parsedInfo);
+  const missingPumpsData = formatMissingPumpsData(parsedInfo);
 
   const roomColors = stringToColor(room);
 
@@ -1003,7 +1294,8 @@ const LogItem = ({ room, date, info }) => {
         {rotationData && rotationData}
         {csData && csData}
         {deviceCDData && deviceCDData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && !csData && !deviceCDData && (
+        {missingPumpsData && missingPumpsData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && !csData && !deviceCDData && !missingPumpsData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -1130,6 +1422,7 @@ const GrowLogs = () => {
       }
       
       const newLog = {
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Stable unique ID
         room: roomName,
         date: formatDateTime(event.time_fired),
         info: JSON.stringify(event.data)
@@ -1175,6 +1468,7 @@ const GrowLogs = () => {
             <option value="device">Devices</option>
             <option value="action">Actions</option>
             <option value="hydro-mode">Hydro Mode</option>
+            <option value="cs-log">Crop Steering</option>
             <option value="pid-controller">PID Controller</option>
             <option value="medium-stats">Medium Stats</option>
             <option value="night-vpd">Night VPD</option>
@@ -1209,12 +1503,12 @@ const GrowLogs = () => {
             )}
           </NoLogsMessage>
         ) : (
-          displayedLogs.map((log, index) => (
+          displayedLogs.map((log) => (
             <ExpandableLogItem
-              key={`${log.room}-${log.date}-${index}`}
+              key={log.id}
               log={log}
-              isExpanded={expandedLogs.has(`${log.room}-${log.date}-${index}`)}
-              onToggle={() => toggleLogExpansion(`${log.room}-${log.date}-${index}`)}
+              isExpanded={expandedLogs.has(log.id)}
+              onToggle={() => toggleLogExpansion(log.id)}
             />
           ))
         )}
@@ -1279,6 +1573,7 @@ const getLogTypeIcon = (logType) => {
     case 'device': return <FaCog />;
     case 'action': return <FaBullseye />;
     case 'hydro-mode': return <WiHumidity />;
+    case 'cs-log': return <MdOutlineWaterDrop />;
     case 'pid-controller': return <MdTune />;
     case 'medium-stats': return <FaLeaf />;
     case 'night-vpd': return <GiMoon />;
@@ -1290,14 +1585,39 @@ const getLogTypeIcon = (logType) => {
 const getLogPreview = (parsedInfo) => {
   if (!parsedInfo) return 'Log data';
 
-  // Try to get a meaningful preview
+  // Try to get a meaningful preview - check most specific first
+  if (parsedInfo.Message) return parsedInfo.Message;
   if (parsedInfo.message) return parsedInfo.message;
+  
+  // Night VPD Hold
+  if (parsedInfo.NightVPDHold !== undefined) return 'Night VPD Hold';
+  
+  // VPD readings
   if (parsedInfo.VPD !== undefined) return `VPD: ${parsedInfo.VPD} kPa`;
-  if (parsedInfo.Device) return `${parsedInfo.Device}: ${parsedInfo.Action || 'Action'}`;
+  
+  // Actions
   if (parsedInfo.action) return parsedInfo.action;
+  if (parsedInfo.Action && parsedInfo.Device) return `${parsedInfo.Device}: ${parsedInfo.Action}`;
+  
+  // Crop Steering
+  if (parsedInfo.Type === 'CSLOG') return parsedInfo.Message || 'Crop Steering';
+  
+  // Hydro modes
+  if (parsedInfo.Mode === 'Crop-Steering') return 'Crop Steering';
+  if (parsedInfo.Mode === 'Hydro') return 'Hydro Mode';
+  if (parsedInfo.Mode === 'Plant-Watering') return 'Plant Watering';
   if (parsedInfo.Mode) return `Mode: ${parsedInfo.Mode}`;
+  
+  // Device actions
+  if (parsedInfo.Device) return `${parsedInfo.Device}: ${parsedInfo.Action || 'Action'}`;
+  
+  // Controller types
+  if (parsedInfo.controllerType) return `${parsedInfo.controllerType} Controller`;
+  
+  // Room name as last resort
+  if (parsedInfo.Name) return parsedInfo.Name;
 
-  return 'Log details';
+  return 'System Log';
 };
 
 export default GrowLogs;
@@ -3346,6 +3666,266 @@ export const CropSteeringMessage = styled.div`
   padding: 0.75rem;
 `;
 
+// Enhanced CropSteering Phase-Specific Components
+const CS_PHASE_COLORS = {
+  p0: { primary: '#06b6d4', secondary: '#0891b2', bg: 'rgba(6, 182, 212, 0.15)', name: 'Monitor' },
+  p1: { primary: '#22c55e', secondary: '#16a34a', bg: 'rgba(34, 197, 94, 0.15)', name: 'Saturate' },
+  p2: { primary: '#eab308', secondary: '#ca8a04', bg: 'rgba(234, 179, 8, 0.15)', name: 'Maintain' },
+  p3: { primary: '#8b5cf6', secondary: '#7c3aed', bg: 'rgba(139, 92, 246, 0.15)', name: 'Night' },
+  warning: { primary: '#f59e0b', secondary: '#d97706', bg: 'rgba(245, 158, 11, 0.15)', name: 'Warning' },
+  error: { primary: '#ef4444', secondary: '#dc2626', bg: 'rgba(239, 68, 68, 0.15)', name: 'Error' },
+  info: { primary: '#3b82f6', secondary: '#2563eb', bg: 'rgba(59, 130, 246, 0.15)', name: 'Info' },
+  success: { primary: '#22c55e', secondary: '#16a34a', bg: 'rgba(34, 197, 94, 0.15)', name: 'Success' },
+};
+
+export const CSContainerEnhanced = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: ${props => CS_PHASE_COLORS[props.phase]?.bg || CS_PHASE_COLORS.info.bg};
+  border: 1px solid ${props => CS_PHASE_COLORS[props.phase]?.primary || CS_PHASE_COLORS.info.primary}40;
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  ${props => props.phase === 'p1' && `
+    &::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: -100%;
+      width: 50%;
+      height: 100%;
+      background: linear-gradient(90deg, transparent, rgba(34, 197, 94, 0.1), transparent);
+      animation: csActiveScan 2s ease-in-out infinite;
+    }
+
+    @keyframes csActiveScan {
+      0% { left: -50%; }
+      100% { left: 100%; }
+    }
+  `}
+`;
+
+export const CSHeaderEnhanced = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+`;
+
+export const CSHeaderLeft = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+`;
+
+export const CSIconEnhanced = styled.div`
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, 
+    ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'} 0%, 
+    ${props => CS_PHASE_COLORS[props.phase]?.secondary || '#16a34a'} 100%
+  );
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.1rem;
+  box-shadow: 0 0 15px ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'}50;
+`;
+
+export const CSInfoEnhanced = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+`;
+
+export const CSTitleEnhanced = styled.h3`
+  margin: 0;
+  color: ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'};
+  font-size: 1rem;
+  font-weight: 600;
+`;
+
+export const CSSubtitle = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+`;
+
+export const CSPhaseBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  padding: 0.3rem 0.6rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'}25;
+  color: ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'};
+  border: 1px solid ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'}50;
+`;
+
+export const CSContentGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.5rem;
+  margin-top: 0.25rem;
+`;
+
+export const CSMetricCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const CSMetricLabel = styled.div`
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.5);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+export const CSMetricValue = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${props => props.highlight ? CS_PHASE_COLORS[props.phase]?.primary || '#22c55e' : 'rgba(255, 255, 255, 0.9)'};
+`;
+
+export const CSProgressContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.35rem;
+  padding: 0.6rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  grid-column: span 2;
+`;
+
+export const CSProgressHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+`;
+
+export const CSProgressLabel = styled.span`
+  font-size: 0.75rem;
+  color: rgba(255, 255, 255, 0.6);
+`;
+
+export const CSProgressValue = styled.span`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'};
+`;
+
+export const CSProgressBar = styled.div`
+  height: 6px;
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 3px;
+  overflow: hidden;
+  position: relative;
+`;
+
+export const CSProgressFill = styled.div`
+  height: 100%;
+  width: ${props => Math.min(props.percent, 100)}%;
+  background: linear-gradient(90deg, 
+    ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'} 0%,
+    ${props => CS_PHASE_COLORS[props.phase]?.secondary || '#16a34a'} 100%
+  );
+  border-radius: 3px;
+  transition: width 0.3s ease;
+`;
+
+export const CSShotCounter = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 0.75rem;
+  background: rgba(34, 197, 94, 0.1);
+  border-radius: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.3);
+`;
+
+export const CSShotDots = styled.div`
+  display: flex;
+  gap: 4px;
+  flex-wrap: wrap;
+  max-width: 150px;
+`;
+
+export const CSShotDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: ${props => props.completed 
+    ? CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'
+    : 'rgba(255, 255, 255, 0.2)'
+  };
+  transition: background 0.2s ease;
+`;
+
+export const CSMessageEnhanced = styled.div`
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  line-height: 1.5;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border-left: 3px solid ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'};
+  font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+`;
+
+export const CSTransitionBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.4rem 0.75rem;
+  background: linear-gradient(90deg, 
+    ${props => CS_PHASE_COLORS[props.fromPhase]?.primary || '#22c55e'}30,
+    ${props => CS_PHASE_COLORS[props.toPhase]?.primary || '#eab308'}30
+  );
+  border-radius: 20px;
+  font-size: 0.8rem;
+  font-weight: 500;
+`;
+
+export const CSTransitionArrow = styled.span`
+  color: rgba(255, 255, 255, 0.5);
+`;
+
+export const CSWarningBanner = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  color: #f59e0b;
+  font-size: 0.85rem;
+`;
+
+export const CSTimingInfo = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  
+  svg {
+    color: ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'};
+  }
+`;
+
 // Enhanced Emergency Components
 export const EmergencyContainer = styled.div`
   display: flex;
@@ -3718,4 +4298,158 @@ const EmptyText = styled.p`
   color: var(--second-text-color, #ccc);
   margin: 0;
   font-size: 0.9rem;
+`;
+
+// Missing Pumps / Invalid Dripper Components
+const MissingPumpsContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: linear-gradient(135deg, rgba(251, 146, 60, 0.1) 0%, rgba(234, 88, 12, 0.1) 100%);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #fb923c, #ea580c, #c2410c);
+  }
+`;
+
+const MissingPumpsHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const MissingPumpsIconWrapper = styled.div`
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #fb923c 0%, #ea580c 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(251, 146, 60, 0.4);
+`;
+
+const MissingPumpsPulse = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(251, 146, 60, 0.6);
+  animation: pumpPulse 2s ease-out infinite;
+
+  @keyframes pumpPulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+`;
+
+const MissingPumpsInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+const MissingPumpsTitle = styled.h3`
+  margin: 0;
+  color: #fb923c;
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+const MissingPumpsRoom = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+const MissingPumpsStatusBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(251, 146, 60, 0.2);
+  border: 1px solid rgba(251, 146, 60, 0.4);
+  color: #fb923c;
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const MissingPumpsContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const MissingPumpsMessage = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(251, 146, 60, 0.1);
+  border: 1px solid rgba(251, 146, 60, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+`;
+
+const MissingPumpsMessageIcon = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(251, 146, 60, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #fb923c;
+  flex-shrink: 0;
+`;
+
+const MissingPumpsMessageText = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  font-weight: 500;
+`;
+
+const MissingPumpsHint = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+`;
+
+const MissingPumpsHintIcon = styled.div`
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+  margin-top: 2px;
+`;
+
+const MissingPumpsHintText = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  line-height: 1.4;
 `;

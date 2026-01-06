@@ -95,7 +95,7 @@ const MediumSelector = () => {
               </MetaItem>
               <MetaItem>
                 <FaLeaf size={12} />
-                {currentMedium?.plant_strain || 'No strain'}
+                {currentMedium?.breeder_name || 'No strain'}
               </MetaItem>
               <MetaItem>
                 <PhaseBadge phase={currentMedium?.current_phase}>
@@ -149,7 +149,7 @@ const MediumSelector = () => {
                         <PlantCardName $isActive={isActive}>
                           {medium?.plant_name || `Plant ${index + 1}`}
                         </PlantCardName>
-                        <StrainName>{medium?.plant_strain || 'Unknown strain'}</StrainName>
+                        <StrainName>{medium?.breeder_name || 'Unknown strain'}</StrainName>
                         <MediumNameBadge>
                           <FaFlask size={10} />
                           {medium?.medium_name || `Medium ${index + 1}`}

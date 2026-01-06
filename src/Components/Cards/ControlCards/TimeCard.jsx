@@ -3,11 +3,11 @@ import styled from 'styled-components';
 import { Shield } from 'lucide-react';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
 import { useSafeMode } from '../../../hooks/useSafeMode';
+import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 
 // Single time input component with local state
-const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange, confirmationState, handleConfirm, handleCancel }) => {
+const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange }) => {
   const [localValue, setLocalValue] = useState(entity.state || '00:00');
-  const isConfirming = confirmationState?.entityId === entity.entity_id;
 
   // Sync with entity state when it changes from external source
   useEffect(() => {
@@ -25,32 +25,36 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange, c
     // Only send if value actually changed
     if (localValue === entity.state) return;
 
-    const changeAction = async () => {
-      if (connection) {
-        try {
-          await connection.sendMessagePromise({
-            type: 'call_service',
-            domain: 'opengrowbox', 
-            service: 'update_time',
-            service_data: {
-              entity_id: entity.entity_id,
-              time: localValue,
-            },
-          });
-        } catch (error) {
-          console.error('Error updating entity:', error);
-          // Revert to original value on error
-          setLocalValue(entity.state);
-        }
-      }
-    };
-
-    // Use safe mode confirmation if enabled
-    await confirmChange(
-      entity.entity_id,
-      changeAction,
-      `Change ${entity.title} to ${localValue}?`
+    // Request confirmation if Safe Mode is enabled
+    const confirmed = await confirmChange(
+      entity.title || entity.entity_id,
+      entity.state,
+      localValue
     );
+
+    if (!confirmed) {
+      // User cancelled, revert to original value
+      setLocalValue(entity.state);
+      return;
+    }
+
+    if (connection) {
+      try {
+        await connection.sendMessagePromise({
+          type: 'call_service',
+          domain: 'opengrowbox', 
+          service: 'update_time',
+          service_data: {
+            entity_id: entity.entity_id,
+            time: localValue,
+          },
+        });
+      } catch (error) {
+        console.error('Error updating entity:', error);
+        // Revert to original value on error
+        setLocalValue(entity.state);
+      }
+    }
   };
 
   const handleKeyDown = (e) => {
@@ -74,17 +78,7 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange, c
         onChange={handleTimeChange}
         onBlur={handleBlur}
         onKeyDown={handleKeyDown}
-        disabled={isConfirming}
       />
-      {isConfirming && (
-        <ConfirmationOverlay>
-          <ConfirmMessage>{confirmationState.message}</ConfirmMessage>
-          <ConfirmButtons>
-            <ConfirmButton onClick={handleConfirm}>Confirm</ConfirmButton>
-            <CancelButton onClick={handleCancel}>Cancel</CancelButton>
-          </ConfirmButtons>
-        </ConfirmationOverlay>
-      )}
     </Card>
   );
 };
@@ -98,20 +92,29 @@ const TimeCard = ({ entities }) => {
   }
 
   return (
-    <Container>
-      {entities.map((entity) => (
-        <TimeInputCard
-          key={entity.entity_id}
-          entity={entity}
-          connection={connection}
-          isSafeModeEnabled={isSafeModeEnabled}
-          confirmChange={confirmChange}
-          confirmationState={confirmationState}
-          handleConfirm={handleConfirm}
-          handleCancel={handleCancel}
-        />
-      ))}
-    </Container>
+    <>
+      <Container>
+        {entities.map((entity) => (
+          <TimeInputCard
+            key={entity.entity_id}
+            entity={entity}
+            connection={connection}
+            isSafeModeEnabled={isSafeModeEnabled}
+            confirmChange={confirmChange}
+          />
+        ))}
+      </Container>
+
+      {/* Safe Mode Confirmation Modal */}
+      <SafeModeConfirmModal
+        isOpen={confirmationState.isOpen}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+        entityName={confirmationState.entityName}
+        currentValue={confirmationState.currentValue}
+        newValue={confirmationState.newValue}
+      />
+    </>
   );
 };
 
@@ -155,7 +158,7 @@ const Card = styled.div`
   padding: 0.8rem 1rem;
   transition: all 0.2s ease;
   min-height: 50px;
-  opacity: ${({ $safeModeEnabled }) => $safeModeEnabled ? 0.95 : 1};
+  border: ${props => props.$safeModeEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : 'none'};
 
   &:hover {
     transform: translateY(-1px);
@@ -189,66 +192,6 @@ const SafeModeIndicator = styled.div`
   }
 `;
 
-const ConfirmationOverlay = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.95);
-  border-radius: 12px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.75rem;
-  padding: 1rem;
-  z-index: 10;
-`;
-
-const ConfirmMessage = styled.p`
-  margin: 0;
-  color: var(--main-text-color);
-  font-size: 0.9rem;
-  text-align: center;
-`;
-
-const ConfirmButtons = styled.div`
-  display: flex;
-  gap: 0.5rem;
-`;
-
-const ConfirmButton = styled.button`
-  padding: 0.4rem 1rem;
-  background: var(--primary-accent);
-  color: white;
-  border: none;
-  border-radius: 6px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 2px 8px rgba(0, 122, 255, 0.3);
-  }
-`;
-
-const CancelButton = styled.button`
-  padding: 0.4rem 1rem;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--main-text-color);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  font-size: 0.85rem;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.15);
-  }
-`;
-
 
 const Title = styled.p`
   margin: 0;
@@ -256,11 +199,11 @@ const Title = styled.p`
   font-size: 0.9rem;
   font-weight: bold;
   flex: 1;
-  margin-left: ${({ $hasLockIcons }) => $hasLockIcons ? '3.5rem' : '0'};
+  margin-left: ${({ $hasLockIcons }) => $hasLockIcons ? '1.5rem' : '0'};
 
   @media (max-width: 640px) {
     width: 100%;
-    margin-left: ${({ $hasLockIcons }) => $hasLockIcons ? '3rem' : '0'};
+    margin-left: ${({ $hasLockIcons }) => $hasLockIcons ? '1.5rem' : '0'};
   }
 `;
 

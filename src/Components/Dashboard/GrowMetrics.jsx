@@ -638,7 +638,7 @@ const GrowMetrics = ({ room = 'default' }) => {
             </MediumIcon>
             <MediumTitleSection>
               <MediumName>{currentMedium.plant_name || currentMedium.medium_name || 'Unknown Plant'}</MediumName>
-              <MediumStrain>{currentMedium.plant_strain || currentMedium.breeder_name || 'Unknown Strain'}</MediumStrain>
+              <MediumStrain>{currentMedium.breeder_name || 'Unknown Strain'}</MediumStrain>
             </MediumTitleSection>
             <PhaseBadge $phase={currentMedium.plant_stage || currentMedium.current_phase}>
               {currentMedium.plant_stage || currentMedium.current_phase || 'Unknown'}

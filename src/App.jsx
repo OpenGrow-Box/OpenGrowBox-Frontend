@@ -4,7 +4,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
 import { GlobalStateProvider } from './Components/Context/GlobalContext';
 import HomeAssistantProvider, { useHomeAssistant } from './Components/Context/HomeAssistantContext';
-
+import { MediumProvider } from './Components/Context/MediumContext';
 import { OGBPremiumProvider } from './Components/Context/OGBPremiumContext';
 
 import ErrorBoundary from '../src/misc/ErrorBoundary';
@@ -51,35 +51,37 @@ export default function App() {
             <HomeAssistantProvider>
               <ErrorBoundaryWrapper>
                 <OGBPremiumProvider>
-                  <ThemeGlobalStyle />
-                  <Router basename={basename}>
-                    <AppContainer>
-                      {/* Hintergrund-Gradients */}
-                      <SubtleGridOverlay />
-                      <BackgroundContainer>
-                        <div className='gradient-1'></div>
-                        <div className='gradient-2'></div>
-                        <div className='gradient-3'></div>
-                        <div className='gradient-4'></div>
-                        <div className='gradient-5'></div>
-                      </BackgroundContainer>
-                      {/* Connection Status Notification */}
-                      <ConnectionStatus />
-                      <MainContent>
-                        <Suspense fallback={<PageLoader />}>
-                          <Routes>
-                            <Route path="/" element={<Interface />} />
-                            <Route path="/home" element={<Home />} />
-                            <Route path="/dashboard" element={<Dashboard />} />
-                            <Route path="/settings" element={<Settings />} />
-                            <Route path="/growbook" element={<GrowBook />} />
-                            <Route path="/config" element={<SetupPage />} />
-                            <Route path="/*" element={<FourOFour/>}/>
-                          </Routes>
-                        </Suspense>
-                      </MainContent>
-                    </AppContainer>
-                  </Router>
+                  <MediumProvider>
+                    <ThemeGlobalStyle />
+                    <Router basename={basename}>
+                      <AppContainer>
+                        {/* Hintergrund-Gradients */}
+                        <SubtleGridOverlay />
+                        <BackgroundContainer>
+                          <div className='gradient-1'></div>
+                          <div className='gradient-2'></div>
+                          <div className='gradient-3'></div>
+                          <div className='gradient-4'></div>
+                          <div className='gradient-5'></div>
+                        </BackgroundContainer>
+                        {/* Connection Status Notification */}
+                        <ConnectionStatus />
+                        <MainContent>
+                          <Suspense fallback={<PageLoader />}>
+                            <Routes>
+                              <Route path="/" element={<Interface />} />
+                              <Route path="/home" element={<Home />} />
+                              <Route path="/dashboard" element={<Dashboard />} />
+                              <Route path="/settings" element={<Settings />} />
+                              <Route path="/growbook" element={<GrowBook />} />
+                              <Route path="/config" element={<SetupPage />} />
+                              <Route path="/*" element={<FourOFour/>}/>
+                            </Routes>
+                          </Suspense>
+                        </MainContent>
+                      </AppContainer>
+                    </Router>
+                  </MediumProvider>
                 </OGBPremiumProvider>
               </ErrorBoundaryWrapper>
             </HomeAssistantProvider>

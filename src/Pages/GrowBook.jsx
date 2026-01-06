@@ -4,7 +4,7 @@ import GrowDayCounter from '../Components/GrowBook/GrowDayCounter';
 import GrowLogs from '../Components/GrowBook/GrowLogs';
 import MediumSelector from '../Components/GrowBook/MediumSelector';
 
-import { MediumProvider } from '../Components/Context/MediumContext';
+
 import BottomBar from '../Components/Navigation/BottomBar';
 
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
@@ -119,26 +119,24 @@ const DataSection = styled.section`
 
 const GrowBook = () => {
   return (
-    <MediumProvider>
-      <MainContainer>
-        <ContainerHeader>
-          <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Book"/>
-        </ContainerHeader>
+    <MainContainer>
+      <ContainerHeader>
+        <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Book"/>
+      </ContainerHeader>
 
-        <InnerContent>
-          <MainSection>
-            <MediumSelector/>
-            <GrowDayCounter/>
-            <OGBNotes/>
-          </MainSection>
+      <InnerContent>
+        <MainSection>
+          <MediumSelector/>
+          <GrowDayCounter/>
+          <OGBNotes/>
+        </MainSection>
 
-          <DataSection>
-            <GrowLogs/>
-          </DataSection>
-        </InnerContent>
-        <BottomBar/>
-      </MainContainer>
-    </MediumProvider>
+        <DataSection>
+          <GrowLogs/>
+        </DataSection>
+      </InnerContent>
+      <BottomBar/>
+    </MainContainer>
   );
 };
 

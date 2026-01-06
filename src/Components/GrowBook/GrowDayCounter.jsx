@@ -197,7 +197,7 @@ const GrowDayCounter = () => {
           medium_index: currentMediumIndex,
           medium_name: currentMedium.medium_name,
           plant_name: currentMedium.plant_name,
-          plant_strain: currentMedium.plant_strain,
+          breeder_name: currentMedium.breeder_name,
           total_days: currentMedium.dates?.planttotaldays || 0,
           bloom_days: currentMedium.dates?.bloomdays || 0,
         }

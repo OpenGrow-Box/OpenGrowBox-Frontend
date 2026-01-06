@@ -123,7 +123,7 @@ const dynamicFilters = {
     conditions: {
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ['farred_start', 'farred_end', 'farred_intensity'],
+        excludeKeywords: ['farred_start', 'farred_end', 'farred_intensity','farred_mode'],
         additionalTooltips: {}
       },
       'YES': {
@@ -140,7 +140,7 @@ const dynamicFilters = {
     conditions: {
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ['uv_delay', 'uv_stop', 'uv_max', 'uv_intensity'],
+        excludeKeywords: ['uv_delay', 'uv_stop', 'uv_max', 'uv_intensity','uv_mode'],
         additionalTooltips: {}
       },
       'YES': {
@@ -157,7 +157,7 @@ const dynamicFilters = {
     conditions: {
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ['blue_morning', 'blue_evening', 'blue_transition'],
+        excludeKeywords: ['blue_morning', 'blue_evening', 'blue_transition','blue_mode'],
         additionalTooltips: {}
       },
       'YES': {
@@ -174,7 +174,7 @@ const dynamicFilters = {
     conditions: {
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ['red_morning', 'red_evening', 'red_transition'],
+        excludeKeywords: ['red_morning', 'red_evening', 'red_transition','red_mode'],
         additionalTooltips: {}
       },
       'YES': {

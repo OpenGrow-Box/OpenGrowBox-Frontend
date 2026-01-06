@@ -1,46 +1,21 @@
-import { useEffect, useState, useMemo } from 'react';
+import { useState } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import styled, { keyframes } from 'styled-components';
-import OGBIcon from '../../misc/OGBIcon'
 import { usePremium } from '../Context/OGBPremiumContext';
+import { useMedium } from '../Context/MediumContext';
 import { Leaf, Calendar, Target, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+
 const GlobalOverview = () => {
-  const { entities, currentRoom } = useHomeAssistant();
-  const{isPremium,activeGrowPlan} = usePremium();
-  const [remainingDays, setRemainingDays] = useState('');
-  const [strainName, setStrainName] = useState('');
-  const [growStartDate, setGrowStartDate] = useState('');
-  const [currentPhase, setCurrentPhase] = useState('');
+  const { currentRoom } = useHomeAssistant();
+  const { isPremium, activeGrowPlan } = usePremium();
+  const { currentMedium } = useMedium();
   const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
 
-  const roomKey = useMemo(() => currentRoom.toLowerCase(), [currentRoom]);
-
-   useEffect(() => {
-     const chopChopSensor = entities[`sensor.ogb_chopchoptime_${roomKey}`];
-     if (chopChopSensor) {
-       setRemainingDays(chopChopSensor.state);
-     }
-
-     const strainSensor = entities[`text.ogb_strainname_${roomKey}`];
-     if (strainSensor) {
-       setStrainName(strainSensor.state);
-     }
-
-     const startDateSensor = entities[`date.ogb_growstartdate_${roomKey}`];
-     if (startDateSensor) {
-       setGrowStartDate(startDateSensor.state);
-     }
-
-     // Calculate current phase based on days
-     const totalDaysSensor = entities[`sensor.ogb_planttotaldays_${roomKey}`];
-     if (totalDaysSensor && totalDaysSensor.state) {
-       const days = parseFloat(totalDaysSensor.state);
-       if (days < 30) setCurrentPhase('Seedling');
-       else if (days < 60) setCurrentPhase('Vegetative');
-       else if (days < 90) setCurrentPhase('Flowering');
-       else setCurrentPhase('Late Flower');
-     }
-   }, [entities, roomKey]);
+  // Get all data from MediumContext (same as GrowDayCounter)
+  const currentPhase = currentMedium?.plant_stage || currentMedium?.current_phase || 'Unknown';
+  const strainName = currentMedium?.plant_name || currentMedium?.breeder_name || '';
+  const growStartDate = currentMedium?.dates?.growstartdate || '';
+  const remainingDays = currentMedium?.dates?.daysToChopChop || '';
 
   const formatDaysDisplay = (days) => {
     if (!days || isNaN(parseFloat(days))) return 'N/A';

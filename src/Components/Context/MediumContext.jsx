@@ -154,7 +154,7 @@ export const MediumProvider = ({ children }) => {
                     const fields = editingFieldsRef.current;
                     
                     if (fields.has('plant_name')) preserved.plant_name = existing.plant_name;
-                    if (fields.has('plant_strain')) preserved.plant_strain = existing.plant_strain;
+                    if (fields.has('breeder_name')) preserved.breeder_name = existing.breeder_name;
                     if (fields.has('breeder_bloom_days') && existing.dates) {
                       preserved.dates = { ...plant.dates, breederbloomdays: existing.dates?.breederbloomdays };
                     }
@@ -282,7 +282,7 @@ export const MediumProvider = ({ children }) => {
       // Convert field names for optimistic update
       const optimisticData = {};
       if (updates.plant_name !== undefined) optimisticData.plant_name = updates.plant_name;
-      if (updates.plant_strain !== undefined) optimisticData.plant_strain = updates.plant_strain;
+      if (updates.breeder_name !== undefined) optimisticData.breeder_name = updates.breeder_name;
       if (updates.plant_stage !== undefined) optimisticData.plant_stage = updates.plant_stage;
       if (updates.plant_type !== undefined) optimisticData.plant_type = updates.plant_type;
       
