@@ -44,8 +44,9 @@ export const HomeAssistantProvider = ({ children }) => {
   const connectionListenersRef = useRef([]);
   const debounceTimer = useRef(null);
   const abortController = useRef(null);
-  const dataCache = useRef(new Map());
+  const dataCacheRef = useRef(new Map());
   const MAX_RECONNECT_ATTEMPTS = 5;
+  const isManualConnectRef = useRef(false);
 
   // State for unauthorized attempt tracking
   const [unauthAttempts, setUnauthAttempts] = useState(0);
@@ -53,7 +54,8 @@ export const HomeAssistantProvider = ({ children }) => {
 
   // Configuration
   const configuredServer = getDeep("Conf.hassServer") || '';
-  const token = getDeep('Conf.haToken') || '';
+  // Read token from localStorage directly to avoid async state issues
+  const token = localStorage.getItem(import.meta.env.PROD ? 'haToken' : 'devToken') || getDeep('Conf.haToken') || '';
 
   // Environment detection
   const isDev = import.meta.env.DEV;
@@ -344,6 +346,7 @@ export const HomeAssistantProvider = ({ children }) => {
       connectAttemptRef.current = 0;
       retryDelayRef.current = 1000;
       setUnauthAttempts(0); // Reset unauthorized attempts on successful connection
+      isManualConnectRef.current = false; // Reset manual connect flag
 
       // Update connection state
       setConnectionState(CONNECTION_STATES.CONNECTED);
@@ -438,6 +441,13 @@ export const HomeAssistantProvider = ({ children }) => {
   // Main connection effect
   useEffect(() => {
     isMountedRef.current = true;
+
+    // Skip if user manually initiated connection from setup page
+    if (isManualConnectRef.current) {
+      console.log('Manual connection in progress, skipping initial connect');
+      setLoading(false);
+      return;
+    }
 
     // Check configuration first
     if (!isConfigurationValid()) {
@@ -571,6 +581,7 @@ export const HomeAssistantProvider = ({ children }) => {
         setAccessToken,
         isConfigurationValid,
         reconnect: () => {
+          isManualConnectRef.current = true;
           connectAttemptRef.current = 0;
           retryDelayRef.current = 1000;
           connect(true);

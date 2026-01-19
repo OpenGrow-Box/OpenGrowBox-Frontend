@@ -2,9 +2,16 @@
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import { FaWifi } from 'react-icons/fa';
+import { useLocation } from 'react-router-dom';
 
 const ConnectionStatus = () => {
   const { isOnline, loading, error, reconnect } = useHomeAssistant();
+  const location = useLocation();
+
+  // Don't show on setup/config page since no connection is expected there
+  if (location.pathname === '/config') {
+    return null;
+  }
 
   // If everything is working fine, don't show anything
   if (isOnline && !loading && !error) {
@@ -54,7 +61,7 @@ const StatusContainer = styled.div`
   position: fixed;
   bottom: 20px;
   right: 20px;
-  z-index: 1000;
+  z-index: -1;
   max-width: 400px;
 `;
 

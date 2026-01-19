@@ -24,16 +24,17 @@ const SetupPage = () => {
   const [pendingToken, setPendingToken] = useState(null);
   const { setDeep, accessToken } = useGlobalState();
   const navigate = useNavigate();
-  const { connection, reconnect, loading, error, setError } = useHomeAssistant();
+  const { connection, reconnect, loading, error, connectionState, setError } = useHomeAssistant();
   
   const isDev = import.meta.env.DEV;
 
   // Watch for connection after token is set
   useEffect(() => {
-    if (pendingToken && connection && !loading) {
+    if (pendingToken && connection && !loading && connectionState === 'connected') {
       // Connection established with the new token
       const completeSetup = async () => {
         try {
+          setError(null);  // Clear error to ensure clean state
           await handleTokenChange("text.ogb_accesstoken", pendingToken);
           localStorage.setItem(import.meta.env.PROD ? 'haToken' : 'devToken', pendingToken);
           setPendingToken(null);
@@ -43,16 +44,21 @@ const SetupPage = () => {
           console.error('Error completing setup:', err);
           setIsConnecting(false);
           setPendingToken(null);
+          navigate("/home");
         }
       };
       completeSetup();
-    } else if (pendingToken && error && !loading) {
-      // Connection failed
+    } else if (pendingToken && error && !loading && connectionState === 'auth_error') {
+      // Connection failed due to invalid token - clear everything
       alert('Invalid token! Please enter a valid Token.');
       setIsConnecting(false);
       setPendingToken(null);
+      setError(null);
+    } else if (pendingToken && error && !loading) {
+      // Other error - don't clear pendingToken, let reconnect retry
+      console.warn('Connection error, retrying...', error);
     }
-  }, [connection, loading, error, pendingToken, navigate]);
+  }, [connection, loading, error, pendingToken, navigate, connectionState]);
 
   const handleInputChange = (e) => {
     setInputToken(e.target.value);
@@ -94,9 +100,9 @@ const SetupPage = () => {
     } else {
       // Set pending token and wait for connection
       setIsConnecting(true);
-      setError(null);
       setPendingToken(inputToken);
-      // Trigger reconnect with the new token
+      setError(null);
+      // Use reconnect which sets isManualConnectRef to avoid race with useEffect
       setTimeout(() => reconnect(), 100);
     }
   };
@@ -114,8 +120,10 @@ const SetupPage = () => {
             text: value,
           },
         });
+        console.log('Token written to HA successfully');
       } catch (error) {
         console.error('Error updating entity:', error);
+        console.warn('Make sure OpenGrowBox integration is installed in Home Assistant');
       }
     }
   };
