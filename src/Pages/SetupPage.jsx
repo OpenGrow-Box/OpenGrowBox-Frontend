@@ -24,7 +24,7 @@ const SetupPage = () => {
   const [pendingToken, setPendingToken] = useState(null);
   const { setDeep, accessToken } = useGlobalState();
   const navigate = useNavigate();
-  const { connection, reconnect, loading, error } = useHomeAssistant();
+  const { connection, reconnect, loading, error, setError } = useHomeAssistant();
   
   const isDev = import.meta.env.DEV;
 
@@ -94,6 +94,7 @@ const SetupPage = () => {
     } else {
       // Set pending token and wait for connection
       setIsConnecting(true);
+      setError(null);
       setPendingToken(inputToken);
       // Trigger reconnect with the new token
       setTimeout(() => reconnect(), 100);

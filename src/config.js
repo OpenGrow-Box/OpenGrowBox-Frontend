@@ -1,6 +1,6 @@
 const ogbversions = {
     backend:"v1.4.2",
-    frontend:"v1.0.8",
+    frontend:"v1.0.9",
     premapi:"v0.0.1"
 }
 const DEV_CONFIG = {
@@ -15,8 +15,8 @@ const DEV_CONFIG = {
 const CONTRIBUTORS = [
   {name:"OpenGrowBox"},
   {name:"0xW3bJun6l3"},
+  {name:"Tobiwan91"},
   {name:"SZip"},
-  {name:"Tobiwan91"}
 ];
 
 const premiumLaunchDate = new Date('2025-12-01T00:00:00Z'); 

@@ -558,6 +558,7 @@ export const HomeAssistantProvider = ({ children }) => {
         connection,
         loading,
         error,
+        setError,
         connectionState,
         entities,
         currentRoom,

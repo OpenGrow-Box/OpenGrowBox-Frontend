@@ -1,7 +1,8 @@
 import { useEffect, useState } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { FaDiscord, FaTelegram, FaBook, FaLeaf, FaMobile } from 'react-icons/fa';
-import {ogbversions, CONTRIBUTORS} from '../../config';
+import {ogbversions} from '../../config';
+import { fetchAllContributors } from '../../utils/contributorsService';
 import OGBIcon from '../../misc/OGBIcon';
 import DevBageHallOfFame from './DevBageHallOfFame';
 
@@ -9,14 +10,37 @@ const SettingsFooter = () => {
   const currentYear = new Date().getFullYear();
   const [appVersion, setAppVersion] = useState('Laden...');
   const [hasUpdate, setHasUpdate] = useState(false);
+  const [contributors, setContributors] = useState([]);
   
+  // Helper function to compare semantic versions
+  const isVersionNewer = (remoteVersion, localVersion) => {
+    // Remove 'v' prefix if present
+    const cleanRemote = remoteVersion.replace(/^v/, '');
+    const cleanLocal = localVersion.replace(/^v/, '');
+
+    // Split versions into parts
+    const remoteParts = cleanRemote.split('.').map(Number);
+    const localParts = cleanLocal.split('.').map(Number);
+
+    // Compare each part
+    for (let i = 0; i < Math.max(remoteParts.length, localParts.length); i++) {
+      const remotePart = remoteParts[i] || 0;
+      const localPart = localParts[i] || 0;
+
+      if (remotePart > localPart) return true;
+      if (remotePart < localPart) return false;
+    }
+
+    return false; // Versions are equal
+  };
+
   useEffect(() => {
     const fetchLatestRelease = async () => {
       try {
         const response = await fetch('https://api.github.com/repos/OpenGrow-Box/OpenGrowBox-Frontend/releases/latest');
         const data = await response.json();
-        // Prüfe, ob data.tag_name existiert und die Version abweicht
-        if (data.tag_name && ogbversions.frontend !== data.tag_name) {
+        // Check if tag_name exists and remote version is actually newer
+        if (data.tag_name && isVersionNewer(data.tag_name, ogbversions.frontend)) {
           setHasUpdate(true);
           setAppVersion(data.tag_name);
         } else {
@@ -24,11 +48,20 @@ const SettingsFooter = () => {
         }
       } catch (error) {
         console.error('Fehler beim Abrufen der neuesten Version:', error);
-        setAppVersion('Unbekannt');
+        setAppVersion(ogbversions.frontend); // Fallback to local version on error
       }
     };
 
     fetchLatestRelease();
+  }, []);
+
+  useEffect(() => {
+    const loadContributors = async () => {
+      const contributorsData = await fetchAllContributors();
+      setContributors(contributorsData);
+    };
+
+    loadContributors();
   }, []);
 
   const handleVersionClick = () => {
@@ -89,7 +122,7 @@ const SettingsFooter = () => {
           </VersionText>
         </Version>
       </FooterContainer>
-      <DevBageHallOfFame users={CONTRIBUTORS} />
+      <DevBageHallOfFame users={contributors} />
     </>
   );
 };

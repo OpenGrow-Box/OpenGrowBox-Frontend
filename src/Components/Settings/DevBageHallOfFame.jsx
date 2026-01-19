@@ -133,8 +133,8 @@ const NameItem = styled.li`
       ? 'linear-gradient(45deg, #9ca3af, #d1d5db)' /* Silber */
       : $rank === 3
       ? 'linear-gradient(45deg, #b45309, #f97316)' /* Bronze */
-      : 'rgba(59, 130, 246, 0.1)'}; /* Blauer Hintergrund für andere Ränge */
-  color: ${({ $rank }) => ($rank <= 3 ? '#fff' : '#1e3a8a')}; /* Weiß für Top-3, Dunkelblau für andere */
+      : 'linear-gradient(45deg, #1e40af, #3b82f6)'}; /* Besserer blauer Hintergrund für andere Ränge */
+  color: ${({ $rank }) => ($rank <= 3 ? '#fff' : '#fff')}; /* Weiß für alle Ränge für bessere Lesbarkeit */
   font-weight: 600;
   font-size: 1rem;
   padding: 0.75rem 1rem;
@@ -147,7 +147,7 @@ const NameItem = styled.li`
         ? '#6b7280'
         : $rank === 3
         ? '#92400e'
-        : '#3b82f6'}; /* Kontrastreiche Rahmenfarben */
+        : '#1e40af'}; /* Kontrastreiche Rahmenfarben */
   transition: all 0.3s ease;
   cursor: pointer;
   position: relative;
@@ -155,10 +155,10 @@ const NameItem = styled.li`
 
   &:hover {
     transform: translateY(-3px);
-    box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 6px 15px rgba(0, 0, 0, 0.3);
     background: ${({ $rank }) =>
-      $rank <= 3 ? undefined : '#3b82f6'}; /* Blauer Hover-Effekt für Nicht-Top-3 */
-    color: ${({ $rank }) => ($rank <= 3 ? undefined : '#fff')}; /* Weißer Text beim Hover */
+      $rank <= 3 ? undefined : 'linear-gradient(45deg, #1e3a8a, #2563eb)'}; /* Hellere blauer Hover-Effekt für Nicht-Top-3 */
+    border-color: ${({ $rank }) => ($rank <= 3 ? undefined : '#1d4ed8')}; /* Hellere Rahmenfarbe beim Hover */
   }
 
   @media (max-width: 600px) {
@@ -181,10 +181,13 @@ const RankBadge = styled.span`
       ? '#4b5563'
       : $rank === 3
       ? '#7c2d12'
-      : '#1e3a8a'}; /* Kontrastreiche Farben für Badges */
-  color: #fff;
+      : '#1e40af'}; /* Kontrastreiche Farben für Badges - dunkler für rank 4 */
+  color: #fff !important; /* Force white text, prevent inheritance */
   font-size: 0.8rem;
   font-weight: 700;
+  position: relative;
+  z-index: 1; /* Ensure badge appears above parent backgrounds */
+  border: 1px solid rgba(255, 255, 255, 0.3); /* Add subtle border for better definition */
 
   svg {
     font-size: 1rem;
