@@ -580,6 +580,7 @@ export const HomeAssistantProvider = ({ children }) => {
         accessToken,
         setAccessToken,
         isConfigurationValid,
+        haToken: token,
         reconnect: () => {
           isManualConnectRef.current = true;
           connectAttemptRef.current = 0;

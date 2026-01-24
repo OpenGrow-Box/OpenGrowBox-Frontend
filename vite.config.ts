@@ -37,8 +37,8 @@ export default defineConfig({
         inlineDynamicImports: true,
         // Use IIFE format for better Home Assistant compatibility
         format: 'iife',
-        // Match Home Assistant expected path: static/js/main.js
-        entryFileNames: 'static/js/main.js',
+        // CRITICAL: Doubled static/static/ path required by Home Assistant
+        entryFileNames: 'static/static/js/main.js',
         assetFileNames: 'static/[ext]/[name].[ext]'
       }
     }

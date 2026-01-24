@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdDevices, MdTerminal, MdShowChart } from 'react-icons/md';
+import { MdDevices, MdTerminal, MdShowChart, MdVideocam } from 'react-icons/md';
 import BottomBar from '../Components/Navigation/BottomBar';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import RoomsCard from '../Components/Cards/RoomsCard';
@@ -12,6 +12,7 @@ import DeviceCard from '../Components/Cards/ControlCards/DeviceCard';
 import DashboardSlider from '../Components/Dashboard/DashboardSlider';
 import DashboardStats from '../Components/Dashboard/DashboardStats';
 import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
+import CameraCard from '../Components/Cards/ControlCards/CameraCard';
 
 import OtherSensors from '../Components/Cards/OtherSensors';
 import { usePremium } from '../Components/Context/OGBPremiumContext';
@@ -68,7 +69,20 @@ const Home = () => {
               )}
             </TabButton>
 
-
+            <TabButton
+              active={activeTab === 'camera'}
+              onClick={() => setActiveTab('camera')}
+            >
+              <MdVideocam size={20} />
+              <span>Camera</span>
+              {activeTab === 'camera' && (
+                <ActiveIndicator
+                  layoutId="activeTab"
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </TabButton>
 
             <TabButton
               active={activeTab === 'others'}
@@ -111,9 +125,21 @@ const Home = () => {
                   <ConsoleCard />
                 </motion.div>
               )}
-              
 
-              
+              {activeTab === 'camera' && (
+                <motion.div
+                  key="camera"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <CameraCard />
+                </motion.div>
+              )}
+
+
+
               {activeTab === 'others' && (
                 <motion.div
                   key="others"
