@@ -44,7 +44,7 @@ export const HomeAssistantProvider = ({ children }) => {
   const connectionListenersRef = useRef([]);
   const debounceTimer = useRef(null);
   const abortController = useRef(null);
-  const dataCacheRef = useRef(new Map());
+
   const MAX_RECONNECT_ATTEMPTS = 5;
   const isManualConnectRef = useRef(false);
 
@@ -556,8 +556,7 @@ export const HomeAssistantProvider = ({ children }) => {
       if (abortController.current) {
         abortController.current.abort();
       }
-      // Clear cache
-      dataCache.current.clear();
+
     };
   }, []);
 
