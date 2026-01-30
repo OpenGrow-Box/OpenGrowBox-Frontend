@@ -207,8 +207,6 @@ const CameraCard = () => {
         console.error('Failed to parse hassTokens:', e);
       }
     }
-    // Fallback to legacy token location
-    return localStorage.getItem(import.meta.env.PROD ? 'haToken' : 'devToken') || '';
   };
 
   // Get base URL
