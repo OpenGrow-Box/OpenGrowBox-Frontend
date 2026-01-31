@@ -19,7 +19,7 @@ const CameraCard = () => {
   const [timelapseConfig, setTimelapseConfig] = useState({
     startDate: '',
     endDate: '',
-    interval: '60',
+    interval: '300',
     format: 'mp4'
   });
   const [isGeneratingTimelapse, setIsGeneratingTimelapse] = useState(false);
@@ -458,7 +458,10 @@ const CameraCard = () => {
     // Save to backend
     if (selectedCamera && connection) {
       try {
-        await connection.sendMessagePromise({
+        console.log('[CameraCard] Sending timelapse config change:', field, value);
+        console.log('[CameraCard] Selected camera:', selectedCamera);
+        
+        const response = await connection.sendMessagePromise({
           type: 'fire_event',
           event_type: 'opengrowbox_save_timelapse_config',
           event_data: {
@@ -471,10 +474,12 @@ const CameraCard = () => {
             },
           },
         });
-        console.log('Timelapse config saved to backend');
+        console.log('[CameraCard] Timelapse config saved to backend, response:', response);
       } catch (err) {
-        console.error('Failed to save timelapse config:', err);
+        console.error('[CameraCard] Failed to save timelapse config:', err);
       }
+    } else {
+      console.warn('[CameraCard] Cannot save - no camera selected or no connection');
     }
   };
 
@@ -703,8 +708,6 @@ const CameraCard = () => {
               value={timelapseConfig.interval}
               onChange={(e) => handleTimelapseChange('interval', e.target.value)}
             >
-              <option value="5">Every 5 seconds</option>
-              <option value="10">Every 10 seconds</option>
               <option value="30">Every 30 seconds</option>
               <option value="60">Every 1 minute</option>
               <option value="300">Every 5 minutes</option>
