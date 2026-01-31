@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import SelectCard from './SelectCard';
 import SliderCard from './SliderCard';
 import SwitchCard from './SwitchCard';

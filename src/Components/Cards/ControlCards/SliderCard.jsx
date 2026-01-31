@@ -1,4 +1,4 @@
-import { useCallback, useState } from 'react';
+import { useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
 import { useSafeMode } from "../../../hooks/useSafeMode";

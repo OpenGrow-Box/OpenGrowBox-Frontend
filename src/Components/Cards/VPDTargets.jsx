@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import  { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage } from 'react-icons/fa';

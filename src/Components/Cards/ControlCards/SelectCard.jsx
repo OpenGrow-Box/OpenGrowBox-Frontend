@@ -2,7 +2,6 @@
 import styled from 'styled-components';
 import { Shield } from 'lucide-react';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
-import { getThemeColor } from "../../../utils/themeColors";
 import { useSafeMode } from "../../../hooks/useSafeMode";
 import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 

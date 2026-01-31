@@ -163,14 +163,3 @@ const DropdownItem = styled.li`
   }
 `;
 
-const ToggleIcon = styled.div`
-  cursor: pointer;
-  font-size: 1.5rem;
-  margin-top: 0.5rem;
-  color: ${props => props.selected ? 'var(--secondary-hover-color)' : 'var(--main-text-color)'};
-  transition: color 0.3s ease;
-
-  &:hover {
-    color: ${props => props.selected ? 'var(--main-arrow-up)' : 'var(--main-text-color)'};
-  }
-`;

@@ -5,7 +5,6 @@ import { Shield } from 'lucide-react';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
 import formatLabel from "../../../misc/formatLabel";
 import { useGlobalState } from "../../Context/GlobalContext";
-import { getThemeColor } from "../../../utils/themeColors";
 import { useSafeMode } from "../../../hooks/useSafeMode";
 import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 

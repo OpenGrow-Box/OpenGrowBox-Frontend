@@ -2,7 +2,7 @@ import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
-import { Home, MapPin, ChevronRight } from 'lucide-react';
+import { Home, MapPin} from 'lucide-react';
 
 const RoomsCard = ({ areas }) => {
   const { currentRoom, entities } = useHomeAssistant();
