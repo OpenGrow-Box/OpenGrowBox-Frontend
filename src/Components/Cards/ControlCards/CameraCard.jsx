@@ -489,10 +489,8 @@ const CameraCard = () => {
     if (!isRecording) {
       setLastTimelapseCapture(null);
       setNextTimelapseCountdown('');
-    } else {
-      // Initialize last capture time when recording starts or page loads with active recording
-      setLastTimelapseCapture(Date.now());
     }
+    // Initialize last capture time when recording starts or page loads with active recording
   }, [isRecording]);
 
   // Countdown timer for next daily snapshot
@@ -591,6 +589,23 @@ const CameraCard = () => {
                   ...prev,
                   imageCount: data.tl_image_count,
                 }));
+              }
+              // Update last capture time from backend for accurate countdown timer
+              if (data.last_capture_time) {
+                const backendCaptureTime = new Date(data.last_capture_time).getTime();
+                // Only update if backend time is valid (not in the future)
+                if (backendCaptureTime <= Date.now()) {
+                  setLastTimelapseCapture(backendCaptureTime);
+                  console.log('[CameraCard] Set lastTimelapseCapture from config response:', new Date(data.last_capture_time));
+                }
+              } else if (data.tl_active && data.tl_start_time) {
+                // Fallback: If timelapse is active but no last_capture_time yet (just started),
+                // use tl_start_time as the initial reference point
+                const startTime = new Date(data.tl_start_time).getTime();
+                if (startTime <= Date.now()) {
+                  setLastTimelapseCapture(startTime);
+                  console.log('[CameraCard] Set lastTimelapseCapture from tl_start_time (fallback):', new Date(data.tl_start_time));
+                }
               }
             }
           },
@@ -705,10 +720,23 @@ const CameraCard = () => {
                 });
               }
 
+              // Handle last capture time from backend for accurate countdown
+              // Use backend's last_capture_time if available, otherwise fall back to current time
+              if (data.last_capture_time) {
+                const backendCaptureTime = new Date(data.last_capture_time).getTime();
+                // Only update if backend time is valid (not in the future)
+                if (backendCaptureTime <= Date.now()) {
+                  setLastTimelapseCapture(backendCaptureTime);
+                }
+              } else if (data.is_recording && !lastTimelapseCapture) {
+                // Fallback: if recording just started and no backend time, use current time
+                setLastTimelapseCapture(Date.now());
+              }
+
               // Existing image count logic
               if (data.image_count !== undefined) {
                 // Track last capture time when image count increases (using ref to avoid stale closure)
-                if (data.image_count > imageCountRef.current) {
+                if (data.image_count > imageCountRef.current && !data.last_capture_time) {
                   setLastTimelapseCapture(Date.now());
                 }
 
