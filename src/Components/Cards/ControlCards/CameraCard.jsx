@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import { MdVideocam, MdVideocamOff, MdOutlineErrorOutline, MdChevronLeft, MdChevronRight, MdDelete, MdDownload, MdDeleteSweep, MdWarning, MdSchedule } from 'react-icons/md';
+import { MdVideocam, MdVideocamOff, MdOutlineErrorOutline, MdChevronLeft, MdChevronRight, MdDelete, MdDownload, MdDeleteSweep, MdWarning, MdSchedule, MdNightlight, MdInfo } from 'react-icons/md';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import { useGlobalState } from '../../Context/GlobalContext';
 import Hls from 'hls.js';
@@ -19,10 +19,11 @@ const CameraCard = () => {
   const [timelapseConfig, setTimelapseConfig] = useState({
     startDate: '',
     endDate: '',
-    interval: '300',
-    format: 'mp4',
+    interval: '900',
+    format: 'zip',
     dailySnapshotEnabled: false,
-    dailySnapshotTime: '09:00'
+    dailySnapshotTime: '09:00',
+    captureAtNight: false
   });
   const [isGeneratingTimelapse, setIsGeneratingTimelapse] = useState(false);
   const [isRecording, setIsRecording] = useState(false);
@@ -30,6 +31,10 @@ const CameraCard = () => {
     active: false,
     imageCount: 0,
     startTime: null,
+  });
+  const [nightMode, setNightMode] = useState({
+    isNight: false,
+    captureAtNight: false
   });
   const [scheduledTimelapse, setScheduledTimelapse] = useState({
     isScheduled: false,
@@ -490,7 +495,9 @@ const CameraCard = () => {
       setLastTimelapseCapture(null);
       setNextTimelapseCountdown('');
     }
-    // Initialize last capture time when recording starts or page loads with active recording
+    // Note: We no longer set lastTimelapseCapture to Date.now() here
+    // Instead, we rely on the CameraRecordingStatus event from the backend
+    // which provides the accurate last_capture_time timestamp
   }, [isRecording]);
 
   // Countdown timer for next daily snapshot
@@ -579,6 +586,12 @@ const CameraCard = () => {
                   dailySnapshotTime: data.current_config.daily_snapshot_time || prev.dailySnapshotTime,
                 }));
               }
+              if (data.current_config && data.current_config.capture_at_night !== undefined) {
+                setTimelapseConfig(prev => ({
+                  ...prev,
+                  captureAtNight: data.current_config.capture_at_night
+                }));
+              }
               // Update recording status
               if (data.tl_active !== undefined) {
                 setIsRecording(data.tl_active);
@@ -590,7 +603,8 @@ const CameraCard = () => {
                   imageCount: data.tl_image_count,
                 }));
               }
-              // Update last capture time from backend for accurate countdown timer
+              // CRITICAL: Update last capture time from backend for accurate countdown timer
+              // This is the primary source of truth on page load/reload
               if (data.last_capture_time) {
                 const backendCaptureTime = new Date(data.last_capture_time).getTime();
                 // Only update if backend time is valid (not in the future)
@@ -635,7 +649,7 @@ const CameraCard = () => {
             const data = event.data;
             if (!isMounted) return; // CRITICAL: Prevent download from orphaned subscription
             if (data.device_name === selectedCameraRef.current) {
-              if (data.success && data.download_url) {
+              if (data.success && data.file_data) {
                 // Show complete message
                 setTimelapseProgress(prev => ({
                   ...prev,
@@ -644,18 +658,41 @@ const CameraCard = () => {
                   error: null
                 }));
 
-                // Trigger download
-                const baseUrl = getBaseUrl();
-                const downloadUrl = `${baseUrl}${data.download_url}`;
-                
-                const link = document.createElement('a');
-                link.href = downloadUrl;
-                link.setAttribute('download', `timelapse_${selectedCameraRef.current}_${Date.now()}.${timelapseConfigRef.current.format}`);
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                
-                console.log('Timelapse download started:', downloadUrl);
+                // Decode base64 and trigger download
+                try {
+                  // Decode base64 data
+                  const byteCharacters = atob(data.file_data);
+                  const byteNumbers = new Array(byteCharacters.length);
+                  for (let i = 0; i < byteCharacters.length; i++) {
+                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                  }
+                  const byteArray = new Uint8Array(byteNumbers);
+
+                  // Determine MIME type based on format
+                  const mimeType = data.format === 'mp4' ? 'video/mp4' : 'application/zip';
+                  const blob = new Blob([byteArray], { type: mimeType });
+                  const blobUrl = URL.createObjectURL(blob);
+
+                  // Trigger download
+                  const link = document.createElement('a');
+                  link.href = blobUrl;
+                  link.setAttribute('download', data.filename || `timelapse_${selectedCameraRef.current}_${Date.now()}.${data.format || 'zip'}`);
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+
+                  // Clean up blob URL after a short delay
+                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
+
+                  console.log('Timelapse download started:', data.filename, `(${data.file_size} bytes)`);
+                } catch (err) {
+                  console.error('Failed to decode timelapse data:', err);
+                  setTimelapseProgress(prev => ({
+                    ...prev,
+                    status: 'error',
+                    error: 'Failed to process timelapse file'
+                  }));
+                }
 
                 // Auto-hide progress section after 2 seconds, then reset
                 setTimeout(() => {
@@ -746,6 +783,14 @@ const CameraCard = () => {
                   active: data.is_recording,
                   startTime: data.start_time,
                 }));
+              }
+
+              // Handle night mode status
+              if (data.is_night_mode !== undefined) {
+                setNightMode(prev => ({ ...prev, isNight: data.is_night_mode }));
+              }
+              if (data.capture_at_night_enabled !== undefined) {
+                setNightMode(prev => ({ ...prev, captureAtNight: data.capture_at_night_enabled }));
               }
             }
           },
@@ -1294,6 +1339,7 @@ const CameraCard = () => {
               format: newConfig.format,
               daily_snapshot_enabled: newConfig.dailySnapshotEnabled,
               daily_snapshot_time: newConfig.dailySnapshotTime,
+              capture_at_night: newConfig.captureAtNight,
             },
           },
         });
@@ -1673,6 +1719,12 @@ const CameraCard = () => {
                       Next image in {nextTimelapseCountdown}
                     </NextCaptureInfo>
                   )}
+                  {nightMode.isNight && !nightMode.captureAtNight && (
+                    <NightModeBadge>
+                      <MdNightlight />
+                      <span>Night Mode - Auto-skipping captures</span>
+                    </NightModeBadge>
+                  )}
                 </div>
                 <RecordButton
                   $isRecording={isRecording}
@@ -1709,6 +1761,16 @@ const CameraCard = () => {
               </TimelapseSection>
             </TimelapseConfigGrid>
 
+            {/* Date Filter Info */}
+            <TimelapseFilterNote>
+              <NoteIcon><MdInfo style={{ fontSize: '16px' }} /></NoteIcon>
+              <span>
+                <strong>Date Filter:</strong> When generating a timelapse or downloading images,
+                only captures within this date range will be included. This allows you to create
+                timelapses from specific time periods.
+              </span>
+            </TimelapseFilterNote>
+
             {/* Capture Interval */}
             <TimelapseSection>
               <TimelapseLabel>Capture Interval</TimelapseLabel>
@@ -1740,6 +1802,24 @@ const CameraCard = () => {
                 <option value="zip">ZIP of Images (recommended)</option>
               </TimelapseSelect>
             </TimelapseSection>
+
+            {/* Capture at Night */}
+            <CaptureAtNightBox style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'flex-start', gap: '12px' }}>
+              <div style={{ flex: 1 }}>
+                <TimelapseLabel style={{ marginBottom: '4px' }}>Capture at Night</TimelapseLabel>
+                <div style={{ fontSize: '12px', opacity: 0.6, marginTop: '4px' }}>
+                  Enable to capture images even when grow lights are off
+                </div>
+              </div>
+              <ToggleLabel>
+                <ToggleSwitch
+                  type="checkbox"
+                  checked={timelapseConfig.captureAtNight}
+                  onChange={(e) => handleTimelapseChange('captureAtNight', e.target.checked)}
+                />
+                <ToggleSlider />
+              </ToggleLabel>
+            </CaptureAtNightBox>
 
             {/* Performance Warning Banner */}
             <TimelapsePerformanceWarning>
@@ -2211,6 +2291,35 @@ const TimelapseConfigDescription = styled.p`
   font-size: 12px;
   opacity: 0.6;
   line-height: 1.4;
+`;
+
+const TimelapseFilterNote = styled.div`
+  background: rgba(33, 150, 243, 0.08);
+  border: 1px solid rgba(33, 150, 243, 0.25);
+  border-radius: 6px;
+  padding: 10px 12px;
+  margin-top: 12px;
+  font-size: 13px;
+  line-height: 1.4;
+  color: rgba(100, 181, 246, 0.95);
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+`;
+
+const NoteIcon = styled.span`
+  flex-shrink: 0;
+  margin-top: 1px;
+  display: flex;
+  align-items: center;
+`;
+
+const CaptureAtNightBox = styled(TimelapseSection)`
+  background: rgba(156, 39, 176, 0.08);
+  border: 1px solid rgba(156, 39, 176, 0.25);
+  border-radius: 6px;
+  padding: 12px;
+  margin-top: 12px;
 `;
 
 const TimelapseConfigGrid = styled.div`
@@ -2773,28 +2882,25 @@ const StorageButton = styled.button`
   transition: all 0.2s;
   display: flex;
   align-items: center;
-  gap: 8px;
-  min-width: 180px;
-  justify-content: center;
-
-  &:hover:not(:disabled) {
-    opacity: 0.9;
-    transform: translateY(-1px);
-    background: ${props => props.$variant === 'delete' ? 'rgba(244, 67, 54, 1)' : 'rgba(33, 150, 243, 1)'};
-  }
-
-  &:active:not(:disabled) {
-    transform: translateY(0);
-  }
-
-  &:disabled {
-    opacity: 0.4;
-    cursor: not-allowed;
-    transform: none;
-  }
-
   svg {
     font-size: 18px;
+  }
+`;
+
+const NightModeBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 12px;
+  background: rgba(103, 58, 183, 0.15);
+  border: 1px solid rgba(103, 58, 183, 0.3);
+  border-radius: 16px;
+  font-size: 13px;
+  color: #9C27B0;
+  margin-top: 8px;
+
+  svg {
+    font-size: 16px;
   }
 `;
 
@@ -3260,5 +3366,4 @@ const CompleteMessage = styled.div`
   font-size: 13px;
   line-height: 1.4;
 `;
-
 
