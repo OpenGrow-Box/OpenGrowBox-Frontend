@@ -40,7 +40,7 @@ const Home = () => {
         <DataSection>
           <TabContainer>
             <TabButton
-              active={activeTab === 'devices'}
+              $active={activeTab === 'devices'}
               onClick={() => setActiveTab('devices')}
             >
               <MdDevices size={20} />
@@ -55,7 +55,7 @@ const Home = () => {
             </TabButton>
 
             <TabButton
-              active={activeTab === 'terminal'}
+              $active={activeTab === 'terminal'}
               onClick={() => setActiveTab('terminal')}
             >
               <MdTerminal size={20} />
@@ -70,7 +70,7 @@ const Home = () => {
             </TabButton>
 
             <TabButton
-              active={activeTab === 'camera'}
+              $active={activeTab === 'camera'}
               onClick={() => setActiveTab('camera')}
             >
               <MdVideocam size={20} />
@@ -85,7 +85,7 @@ const Home = () => {
             </TabButton>
 
             <TabButton
-              active={activeTab === 'others'}
+              $active={activeTab === 'others'}
               onClick={() => setActiveTab('others')}
             >
               <MdTerminal size={20} />
@@ -228,7 +228,7 @@ const TabButton = styled.button`
   background: transparent;
   border: none;
   border-radius: 8px;
-  color: ${props => props.active ? 'var(--main-text-color)' : 'var(--placeholder-text-color)'};
+  color: ${props => props.$active ? 'var(--main-text-color)' : 'var(--placeholder-text-color)'};
   font-size: 0.95rem;
   font-weight: 500;
   cursor: pointer;
@@ -266,13 +266,32 @@ const TabContent = styled.div`
 
 const ContainerHeader = styled.div`
   display: flex;
-  top: 1;
   justify-content: space-between;
   align-items: center;
   width: 100%;
   height: 3.5vh;
+  min-height: 50px;
   margin-bottom: 0.5rem;
   padding: 0 2rem;
-  background: var(--main-bg-nav-color);
-  box-shadow: var(--main-shadow-art);
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  gap: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0 1rem;
+    height: 4vh;
+    min-height: 45px;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0 0.75rem;
+    height: 4.5vh;
+    min-height: 40px;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
 `;
+

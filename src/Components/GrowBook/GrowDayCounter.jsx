@@ -16,8 +16,7 @@ const GrowDayCounter = () => {
     updateMediumPlantDates, 
     startEditing, 
     stopEditing,
-    isFieldEditing,
-    debouncedUpdate 
+    isFieldEditing, 
   } = useMedium();
 
   // States for editing
@@ -419,7 +418,7 @@ const GrowDayCounter = () => {
 export default GrowDayCounter;
 
 // Styled Components
-const MotionContainer = motion(styled.div``);
+const MotionContainer = motion.create(styled.div``);
 
 const CounterCard = styled.div`
   background: linear-gradient(135deg,
@@ -428,8 +427,10 @@ const CounterCard = styled.div`
   backdrop-filter: blur(20px);
   border-radius: 24px;
   padding: 2rem;
-  max-width: 32rem;
-  margin: 1rem auto;
+  width: 100%;
+  max-width: 100%;
+  margin: 0;
+  box-sizing: border-box;
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08),
@@ -439,6 +440,13 @@ const CounterCard = styled.div`
   border: 1px solid var(--glass-border-light);
   position: relative;
   overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  @media (max-width: 640px) {
+    max-width: none;
+  }
 
   &::before {
     content: '';
@@ -538,7 +546,7 @@ const PlantTitle = styled.h1`
   font-size: 2rem;
   font-weight: 800;
   margin: 0;
-  background: linear-gradient(135deg, #4ade80 0%, #22c55e 50%, #16a34a 100%);
+  background: linear-gradient(135deg, var(--chart-success-color), var(--primary-accent), var(--secondary-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -563,13 +571,13 @@ const MediumBadge = styled.div`
   gap: 0.375rem;
   padding: 0.375rem 0.875rem;
   margin-top: 0.5rem;
-  background: linear-gradient(135deg, rgba(74, 222, 128, 0.15) 0%, rgba(34, 197, 94, 0.1) 100%);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--chart-success-color);
   border-radius: 16px;
   font-size: 0.875rem;
   font-weight: 600;
-  color: #22c55e;
-  box-shadow: 0 2px 6px rgba(74, 222, 128, 0.2);
+  color: var(--chart-success-color);
+  box-shadow: 0 2px 6px var(--chart-success-color);
 
   svg {
     opacity: 0.8;
@@ -580,12 +588,12 @@ const EditIcon = styled.span`
   font-size: 1rem;
   opacity: 0.7;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  color: #4ade80;
+  color: var(--chart-success-color);
 
   ${PlantTitleWrapper}:hover & {
     opacity: 1;
     transform: rotate(360deg) scale(1.1);
-    color: #22c55e;
+    color: var(--chart-success-color);
   }
 `;
 
@@ -600,32 +608,32 @@ const PlantEditContainer = styled.div`
 const PlantInput = styled.input`
   font-size: 1.5rem;
   font-weight: 800;
-  color: #4ade80;
+  color: var(--chart-success-color);
   background: linear-gradient(135deg,
     var(--main-bg-Innercard-color) 0%,
     var(--main-bg-Innercard-color) 100%
   );
   backdrop-filter: blur(8px);
-  border: 2px solid rgba(74, 222, 128, 0.4);
+  border: 2px solid rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.4);
   border-radius: 12px;
   padding: 0.75rem 1rem;
   text-align: center;
   width: 100%;
   max-width: 400px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.15);
+  box-shadow: 0 2px 8px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
 
   &:focus {
     outline: none;
-    border-color: #22c55e;
+    border-color: var(--chart-success-color);
     box-shadow:
-      0 0 0 3px rgba(74, 222, 128, 0.15),
-      0 4px 16px rgba(74, 222, 128, 0.2);
+      0 0 0 3px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15),
+      0 4px 16px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.2);
     transform: translateY(-1px);
   }
 
   &::placeholder {
-    color: rgba(74, 222, 128, 0.6);
+    color: rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.6);
     font-weight: 600;
   }
 `;
@@ -656,24 +664,24 @@ const PlantButton = styled.button`
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
 
   ${props => props.$success && `
-    background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+    background: linear-gradient(135deg, var(--chart-success-color), var(--secondary-accent));
     color: white;
 
     &:hover {
-      background: linear-gradient(135deg, #16a34a 0%, #15803d 100%);
+      background: linear-gradient(135deg, var(--secondary-accent), var(--chart-success-color));
       transform: scale(1.1) translateY(-2px);
-      box-shadow: 0 4px 16px rgba(34, 197, 94, 0.4);
+      box-shadow: 0 4px 16px var(--chart-success-color);
     }
   `}
 
   ${props => props.$cancel && `
-    background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    background: linear-gradient(135deg, var(--chart-error-color), var(--warning-accent-color));
     color: white;
 
     &:hover {
-      background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+      background: linear-gradient(135deg, var(--warning-accent-color), var(--chart-error-color));
       transform: scale(1.1) translateY(-2px);
-      box-shadow: 0 4px 16px rgba(239, 68, 68, 0.4);
+      box-shadow: 0 4px 16px var(--chart-error-color);
     }
   `}
 
@@ -689,13 +697,13 @@ const UpdateStatus = styled.div`
   font-weight: 600;
   border-radius: 20px;
   background: ${props => props.$success
-    ? 'linear-gradient(135deg, rgba(34, 197, 94, 0.15) 0%, rgba(22, 163, 74, 0.1) 100%)'
-    : 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.1) 100%)'
+    ? 'var(--glass-bg-primary)'
+    : 'var(--glass-bg-primary)'
   };
-  color: ${props => props.$success ? '#16a34a' : '#dc2626'};
+  color: ${props => props.$success ? 'var(--chart-success-color)' : 'var(--chart-error-color)'};
   border: 1px solid ${props => props.$success
-    ? 'rgba(34, 197, 94, 0.3)'
-    : 'rgba(239, 68, 68, 0.3)'
+    ? 'var(--chart-success-color)'
+    : 'var(--chart-error-color)'
   };
   display: inline-flex;
   align-items: center;
@@ -712,10 +720,10 @@ const PhaseIndicator = styled.div`
   margin-bottom: 1.5rem;
   letter-spacing: 0.025em;
   text-transform: uppercase;
-  background: rgba(74, 222, 128, 0.15);
-  color: #16a34a;
-  border: 1px solid rgba(74, 222, 128, 0.4);
-  box-shadow: 0 2px 8px rgba(74, 222, 128, 0.15);
+  background: rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
+  color: var(--chart-success-color);
+  border: 1px solid rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.4);
+  box-shadow: 0 2px 8px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
 `;
 
 const CardTitle = styled.h2`
@@ -787,9 +795,9 @@ const ProgressBar = styled.div`
   height: 100%;
   width: ${props => props.$progress}%;
   background: linear-gradient(135deg,
-    #4ade80 0%,
-    #22c55e 50%,
-    #16a34a 100%
+    var(--chart-success-color) 0%,
+    var(--chart-success-color) 50%,
+    var(--chart-success-color) 100%
   );
   border-radius: 8px;
   transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -799,7 +807,7 @@ const ProgressText = styled.div`
   text-align: center;
   font-size: 1.25rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  background: linear-gradient(135deg, var(--chart-success-color), var(--primary-accent));
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -919,7 +927,7 @@ const StatIcon = styled.div`
 const StatValue = styled.div`
   font-size: 1.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  background: linear-gradient(135deg, var(--chart-success-color) 0%, var(--chart-success-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -937,7 +945,7 @@ const StatLabel = styled.div`
 `;
 
 const Highlight = styled.span`
-  background: linear-gradient(135deg, #60a5fa 0%, #3b82f6 50%, #2563eb 100%);
+  background: linear-gradient(135deg, var(--chart-primary-color) 0%, var(--chart-primary-color) 50%, var(--chart-primary-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -949,16 +957,16 @@ const FinishSection = styled.div`
   margin-top: 2rem;
   padding: 1.5rem;
   background: linear-gradient(135deg,
-    rgba(239, 68, 68, 0.05) 0%,
-    rgba(220, 38, 38, 0.08) 100%
+    rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.05) 0%,
+    rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.08) 100%
   );
-  border: 1px solid rgba(239, 68, 68, 0.2);
+  border: 1px solid rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.2);
   border-radius: 16px;
   text-align: center;
 `;
 
 const FinishButton = styled.button`
-  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  background: linear-gradient(135deg, var(--chart-error-color) 0%, var(--chart-error-color) 100%);
   color: white;
   border: none;
   padding: 0.75rem 1.5rem;
@@ -970,12 +978,12 @@ const FinishButton = styled.button`
   align-items: center;
   gap: 0.5rem;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+  box-shadow: 0 4px 12px rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.3);
 
   &:hover:not(:disabled) {
     transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(239, 68, 68, 0.4);
-    background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%);
+    box-shadow: 0 6px 20px rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.4);
+    background: linear-gradient(135deg, var(--chart-error-color) 0%, var(--chart-error-color) 100%);
   }
 
   &:disabled {

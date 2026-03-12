@@ -1275,8 +1275,8 @@ const LogItem = ({ room, date, info }) => {
   const roomColors = stringToColor(room);
 
   return (
-    <LogItemContainer logType={logType}>
-      <LogHeader logType={logType}>
+    <LogItemContainer $logType={logType}>
+      <LogHeader $logType={logType}>
         <RoomInfo>
           <RoomName $color={roomColors.bg}>{room}</RoomName>
           {parsedInfo.message && <MessageText>{parsedInfo.message}</MessageText>}
@@ -1480,39 +1480,41 @@ const GrowLogs = () => {
         </LogCount>
       </LogHeader>
 
-      <GrowLogContainer>
-        {isLoading ? (
-          <LoadingState>
-            <LoadingSpinner>
-              <FaSpinner className="fa-spin" />
-            </LoadingSpinner>
-            <LoadingText>Connecting to log stream...</LoadingText>
-          </LoadingState>
-        ) : displayedLogs.length === 0 ? (
-          <NoLogsMessage>
-            {filteredLogs.length === 0 && logs.length === 0 ? (
-              <LoadingDots>Waiting for Logs...</LoadingDots>
-            ) : filteredLogs.length === 0 ? (
-              <EmptyState>
-                <EmptyIcon><FaSearch /></EmptyIcon>
-                <EmptyTitle>No logs match your search</EmptyTitle>
-                <EmptyText>Try adjusting your search terms or filters</EmptyText>
-              </EmptyState>
-            ) : (
-              <LoadingDots>No more logs to display</LoadingDots>
-            )}
-          </NoLogsMessage>
-        ) : (
-          displayedLogs.map((log) => (
-            <ExpandableLogItem
-              key={log.id}
-              log={log}
-              isExpanded={expandedLogs.has(log.id)}
-              onToggle={() => toggleLogExpansion(log.id)}
-            />
-          ))
-        )}
-      </GrowLogContainer>
+       <GrowLogContainer>
+         <ScrollableContent>
+           {isLoading ? (
+             <LoadingState>
+               <LoadingSpinner>
+                 <FaSpinner className="fa-spin" />
+               </LoadingSpinner>
+               <LoadingText>Connecting to log stream...</LoadingText>
+             </LoadingState>
+           ) : displayedLogs.length === 0 ? (
+             <NoLogsMessage>
+               {filteredLogs.length === 0 && logs.length === 0 ? (
+                 <LoadingDots>Waiting for Logs...</LoadingDots>
+               ) : filteredLogs.length === 0 ? (
+                 <EmptyState>
+                   <EmptyIcon><FaSearch /></EmptyIcon>
+                   <EmptyTitle>No logs match your search</EmptyTitle>
+                   <EmptyText>Try adjusting your search terms or filters</EmptyText>
+                 </EmptyState>
+               ) : (
+                 <LoadingDots>No more logs to display</LoadingDots>
+               )}
+             </NoLogsMessage>
+           ) : (
+             displayedLogs.map((log) => (
+               <ExpandableLogItem
+                 key={log.id}
+                 log={log}
+                 isExpanded={expandedLogs.has(log.id)}
+                 onToggle={() => toggleLogExpansion(log.id)}
+               />
+             ))
+           )}
+         </ScrollableContent>
+       </GrowLogContainer>
     </LogContainer>
   );
 };
@@ -1532,13 +1534,13 @@ const ExpandableLogItem = ({ log, isExpanded, onToggle }) => {
   const roomColors = stringToColor(log.room);
 
   return (
-    <LogItemContainer logType={logType} isExpanded={isExpanded}>
+    <LogItemContainer $logType={logType} $isExpanded={isExpanded}>
       <LogHeaderRow onClick={onToggle}>
         <LogSummary>
           <RoomBadge $bgColor={roomColors.bg} $textColor={roomColors.text} $borderColor={roomColors.border}>
             {log.room || 'Unknown'}
           </RoomBadge>
-          <LogTypeIndicator logType={logType}>
+          <LogTypeIndicator $logType={logType}>
             {getLogTypeIcon(logType)}
           </LogTypeIndicator>
           <LogPreview>
@@ -1627,9 +1629,16 @@ export default GrowLogs;
 const LogContainer = styled.div`
   height: 100%;
   width: 100%;
+  min-height: 60vh;
   display: flex;
   flex-direction: column;
+  min-width: 0;
   overflow: hidden;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    min-height: auto;
+  }
 `;
 
 const SearchContainer = styled.div`
@@ -1744,26 +1753,32 @@ const EmptyTitle = styled.h3`
   font-size: 1.1rem;
 `;
 
-const EmptyMessage = styled.p`
-  color: var(--second-text-color, #ccc);
-  margin: 0;
-  font-size: 0.9rem;
-`;
 
 const GrowLogContainer = styled.div`
   width: 100%;
   height: 100%;
   display: flex;
   flex-direction: column;
+  flex: 1 1 auto;
+  min-width: 0;
   gap: 0.75rem;
-  overflow-y: auto;
-  overflow-x: hidden;
+  overflow: hidden;
+
   padding: 1rem;
   border-left: 1px solid rgba(255, 255, 255, 0.1);
   z-index: 1000;
 
-  @media (max-width: 1200px) {
-    width: 350px;
+  /* Add a nested container for scrolling */
+  & > div:first-child {
+    overflow-y: auto;
+    overflow-x: hidden;
+    min-height: 0;
+  }
+
+  @media (max-width: 640px) {
+    border-left: none;
+    border-top: 1px solid rgba(255, 255, 255, 0.1);
+    padding: 0.75rem 0 0;
   }
 
   @media (max-width: 768px) {
@@ -1796,20 +1811,15 @@ const LogItemContainer = styled.div`
   display: flex;
   flex-direction: column;
   background: ${props => {
-    switch(props.logType) {
-      case 'pid-controller': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
-      
-      case 'medium-stats': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
-
-      case 'hydro-mode': return 'linear-gradient(135deg, rgba(116, 255, 162, 0.3) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
-      case 'rotation-success': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New      
-      case 'missing-pumps': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
-      
-      case 'crop-steering': return 'linear-gradient(135deg, rgba(116, 255, 162, 1) 0%, rgba(74, 144, 226, 0.1) 100%)'; // New
-      case 'cs-log': return 'linear-gradient(135deg, rgba(125, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New   
-
-      case 'device-cd': return 'linear-gradient(135deg, rgba(255, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)'; // New    
-
+    switch(props.$logType) {
+      case 'pid-controller': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)';
+      case 'medium-stats': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)';
+      case 'hydro-mode': return 'linear-gradient(135deg, rgba(116, 255, 162, 0.3) 0%, rgba(74, 144, 226, 0.1) 100%)';
+      case 'rotation-success': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)';      
+      case 'missing-pumps': return 'linear-gradient(135deg, rgba(255, 125, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)';   
+      case 'crop-steering': return 'linear-gradient(135deg, rgba(116, 255, 162, 1) 0%, rgba(74, 144, 226, 0.1) 100%)';
+      case 'cs-log': return 'linear-gradient(135deg, rgba(125, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)';   
+      case 'device-cd': return 'linear-gradient(135deg, rgba(255, 225, 162, 0.3) 0%, rgba(125, 144, 226, 0.1) 100%)';    
       case 'sensor': return 'linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(253, 187, 45, 0.1) 100%)';
       case 'action': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 154, 0, 0.1) 100%)';
       case 'device': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)';
@@ -1826,11 +1836,31 @@ const LogItemContainer = styled.div`
   transition: all 0.3s ease;
   min-height: fit-content;
   flex-shrink: 0;
-  
+  margin-bottom: 0.35rem;
+
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
     border-color: var(--primary-accent);
+  }
+
+  @media (max-width: 1024px) {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.625rem;
+    margin-bottom: 0.5rem;
+    border-radius: 10px;
+    min-height: 70px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    margin-bottom: 0.375rem;
+    border-radius: 8px;
+    min-height: 60px;
   }
 `;
 
@@ -1840,6 +1870,17 @@ const LogHeader = styled.div`
   align-items: flex-start;
   padding: 1rem 1.25rem 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  @media (max-width: 1024px) {
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    flex-direction: column;
+    gap: 0.375rem;
+  }
 `;
 
 const RoomInfo = styled.div`
@@ -1870,6 +1911,7 @@ const TimeStamp = styled.div`
 
 const LogContent = styled.div`
   padding: 1rem 1.25rem 1.25rem;
+
 `;
 
 const DeviceActionContainer = styled.div`
@@ -3020,6 +3062,23 @@ export const MediumContainer = styled.div`
     height: 3px;
     background: linear-gradient(90deg, #22c55e, #16a34a, #15803d);
   }
+
+  @media (max-width: 1024px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+    border-radius: 10px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.375rem;
+    gap: 0.375rem;
+    border-radius: 8px;
+  }
 `;
 
 export const MediumHeader = styled.div`
@@ -3027,6 +3086,11 @@ export const MediumHeader = styled.div`
   align-items: center;
   gap: 0.75rem;
   margin-bottom: 0.5rem;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+    margin-bottom: 0.375rem;
+  }
 `;
 
 export const MediumIcon = styled.div`
@@ -3039,6 +3103,18 @@ export const MediumIcon = styled.div`
   justify-content: center;
   font-size: 1.2rem;
   box-shadow: 0 4px 12px rgba(34, 197, 94, 0.3);
+
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 28px;
+    height: 28px;
+    font-size: 0.875rem;
+  }
 `;
 
 export const MediumTitle = styled.h3`
@@ -3047,24 +3123,45 @@ export const MediumTitle = styled.h3`
   font-size: 1.1rem;
   font-weight: 600;
   text-shadow: 0 1px 2px rgba(34, 197, 94, 0.2);
+
+  @media (max-width: 768px) {
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.875rem;
+  }
 `;
 
 export const MediumSubtitle = styled.div`
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.85rem;
   font-weight: 400;
+
+  @media (max-width: 768px) {
+    font-size: 0.75rem;
+  }
 `;
 
 export const MetricGroups = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const MetricGroup = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.5rem;
+  }
 
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
@@ -3093,6 +3190,11 @@ export const MetricCard = styled.div`
   transition: all 0.2s ease;
   position: relative;
 
+  @media (max-width: 768px) {
+    padding: 0.5rem;
+    border-radius: 6px;
+  }
+
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
@@ -3112,11 +3214,20 @@ export const MetricHeader = styled.div`
   align-items: center;
   gap: 0.5rem;
   margin-bottom: 0.5rem;
+
+  @media (max-width: 768px) {
+    gap: 0.375rem;
+    margin-bottom: 0.375rem;
+  }
 `;
 
 export const MetricIcon = styled.div`
   font-size: 1.1rem;
   opacity: 0.8;
+
+  @media (max-width: 768px) {
+    font-size: 0.95rem;
+  }
 `;
 
 export const MetricLabel = styled.div`
@@ -3125,6 +3236,10 @@ export const MetricLabel = styled.div`
   text-transform: uppercase;
   letter-spacing: 0.5px;
   font-weight: 500;
+
+  @media (max-width: 768px) {
+    font-size: 0.7rem;
+  }
 `;
 
 export const MetricValue = styled.div`
@@ -3139,6 +3254,14 @@ export const MetricValue = styled.div`
     }
   }};
   margin-bottom: 0.25rem;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
 `;
 
 export const MetricStatus = styled.div`
@@ -3154,6 +3277,10 @@ export const MetricStatus = styled.div`
   }};
   text-transform: uppercase;
   letter-spacing: 0.3px;
+
+  @media (max-width: 768px) {
+    font-size: 0.65rem;
+  }
 `;
 
 export const SensorStatus = styled.div`
@@ -4250,16 +4377,37 @@ const LogTypeIndicator = styled.div`
   color: var(--primary-accent, #007AFF);
   flex-shrink: 0;
   font-size: 0.85rem;
+
+  @media (max-width: 768px) {
+    width: 24px;
+    height: 24px;
+    font-size: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 20px;
+    height: 20px;
+    font-size: 0.65rem;
+  }
 `;
 
 const LogPreview = styled.div`
   color: var(--main-text-color, #fff);
   font-size: 0.85rem;
-  white-space: nowrap;
+  white-space: normal;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
+  word-break: break-word;
+
+  @media (max-width: 768px) {
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.75rem;
+  }
 `;
 
 const LogMeta = styled.div`
@@ -4267,6 +4415,10 @@ const LogMeta = styled.div`
   align-items: center;
   gap: 0.75rem;
   flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+  }
 `;
 
 const ExpandIcon = styled.div`
@@ -4298,6 +4450,13 @@ const EmptyText = styled.p`
   color: var(--second-text-color, #ccc);
   margin: 0;
   font-size: 0.9rem;
+`;
+
+const ScrollableContent = styled.div`
+  overflow-y: auto;
+  overflow-x: hidden;
+  min-height: 0;
+  flex: 1;
 `;
 
 // Missing Pumps / Invalid Dripper Components

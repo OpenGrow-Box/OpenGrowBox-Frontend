@@ -2,7 +2,7 @@ import { createContext, useContext, useState, useEffect } from 'react';
 import { ogbversions } from '../../config';
 import SecureTokenStorage from '../../utils/secureTokenStorage';
 
-const GlobalStateContext = createContext();
+export const GlobalStateContext = createContext();
 
 
 const initialState = {
@@ -22,7 +22,7 @@ const initialState = {
   hassWS:{},
   Design: {
     theme: 'Main',
-    availableThemes: ['Main', 'Unicorn', 'Hacky','BookWorm','BlueOcean','CyberPunk','Darkness','Aurora'],
+    availableThemes: ['Main', 'Hacky','BookWorm','BlueOcean','CyberPunk','Unicorn','Darkness','Aurora','Sunshine'],
   },
   Settings: {
     safeModeEnabled: true, // Enable safe mode by default to prevent accidental mobile changes
@@ -55,10 +55,11 @@ export const GlobalStateProvider = ({ children }) => {
     }
     return initialState;
   });
+  
   const [srvADDR,setSrvADDR] = useState(null)
   const [HASS,setHASS] = useState(null)
   const [accessToken,setAccessToken] = useState(null)
-  const [entities, setEntities] = useState({});
+  const [entities] = useState({});
   const [currentRoom, setCurrentRoom] = useState('');
   const [roomOptions, setRoomOptions] = useState([]);
 
@@ -100,23 +101,13 @@ export const GlobalStateProvider = ({ children }) => {
   }, [HASS, currentRoom]);
 
   useEffect(() => {
-    if (import.meta.env.PROD) {
-      console.log(`
-        OpenGrowBox: 🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱
-        🖥 Frontend: ${ogbversions.frontend}
-        ⚙️ Backend: ${ogbversions.backend}
-        👑 Prem-API: ${ogbversions.premapi}
-        Happy GROWING 🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱
-        `)
-    }else{
-      console.log(`
-        OpenGrowBox: 🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱
-        🖥 Frontend: ${ogbversions.frontend}
-        ⚙️ Backend: ${ogbversions.backend}
-        👑 Prem-API: ${ogbversions.premapi}
-        Happy GROWING 🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱
-        `)
-    }
+  console.log(`
+    OpenGrowBox: 🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱
+    🖥 Frontend: ${ogbversions.frontend}
+    ⚙️ Backend: ${ogbversions.backend}
+    👑 Prem-API: ${ogbversions.premapi}
+    Happy GROWING 🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱🌱
+    `)
 
     const hass = getHASS();
     setHass(hass)
@@ -124,38 +115,39 @@ export const GlobalStateProvider = ({ children }) => {
   
   }, []);
 
-   useEffect(() => {
-     if (import.meta.env.PROD) {
-       const hass = getHASS();
-       setHass(hass)
-       const haServer = hass.auth.data.hassUrl
-       if (haServer !== null) {
-         setHASSServer(haServer)
-       }
-     }else{
-       // In dev mode, only set default server if not already configured
-       const currentServer = state.Conf?.hassServer;
-       if (!currentServer || currentServer.trim() === '') {
-         setHASSServer(haHostDev)
-       }
-     }
 
-   }, [srvADDR, state.Conf?.hassServer]);
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      const hass = getHASS();
+      setHass(hass)
+      const haServer = hass.auth.data.hassUrl
+      if (haServer !== null) {
+        setHASSServer(haServer)
+      }
+    }else{
+      // In dev mode, only set default server if not already configured
+      const currentServer = state.Conf?.hassServer;
+      if (!currentServer || currentServer.trim() === '') {
+        setHASSServer(haHostDev)
+      }
+    }
 
-   useEffect(() => {
-     if (import.meta.env.PROD) {
-       const hass = getHASS();
-       const token = hass.states["text.ogb_accesstoken"].state
-       setHASSAccessToken(token)
-     }else{
-       // Load token from SecureTokenStorage in dev mode
-       const token = SecureTokenStorage.getToken();
-       if (token) {
-         setHASSAccessToken(token);
-       }
-     }
+  }, [srvADDR, state.Conf?.hassServer]);
 
-   }, [accessToken]);
+  useEffect(() => {
+    if (import.meta.env.PROD) {
+      const hass = getHASS();
+      const token = hass.states["text.ogb_accesstoken"].state
+      setHASSAccessToken(token)
+    }else{
+      // Load token from SecureTokenStorage in dev mode
+      const token = SecureTokenStorage.getToken();
+      if (token) {
+        setHASSAccessToken(token);
+      }
+    }
+
+  }, [accessToken]);
 
   useEffect(() => {
     localStorage.setItem('globalOGBState', JSON.stringify(state));

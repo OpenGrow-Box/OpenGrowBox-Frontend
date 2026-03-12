@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
-import { useGlobalState } from '../Context/GlobalContext';
 import { FaLeaf, FaChartBar, FaCircle, FaSync, FaBullseye, FaCheck, FaExclamationTriangle, FaTimes, FaChartArea, FaSeedling, FaCalendarAlt, FaClock, FaFlask } from 'react-icons/fa';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
@@ -26,7 +25,7 @@ const GrowMetrics = ({ room = 'default' }) => {
   const [historicalData, setHistoricalData] = useState([]);
   const [targetValues, setTargetValues] = useState({});
 
-  const { entities, currentRoom, handleTabReactivation } = useHomeAssistant();
+  const { entities, currentRoom, handleTabReactivation, haApiBaseUrl, haToken: token } = useHomeAssistant();
   const { 
     mediums, 
     currentMedium, 
@@ -34,48 +33,12 @@ const GrowMetrics = ({ room = 'default' }) => {
     setCurrentMediumIndex, 
     loading: mediumLoading 
   } = useMedium();
-
-  const { state } = useGlobalState();
-
   const [isLive, setIsLive] = useState(false);
-
-  const srvAddr = state?.Conf?.hassServer;
-  const token = state?.Conf?.haToken;
 
   // In dev mode, use Vite proxy. In production, use full URL
   const isDev = import.meta.env.DEV;
   
-  const getApiUrl = (srvAddr) => {
-    // In development, use relative URL to leverage Vite proxy
-    if (isDev) {
-      return ''; // Empty string means relative URL (/api/...)
-    }
-    
-    if (!srvAddr) return '';
-    
-    try {
-      let urlString = srvAddr;
-      
-      // Add protocol if missing
-      if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
-        urlString = `http://${urlString}`;
-      }
-      
-      const url = new URL(urlString);
-      
-      // If no port specified, add default HA port
-      if (!url.port) {
-        url.port = '8123';
-      }
-      
-      return url.toString().replace(/\/$/, ''); // Remove trailing slash
-    } catch (e) {
-      console.error('Invalid server address:', srvAddr, e);
-      return '';
-    }
-  };
-
-  const apiBaseUrl = getApiUrl(srvAddr);
+  const apiBaseUrl = haApiBaseUrl || '';
 
   useEffect(() => {
     let interval;
@@ -365,7 +328,7 @@ const GrowMetrics = ({ room = 'default' }) => {
   };
 
   const fetchAllGrowData = async () => {
-    if (!srvAddr || !token) {
+    if (!token) {
       setError('Home Assistant Server oder Token nicht konfiguriert');
       return;
     }
@@ -431,7 +394,7 @@ const GrowMetrics = ({ room = 'default' }) => {
   // Fetch data only when fetch parameters change
   useEffect(() => {
     fetchAllGrowData();
-  }, [timeRange, room, srvAddr, token, currentMediumIndex, growStartDate]);
+  }, [timeRange, room, apiBaseUrl, token, currentMediumIndex, growStartDate]);
 
   // Update target values separately (doesn't trigger data fetch)
   useEffect(() => {

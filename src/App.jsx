@@ -11,6 +11,7 @@ import ErrorBoundary from '../src/misc/ErrorBoundary';
 import ConnectionStatus from '../src/misc/ConnectionStatus';
 import ThemeGlobalStyle from './Pages/ThemeGlobalStyle';
 
+
 // Wrapper component to provide reconnect function to ErrorBoundary
 const ErrorBoundaryWrapper = ({ children }) => {
   const { reconnect } = useHomeAssistant();
@@ -43,7 +44,7 @@ const PageLoader = () => (
 
 export default function App() {
 
-  const basename = process.env.NODE_ENV === 'development' ? '/ogb-gui/static' : '/ogb-gui';
+  const basename = '/ogb-gui';
 
   return (
     <GlobalOGBContainer>
@@ -99,6 +100,8 @@ const AppContainer = styled.div`
   display: flex;
   z-index: 0;
   min-height:100vh;
+  width: 100%;
+  min-width: 0;
 `;
 
 // Hintergrund für Gradients
@@ -164,6 +167,7 @@ const MainContent = styled.div`
   flex-grow: 1;
   width: 100%;
   height:100%;
+  min-width: 0;
 `;
 
 // Loading components

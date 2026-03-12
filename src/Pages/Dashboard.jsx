@@ -8,56 +8,16 @@ import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
-import { FaExclamationTriangle, FaSpinner, FaLeaf, FaChevronDown } from 'react-icons/fa';
+import { FaSpinner, FaLeaf } from 'react-icons/fa';
+
+
 const Dashboard = () => {
   const { currentRoom, entities, connectionState, connection } = useHomeAssistant();
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
+  const [ setIsRoomDropdownOpen] = useState(false);
   const [selectedCO2SensorIndex, setSelectedCO2SensorIndex] = useState(0);
   const roomDropdownRef = useRef(null);
-
-  // Get available rooms
-  const roomOptions = useMemo(() => {
-    const allRooms = Object.entries(entities)
-      .filter(([key]) => key.startsWith("select.ogb_rooms"))
-      .flatMap(([_, entity]) => entity.attributes?.options || [])
-      .filter(r => r.toLowerCase() !== "ambient");
-
-    const roomsWithSensors = allRooms.filter(room => {
-      const hasSensors = Object.keys(entities).some(entityId => 
-        entityId.startsWith('sensor.ogb_') && 
-        entityId.toLowerCase().includes(room.toLowerCase())
-      );
-      return hasSensors;
-    });
-
-    return [...new Set(roomsWithSensors)];
-  }, [entities]);
-
-  // Handle room change
-  const handleRoomChange = async (selectedRoom) => {
-    const roomEntity = Object.entries(entities).find(([key]) =>
-      key.startsWith('select.ogb_rooms')
-    );
-
-    if (roomEntity && connection) {
-      try {
-        await connection.sendMessagePromise({
-          type: 'call_service',
-          domain: 'select',
-          service: 'select_option',
-          service_data: {
-            entity_id: roomEntity[0],
-            option: selectedRoom,
-          },
-        });
-        setIsRoomDropdownOpen(false);
-      } catch (error) {
-        console.error('Error updating room:', error);
-      }
-    }
-  };
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -150,79 +110,25 @@ const Dashboard = () => {
     );
   }
 
-  // Error state
-  if (error) {
-    return (
-      <MainContainer>
-        <ContainerHeader>
-          <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
-        </ContainerHeader>
-        <ErrorState>
-          <ErrorIcon>
-            <FaExclamationTriangle />
-          </ErrorIcon>
-          <ErrorTitle>Connection Error</ErrorTitle>
-          <ErrorMessage>{error}</ErrorMessage>
-          <ErrorAction onClick={() => window.location.reload()}>
-            Retry Connection
-          </ErrorAction>
-        </ErrorState>
-        <BottomBar />
-      </MainContainer>
-    );
-  }
-
   return (
     <MainContainer>
       <ContainerHeader>
         <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
-        
-        {roomOptions.length > 0 && (
-          <RoomSelector ref={roomDropdownRef}>
-            <RoomButton onClick={() => setIsRoomDropdownOpen(!isRoomDropdownOpen)}>
-              <RoomName>{currentRoom || 'Select Room'}</RoomName>
-              <FaChevronDown style={{ 
-                transform: isRoomDropdownOpen ? 'rotate(180deg)' : 'rotate(0)', 
-                transition: 'transform 0.2s ease' 
-              }} />
-            </RoomButton>
-            
-            {isRoomDropdownOpen && (
-              <RoomDropdown
-                as={motion.div}
-                initial={{ opacity: 0, y: -10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, y: -10 }}
-                transition={{ duration: 0.2 }}
-              >
-                {roomOptions.map((room, index) => (
-                  <RoomOption 
-                    key={index} 
-                    $isActive={room === currentRoom}
-                    onMouseDown={() => handleRoomChange(room)}
-                  >
-                    {room}
-                  </RoomOption>
-                ))}
-              </RoomDropdown>
-            )}
-          </RoomSelector>
-        )}
       </ContainerHeader>
 
-      <InnerContent
+      <MainSection
         as={motion.div}
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.5, ease: "easeOut" }}
       >
-        <MainSection>
+        <LeftSection>
           <MediumProvider>
             <GrowMetrics room={currentRoom}/>
           </MediumProvider>
-        </MainSection>
+        </LeftSection>
 
-        <DataSection>
+        <ri>
           <ChartGrid>
             <DashboardChart
               sensorId={sensorIds.vpd}
@@ -266,8 +172,8 @@ const Dashboard = () => {
               </EmptyMessage>
             </EmptyState>
           )}
-        </DataSection>
-      </InnerContent>
+        </ri>
+      </MainSection>
       <BottomBar />
     </MainContainer>
   );
@@ -311,51 +217,6 @@ const LoadingSubtext = styled.p`
   font-size: 0.9rem;
 `;
 
-const ErrorState = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  height: 60vh;
-  text-align: center;
-  padding: 2rem;
-`;
-
-const ErrorIcon = styled.div`
-  font-size: 4rem;
-  color: var(--chart-error-color, #dc3545);
-  margin-bottom: 1rem;
-`;
-
-const ErrorTitle = styled.h2`
-  color: var(--main-text-color, #fff);
-  margin: 0 0 1rem 0;
-  font-size: 1.5rem;
-  font-weight: 600;
-`;
-
-const ErrorMessage = styled.p`
-  color: var(--second-text-color, #ccc);
-  margin: 0 0 2rem 0;
-  font-size: 1rem;
-  max-width: 400px;
-`;
-
-const ErrorAction = styled.button`
-  background: var(--primary-accent, #007AFF);
-  color: white;
-  border: none;
-  padding: 0.75rem 1.5rem;
-  border-radius: 8px;
-  font-size: 1rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background-color 0.2s;
-
-  &:hover {
-    background: var(--primary-accent-hover, #0056CC);
-  }
-`;
 
 const EmptyState = styled.div`
   display: flex;
@@ -405,7 +266,7 @@ const MainContainer = styled.div`
   }
 `;
 
-const InnerContent = styled.div`
+const MainSection = styled.div`
   display: flex;
   gap: 1rem;
   margin: 1rem;
@@ -430,33 +291,12 @@ const InnerContent = styled.div`
   }
 `;
 
-const MainSection = styled.section`
+const LeftSection = styled.section`
   display: flex;
   flex-direction: column;
   gap: 1rem;
   flex: 6;
-  min-width: 0;
-
-  @media (max-width: 1024px) {
-    flex: 5;
-  }
-
-  @media (max-width: 768px) {
-    width: 100%;
-    flex: 1;
-  }
-
-  @media (max-width: 480px) {
-    gap: 0.75rem;
-  }
-`;
-
-const DataSection = styled.section`
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-  flex: 4;
-  min-width: 0;
+  width:100%;
 
   @media (max-width: 1024px) {
     flex: 5;
@@ -477,7 +317,6 @@ const ChartGrid = styled.div`
   flex-direction: column;
   gap: 1.5rem;
   width: 100%;
-
   @media (max-width: 480px) {
     gap: 1rem;
   }
@@ -512,78 +351,4 @@ const ContainerHeader = styled.div`
     min-height: 40px;
   }
 `;
-
-const RoomSelector = styled.div`
-  position: relative;
-  z-index: 1001;
-`;
-
-const RoomButton = styled.button`
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
-  color: var(--main-text-color);
-  font-size: 0.875rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.25);
-  }
-
-  @media (max-width: 480px) {
-    padding: 0.375rem 0.75rem;
-    font-size: 0.8rem;
-    gap: 0.375rem;
-  }
-`;
-
-const RoomName = styled.span`
-  max-width: 120px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-
-  @media (max-width: 480px) {
-    max-width: 80px;
-  }
-`;
-
-const RoomDropdown = styled.div`
-  position: absolute;
-  top: calc(100% + 0.5rem);
-  right: 0;
-  min-width: 150px;
-  background: rgba(15, 23, 42, 0.95);
-  backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 12px;
-  overflow: hidden;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-`;
-
-const RoomOption = styled.div`
-  padding: 0.75rem 1rem;
-  font-size: 0.875rem;
-  font-weight: 500;
-  color: ${props => props.$isActive ? '#22c55e' : 'var(--main-text-color)'};
-  background: ${props => props.$isActive ? 'rgba(34, 197, 94, 0.15)' : 'transparent'};
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${props => props.$isActive ? 'rgba(34, 197, 94, 0.2)' : 'rgba(255, 255, 255, 0.1)'};
-  }
-
-  &:not(:last-child) {
-    border-bottom: 1px solid rgba(255, 255, 255, 0.08);
-  }
-`;
-
 

@@ -1,27 +1,56 @@
-import React from "react";
-import styled, { keyframes } from "styled-components";
-import { useHomeAssistant } from "../Components/Context/HomeAssistantContext";
-import { FaLeaf, FaHome, FaSearch, FaSeedling } from 'react-icons/fa';
+import styled, { keyframes } from 'styled-components';
+import { useLocation } from 'react-router-dom';
+import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
+import { FaArrowLeft, FaHome, FaLeaf } from 'react-icons/fa';
+import OGBIcon from '../misc/OGBIcon';
 
-const float = keyframes`
-  0% { transform: translateY(0) rotate(0deg); }
-  50% { transform: translateY(-12px) rotate(8deg); }
-  100% { transform: translateY(0) rotate(0deg); }
+const fadeUp = keyframes`
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 `;
 
-const spin = keyframes`
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
+const drift = keyframes`
+  0%, 100% {
+    transform: translateY(0px) rotate(-1deg);
+  }
+  50% {
+    transform: translateY(-10px) rotate(1deg);
+  }
 `;
 
-const shimmer = keyframes`
-  0% { background-position: -200% center; }
-  100% { background-position: 200% center; }
+const sway = keyframes`
+  0%, 100% {
+    transform: rotate(-6deg);
+  }
+  50% {
+    transform: rotate(2deg);
+  }
 `;
 
-const fadeIn = keyframes`
-  from { opacity: 0; transform: translateY(20px); }
-  to { opacity: 1; transform: translateY(0); }
+const glow = keyframes`
+  0%, 100% {
+    opacity: 0.45;
+    transform: scale(0.96);
+  }
+  50% {
+    opacity: 0.8;
+    transform: scale(1.02);
+  }
+`;
+
+const orbit = keyframes`
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
 `;
 
 const Page = styled.main`
@@ -29,361 +58,624 @@ const Page = styled.main`
   display: flex;
   align-items: center;
   justify-content: center;
-  background: radial-gradient(1400px 700px at 15% 15%, #0a3d24 0%, transparent 18%),
-              radial-gradient(1200px 600px at 85% 85%, #1f5438 0%, transparent 22%),
-              linear-gradient(165deg, #0d2817 0%, #040d08 100%);
-  color: #e9f7ef;
-  font-family: Inter, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial;
-  padding: 48px;
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: radial-gradient(circle at 50% 50%, rgba(43, 208, 106, 0.03) 0%, transparent 50%);
-    pointer-events: none;
-  }
+  padding: 2rem;
+  color: var(--main-text-color);
+  background:
+    radial-gradient(circle at top left, var(--main-gradient-1, rgba(16, 185, 129, 0.18)), transparent 28%),
+    radial-gradient(circle at bottom right, var(--main-gradient-2, rgba(59, 130, 246, 0.18)), transparent 32%),
+    var(--page-background, linear-gradient(145deg, #08111f 0%, #0f172a 48%, #1e293b 100%));
 `;
 
 const Card = styled.section`
-  width: min(1100px, 94%);
-  background: linear-gradient(135deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);
-  backdrop-filter: blur(12px) saturate(1.2);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 28px;
-  box-shadow: 0 20px 60px rgba(2,6,4,0.7), 
-              inset 0 1px 0 rgba(255,255,255,0.1);
-  padding: 56px;
+  width: min(1120px, 100%);
   display: grid;
-  grid-template-columns: 1fr 440px;
-  gap: 48px;
+  grid-template-columns: minmax(0, 1fr) 420px;
+  gap: 2.5rem;
   align-items: center;
-  animation: ${fadeIn} 0.6s ease-out;
+  padding: 3rem;
+  border-radius: 28px;
+  background: linear-gradient(180deg, var(--glass-bg-primary, rgba(255, 255, 255, 0.05)), var(--glass-bg-secondary, rgba(255, 255, 255, 0.025)));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  box-shadow: var(--main-shadow-art, 0 24px 60px rgba(0, 0, 0, 0.35));
   position: relative;
+  overflow: hidden;
+  animation: ${fadeUp} 0.6s ease-out;
 
   &::before {
-    content: "";
+    content: '';
     position: absolute;
     inset: 0;
     border-radius: 28px;
-    padding: 1px;
-    background: linear-gradient(135deg, rgba(43, 208, 106, 0.2), rgba(31, 154, 75, 0.1));
-    -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    opacity: 0.6;
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.08), transparent 45%);
+    pointer-events: none;
   }
 
   @media (max-width: 920px) {
     grid-template-columns: 1fr;
-    padding: 36px;
-    gap: 32px;
+    padding: 2rem;
+    gap: 2rem;
+  }
+
+  @media (max-width: 520px) {
+    padding: 1.4rem;
+    border-radius: 22px;
   }
 `;
 
-const Left = styled.div`
+const Copy = styled.div`
+  position: relative;
+  z-index: 1;
   display: flex;
   flex-direction: column;
-  gap: 20px;
-  animation: ${fadeIn} 0.8s ease-out 0.2s both;
+  gap: 1rem;
+`;
+
+const Eyebrow = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  width: fit-content;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  color: var(--primary-accent, #10b981);
+  font-size: 0.82rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
 `;
 
 const Title = styled.h1`
-  font-size: clamp(32px, 4.5vw, 52px);
   margin: 0;
-  line-height: 1.1;
-  letter-spacing: -0.03em;
-  background: linear-gradient(135deg, #f2fff7 0%, #8ef0a8 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-weight: 800;
+  font-size: clamp(2.2rem, 5vw, 4.5rem);
+  line-height: 0.98;
+  letter-spacing: -0.05em;
+
+  span {
+    display: block;
+    color: var(--second-text-color);
+    font-size: clamp(1rem, 2vw, 1.25rem);
+    font-weight: 600;
+    letter-spacing: 0;
+    margin-top: 0.9rem;
+  }
 `;
 
-const Subtitle = styled.p`
+const Description = styled.p`
   margin: 0;
-  color: #b8e8c6;
-  opacity: 0.95;
-  font-size: 18px;
-  font-weight: 500;
+  max-width: 58ch;
+  color: var(--second-text-color);
+  line-height: 1.7;
+  font-size: 1rem;
 `;
 
-const Explanation = styled.div`
-  margin-top: 8px;
-  color: #d7f0dc;
-  font-size: 15px;
-  line-height: 1.65;
-  opacity: 0.9;
+const RoutePill = styled.div`
+  width: fit-content;
+  max-width: 100%;
+  padding: 0.8rem 1rem;
+  border-radius: 16px;
+  background: rgba(15, 23, 42, 0.55);
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.1));
+  color: var(--main-text-color);
+  font-size: 0.92rem;
+  overflow-wrap: anywhere;
 
   strong {
-    color: #a8f5c0;
-    font-weight: 600;
+    color: var(--primary-accent, #10b981);
   }
 `;
 
 const Actions = styled.div`
-  margin-top: 24px;
   display: flex;
-  gap: 14px;
-  align-items: center;
+  gap: 0.9rem;
   flex-wrap: wrap;
+  margin-top: 0.4rem;
 `;
 
-const Button = styled.button`
+const PrimaryButton = styled.button`
   display: inline-flex;
   align-items: center;
-  gap: 10px;
-  padding: 14px 24px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #2bd06a 0%, #1f9a4b 100%);
-  color: #041f0b;
-  text-decoration: none;
-  font-weight: 700;
-  font-size: 15px;
-  box-shadow: 0 8px 24px rgba(27, 122, 60, 0.35),
-              inset 0 1px 0 rgba(255, 255, 255, 0.2);
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  gap: 0.7rem;
+  padding: 0.95rem 1.25rem;
   border: none;
+  border-radius: 16px;
+  background: linear-gradient(135deg, var(--primary-accent, #10b981), var(--secondary-accent, #3b82f6));
+  color: white;
+  font-weight: 700;
   cursor: pointer;
-  position: relative;
-  overflow: hidden;
-
-  &::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(135deg, rgba(255,255,255,0.2) 0%, transparent 100%);
-    opacity: 0;
-    transition: opacity 0.2s;
-  }
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  box-shadow: 0 12px 28px rgba(16, 185, 129, 0.25);
 
   &:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 14px 36px rgba(27, 122, 60, 0.45),
-                inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    
-    &::before {
-      opacity: 1;
-    }
-  }
-
-  &:active {
-    transform: translateY(-1px);
-  }
-`;
-
-const Ghost = styled.button`
-  display: inline-flex;
-  align-items: center;
-  gap: 10px;
-  padding: 12px 20px;
-  border-radius: 14px;
-  color: #cfe7d3;
-  text-decoration: none;
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  cursor: pointer;
-  font-size: 14px;
-  font-weight: 500;
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.08);
-    border-color: rgba(255, 255, 255, 0.2);
     transform: translateY(-2px);
   }
+`;
 
-  &:active {
-    transform: translateY(0);
+const SecondaryButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.7rem;
+  padding: 0.95rem 1.15rem;
+  border-radius: 16px;
+  background: transparent;
+  border: 1px solid var(--border-color, rgba(255, 255, 255, 0.12));
+  color: var(--main-text-color);
+  font-weight: 600;
+  cursor: pointer;
+  transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    background: rgba(15, 23, 42, 0.72);
+    border-color: rgba(16, 185, 129, 0.35);
   }
 `;
 
-const Right = styled.aside`
+const Helper = styled.div`
+  margin-top: 0.5rem;
+  padding-top: 1rem;
+  border-top: 1px solid var(--border-color, rgba(255, 255, 255, 0.08));
+  color: var(--second-text-color);
+  font-size: 0.92rem;
+  line-height: 1.6;
+
+  strong {
+    color: var(--main-text-color);
+  }
+`;
+
+const IllustrationWrap = styled.aside`
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: center;
-  position: relative;
-  animation: ${fadeIn} 1s ease-out 0.4s both;
+  min-height: 420px;
+  animation: ${fadeUp} 0.85s ease-out 0.12s both;
 
-  @media (max-width: 920px) { 
-    order: -1; 
+  @media (max-width: 920px) {
+    order: -1;
+    min-height: 320px;
   }
 `;
 
-const Pot = styled.div`
-  width: 380px;
-  height: 380px;
+const Scene = styled.div`
   position: relative;
-  display: flex;
-  align-items: flex-end;
-  justify-content: center;
-  filter: drop-shadow(0 20px 40px rgba(0, 0, 0, 0.4));
+  width: min(100%, 390px);
+  aspect-ratio: 1 / 1;
+  animation: ${drift} 6s ease-in-out infinite;
+`;
+
+const OGBIllustration = styled(OGBIcon)`
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 58%;
+  height: 58%;
+  transform: translate(-50%, -58%);
+  color: var(--primary-accent, #10b981);
+  filter:
+    drop-shadow(0 10px 22px rgba(0, 0, 0, 0.28))
+    drop-shadow(0 0 18px rgba(16, 185, 129, 0.22));
+  z-index: 3;
+
+  path {
+    stroke: rgba(3, 10, 6, 0.14);
+  }
+`;
+
+const IconBackGlow = styled.div`
+  position: absolute;
+  left: 50%;
+  top: 45%;
+  width: 48%;
+  height: 48%;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.38) 0%, rgba(59, 130, 246, 0.18) 42%, transparent 72%);
+  filter: blur(26px);
+  animation: ${glow} 5s ease-in-out infinite;
+  z-index: 1;
+`;
+
+const IconStage = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 20%;
+  width: 58%;
+  height: 18%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.14), rgba(255, 255, 255, 0.03));
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow:
+    0 18px 30px rgba(0, 0, 0, 0.22),
+    inset 0 1px 0 rgba(255, 255, 255, 0.12);
+  z-index: 2;
+`;
+
+const IconShadow = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 16%;
+  width: 44%;
+  height: 7%;
+  transform: translateX(-50%);
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.02) 74%);
+  filter: blur(10px);
+  z-index: 1;
+`;
+
+const IllustrationCaption = styled.div`
+  position: absolute;
+  left: 50%;
+  bottom: 12%;
+  transform: translateX(-50%);
+  padding: 0.5rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(15, 23, 42, 0.64);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  color: var(--second-text-color);
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  z-index: 4;
+`;
+
+const ScenePanel = styled.div`
+  position: absolute;
+  inset: 7% 5% 6%;
+  border-radius: 32px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.06), rgba(255, 255, 255, 0.015));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+`;
+
+const Aura = styled.div`
+  position: absolute;
+  inset: 10% 8% 16%;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(16, 185, 129, 0.3) 0%, transparent 70%);
+  filter: blur(28px);
+  animation: ${glow} 5s ease-in-out infinite;
+`;
+
+const Dome = styled.div`
+  position: absolute;
+  inset: 8% 10% 20%;
+  border-radius: 42% 42% 24% 24% / 50% 50% 18% 18%;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.16), rgba(255, 255, 255, 0.02)),
+    radial-gradient(circle at top left, rgba(255, 255, 255, 0.14), transparent 32%);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    0 26px 50px rgba(0, 0, 0, 0.24);
+  backdrop-filter: blur(14px);
+  overflow: hidden;
+`;
+
+const DomeGrid = styled.div`
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(rgba(255, 255, 255, 0.05) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.05) 1px, transparent 1px);
+  background-size: 26px 26px;
+  mask-image: linear-gradient(180deg, rgba(255, 255, 255, 0.55), transparent 85%);
+  opacity: 0.45;
+`;
+
+const DomeHighlight = styled.div`
+  position: absolute;
+  top: 10%;
+  left: 12%;
+  width: 20%;
+  height: 58%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.22), transparent);
+  filter: blur(1px);
+  opacity: 0.7;
+`;
+
+const Ring = styled.div`
+  position: absolute;
+  left: 16%;
+  right: 16%;
+  bottom: 12%;
+  height: 14%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.08), rgba(0, 0, 0, 0.2));
+  border: 1px solid rgba(255, 255, 255, 0.08);
+`;
+
+const BaseShadow = styled.div`
+  position: absolute;
+  left: 20%;
+  right: 20%;
+  bottom: 8%;
+  height: 8%;
+  border-radius: 999px;
+  background: radial-gradient(circle, rgba(0, 0, 0, 0.34) 0%, rgba(0, 0, 0, 0.02) 72%);
+  filter: blur(10px);
 `;
 
 const Soil = styled.div`
-  width: 86%;
-  height: 36%;
-  background: linear-gradient(180deg, #3d1f0f 0%, #261108 100%);
-  border-radius: 45% 45% 15% 15% / 65% 65% 12% 12%;
   position: absolute;
-  bottom: 56px;
-  box-shadow: inset 0 -16px 36px rgba(0, 0, 0, 0.7),
-              0 4px 8px rgba(0, 0, 0, 0.3);
+  left: 16%;
+  right: 16%;
+  bottom: 16%;
+  height: 22%;
+  border-radius: 50% 50% 28% 28% / 56% 56% 18% 18%;
+  background: linear-gradient(180deg, #52311f 0%, #2d190f 100%);
+  box-shadow: inset 0 -16px 24px rgba(0, 0, 0, 0.35);
 `;
 
-const PotBody = styled.div`
-  width: 94%;
-  height: 54%;
-  background: linear-gradient(165deg, #9b5645 0%, #6b3628 50%, #4d2318 100%);
-  border-radius: 22px;
+const SoilLine = styled.div`
   position: absolute;
-  bottom: 0;
-  box-shadow: 0 18px 40px rgba(0, 0, 0, 0.7),
-              inset 0 2px 4px rgba(255, 255, 255, 0.1),
-              inset 0 -8px 16px rgba(0, 0, 0, 0.4);
-  border: 2px solid rgba(0, 0, 0, 0.2);
+  left: 21%;
+  right: 21%;
+  bottom: 28%;
+  height: 3px;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.1);
+`;
+
+const Stem = styled.div`
+  position: absolute;
+  left: calc(50% - 6px);
+  bottom: 29%;
+  width: 12px;
+  height: 28%;
+  border-radius: 999px;
+  background: linear-gradient(180deg, #7be495 0%, #2f9e5e 100%);
+  transform-origin: bottom center;
+  animation: ${sway} 5.5s ease-in-out infinite;
+`;
+
+const StemNode = styled.div`
+  position: absolute;
+  left: calc(50% - 10px);
+  bottom: 43%;
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  background: radial-gradient(circle, #94f0ab 0%, #39a867 65%, #217144 100%);
+  box-shadow: 0 0 0 5px rgba(57, 168, 103, 0.16);
 `;
 
 const Leaf = styled.div`
-  width: 160px;
-  height: 200px;
   position: absolute;
-  bottom: 155px;
-  left: 20px;
-  transform-origin: 50% 95%;
-  animation: ${float} 4s ease-in-out infinite;
-  filter: drop-shadow(0 8px 16px rgba(12, 50, 20, 0.4));
-
-  &::before, &::after {
-    content: "";
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    background: linear-gradient(165deg, #76e88c 0%, #3bd060 40%, #1f7a3b 100%);
-    border-radius: 60% 40% 50% 50% / 68% 32% 48% 52%;
-    box-shadow: inset 0 2px 8px rgba(255, 255, 255, 0.3),
-                inset 0 -4px 12px rgba(0, 0, 0, 0.3);
-  }
-
-  &::before {
-    width: 68%;
-    height: 94%;
-    top: 0;
-  }
+  background: linear-gradient(160deg, #9cf7b2 0%, #3fcf73 48%, #1a7d42 100%);
+  border-radius: 58% 42% 60% 40% / 66% 34% 58% 42%;
+  box-shadow: inset 0 2px 8px rgba(255, 255, 255, 0.26), inset 0 -5px 10px rgba(0, 0, 0, 0.22);
 
   &::after {
-    width: 32%;
-    height: 64%;
-    top: 18%;
-    left: 14%;
-    transform: rotate(-14deg);
-    opacity: 0.94;
+    content: '';
+    position: absolute;
+    top: 8%;
+    bottom: 10%;
+    left: 48%;
+    width: 2px;
+    background: rgba(255, 255, 255, 0.28);
+    border-radius: 999px;
   }
 `;
 
-const LeafSmall = styled(Leaf)`
-  width: 115px;
-  height: 140px;
-  left: 210px;
-  bottom: 165px;
-  animation-duration: 4.8s;
-  animation-delay: 0.5s;
+const LeafLeft = styled(Leaf)`
+  width: 108px;
+  height: 142px;
+  left: 22%;
+  bottom: 34%;
+  transform: rotate(-34deg);
+  transform-origin: bottom right;
 `;
 
-const LeafBadge = styled.div`
+const LeafRight = styled(Leaf)`
+  width: 94px;
+  height: 126px;
+  right: 24%;
+  bottom: 40%;
+  transform: rotate(34deg);
+  transform-origin: bottom left;
+`;
+
+const LeafBud = styled(Leaf)`
+  width: 58px;
+  height: 78px;
+  left: calc(50% - 10px);
+  bottom: 54%;
+  transform: rotate(12deg);
+  border-radius: 54% 46% 58% 42% / 62% 38% 56% 44%;
+`;
+
+const Core = styled.div`
   position: absolute;
-  top: -28px;
-  right: -28px;
-  width: 96px;
-  height: 96px;
-  border-radius: 50%;
-  background: linear-gradient(135deg, #ffffff 0%, #e3ffe8 100%);
+  left: calc(50% - 42px);
+  top: 16%;
+  width: 84px;
+  height: 84px;
+  border-radius: 24px;
   display: flex;
   align-items: center;
   justify-content: center;
-  box-shadow: 0 12px 32px rgba(4, 12, 6, 0.5),
-              inset 0 2px 4px rgba(255, 255, 255, 0.6);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.18), rgba(255, 255, 255, 0.06));
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  color: var(--primary-accent, #10b981);
+  font-size: 2rem;
+  box-shadow: 0 18px 30px rgba(0, 0, 0, 0.2);
+`;
+
+const CoreText = styled.div`
+  position: absolute;
+  top: calc(16% + 94px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 0.72rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--second-text-color);
+  font-weight: 700;
+`;
+
+const Tag404 = styled.div`
+  position: absolute;
+  top: 12%;
+  right: 4%;
+  padding: 0.65rem 0.9rem;
+  border-radius: 999px;
+  background: linear-gradient(135deg, var(--primary-accent, #10b981), var(--secondary-accent, #3b82f6));
+  color: white;
+  font-size: 0.95rem;
   font-weight: 800;
-  font-size: 42px;
-  color: #083516;
-  transform: rotate(-15deg);
-  animation: ${spin} 15s linear infinite;
-  border: 3px solid rgba(43, 208, 106, 0.3);
+  letter-spacing: 0.08em;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.2);
 `;
 
-const FooterNote = styled.div`
-  margin-top: 24px;
-  padding-top: 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.06);
-  color: #9ad6b0;
-  font-size: 13px;
-  line-height: 1.6;
-  opacity: 0.85;
-
-  em {
-    color: #b8e8c6;
-    font-style: normal;
-    font-weight: 600;
-    font-family: 'Courier New', monospace;
-    font-size: 12px;
-    background: rgba(43, 208, 106, 0.1);
-    padding: 2px 6px;
-    border-radius: 4px;
-  }
+const Orbit = styled.div`
+  position: absolute;
+  inset: 4%;
+  border-radius: 50%;
+  border: 1px dashed rgba(255, 255, 255, 0.14);
+  animation: ${orbit} 24s linear infinite;
 `;
 
-export default function NotFound404({homeUrl = "/ogb-gui/home"}){
-  const {currentRoom} = useHomeAssistant();
-  
+const OrbitDot = styled.div`
+  position: absolute;
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  top: 17%;
+  left: 78%;
+  background: var(--secondary-accent, #3b82f6);
+  box-shadow: 0 0 18px rgba(59, 130, 246, 0.45);
+`;
+
+const Satellite = styled.div`
+  position: absolute;
+  width: 42px;
+  height: 42px;
+  top: 24%;
+  left: 10%;
+  border-radius: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(255, 255, 255, 0.08);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: var(--secondary-accent, #3b82f6);
+  box-shadow: 0 10px 24px rgba(0, 0, 0, 0.18);
+`;
+
+const StatusCard = styled.div`
+  position: absolute;
+  right: 6%;
+  bottom: 22%;
+  min-width: 126px;
+  padding: 0.8rem 0.9rem;
+  border-radius: 18px;
+  background: rgba(15, 23, 42, 0.62);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(10px);
+  box-shadow: 0 14px 24px rgba(0, 0, 0, 0.2);
+`;
+
+const StatusLabel = styled.div`
+  font-size: 0.68rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--second-text-color);
+  margin-bottom: 0.35rem;
+`;
+
+const StatusValue = styled.div`
+  font-size: 1rem;
+  font-weight: 800;
+  color: var(--main-text-color);
+`;
+
+const StatusMeta = styled.div`
+  margin-top: 0.35rem;
+  font-size: 0.8rem;
+  color: var(--primary-accent, #10b981);
+`;
+
+export default function NotFound404({ homeUrl = '/ogb-gui/home' }) {
+  const { currentRoom } = useHomeAssistant();
+  const location = useLocation();
+
   const handleHomeClick = () => {
     window.location.href = homeUrl;
   };
 
-  const handleDebugClick = () => {
-    window.location.href = "/ogb-gui/home";
+  const handleBackClick = () => {
+    if (window.history.length > 1) {
+      window.history.back();
+      return;
+    }
+
+    window.location.href = homeUrl;
   };
 
   return (
     <Page>
       <Card>
-        <Left>
-          <Title>404 — Plant Escaped <FaLeaf /></Title>
-          <Subtitle>Oops — nothing growing here. Page not found.</Subtitle>
+        <Copy>
+          <Eyebrow>
+            <FaLeaf /> Route Lost
+          </Eyebrow>
 
-          <Explanation>
-            Looks like you've wandered into a bed that nobody's been watering. 
-            No worries — we've got some seeds to plant, or you can head back to <strong>Home</strong>.
-          </Explanation>
+          <Title>
+            404 - This grow path does not exist.
+            <span>The page opened a dead-end instead of a live room.</span>
+          </Title>
+
+          <Description>
+            The app is running, but this route does not map to a page we can grow from. Head back to a known view and continue from there.
+          </Description>
+
+          <RoutePill>
+            <strong>Missing route:</strong> {location.pathname}
+          </RoutePill>
 
           <Actions>
-            <Button onClick={handleHomeClick} aria-label="Back to home page">
-              <FaHome /> Back to Home
-            </Button>
-            <Ghost onClick={handleDebugClick} aria-label="Debug logs">
-              <FaSearch /> Debug (Growers Only)
-            </Ghost>
+            <PrimaryButton onClick={handleHomeClick} aria-label="Go to home page">
+              <FaHome /> Go Home
+            </PrimaryButton>
+            <SecondaryButton onClick={handleBackClick} aria-label="Go back">
+              <FaArrowLeft /> Go Back
+            </SecondaryButton>
           </Actions>
 
-          <FooterNote>
-            Tip: If you were looking for a device page, check the device ID —
-            sensors are now named <em>sensor_soil_*</em> or <em>sensor_light_*</em>.
-          </FooterNote>
-        </Left>
+          <Helper>
+            {currentRoom ? (
+              <span>
+                Last active room: <strong>{currentRoom}</strong>
+              </span>
+            ) : (
+              <span>
+                Try returning to <strong>Home</strong> and opening the room again from there.
+              </span>
+            )}
+          </Helper>
+        </Copy>
 
-        <Right>
-          <Pot>
-            <Leaf />
-            <LeafSmall />
-            <Soil />
-            <PotBody />
-            <LeafBadge><FaSeedling /></LeafBadge>
-          </Pot>
-        </Right>
+        <IllustrationWrap>
+          <Scene>
+            <ScenePanel />
+            <Aura />
+            <Orbit />
+            <OrbitDot />
+            <IconBackGlow />
+            <OGBIllustration aria-hidden="true" />
+            <IconStage />
+            <IconShadow />
+            <Tag404>404</Tag404>
+            <IllustrationCaption>ogb grow core</IllustrationCaption>
+          </Scene>
+        </IllustrationWrap>
       </Card>
     </Page>
   );

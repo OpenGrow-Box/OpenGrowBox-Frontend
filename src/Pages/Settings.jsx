@@ -63,37 +63,6 @@ const InnerContent= styled.div`
  `
 
 
-
-
-
-const SettingsHelp = styled.div`
-  background: var(--main-bg-card-color);
-  border-radius: 12px;
-  padding: 1rem;
-  box-shadow: var(--main-shadow-art);
-  display: flex;
-  flex-direction: column;
-  gap: 1rem;
-`
-
-const HelpCard = styled.div`
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 8px;
-  padding: 1rem;
-`
-
-const HelpTitle = styled.h4`
-  margin: 0 0 0.5rem 0;
-  color: var(--primary-accent);
-  font-size: 1rem;
-`
-
-const HelpText = styled.p`
-  margin: 0;
-  color: var(--second-text-color);
-  font-size: 0.9rem;
-`
-
 const MainSection = styled.section`
 display:flex;
 flex-direction:column;
@@ -122,18 +91,33 @@ min-width:180px;
 `
 
 const ContainerHeader = styled.div`
-    display: flex;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  width: 100%;
+  height: 3.5vh;
+  min-height: 50px;
+  margin-bottom: 0.5rem;
+  padding: 0 2rem;
+  background: rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  gap: 1rem;
 
-    top:1;
-    justify-content: space-between;
-    align-items: center;
-    width: 100%;
-    height: 3.5vh;
-    margin-bottom: 0.5rem;
-    padding: 0 2rem;
-    background: rgba(0, 0, 0, 0.4);
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
+  @media (max-width: 768px) {
+    padding: 0 1rem;
+    height: 4vh;
+    min-height: 45px;
+    gap: 0.5rem;
+  }
 
+  @media (max-width: 480px) {
+    padding: 0 0.75rem;
+    height: 4.5vh;
+    min-height: 40px;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+  }
 `;
-
 

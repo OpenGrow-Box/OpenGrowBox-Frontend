@@ -11,17 +11,23 @@ import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import OGBNotes from '../Components/GrowBook/OGBNotes';
 
 const MainContainer = styled.div`
+  display: flex;
+  flex-direction: column;
   overflow-y: auto;
-  padding-bottom: 100px;
+  overflow-x: hidden;
+  padding-bottom: 10vh;
   background: inherit;
   min-height: 100vh;
+  width: 100%;
+  max-width: none;
+  box-sizing: border-box;
 
   @media (max-width: 768px) {
-    padding-bottom: 110px;
+    padding-bottom: 12vh;
   }
 
   @media (max-width: 480px) {
-    padding-bottom: 120px;
+    padding-bottom: 14vh;
   }
 `;
 
@@ -58,64 +64,81 @@ const ContainerHeader = styled.div`
 
 const InnerContent = styled.div`
   display: flex;
+  align-items: stretch;
+  flex-wrap: nowrap;
   gap: 1rem;
-  margin: 1rem;
+  padding: 1rem;
   min-height: calc(100vh - 200px);
+  box-sizing: border-box;
+  width: 100%;
+  flex: 1;
 
   @media (max-width: 1024px) {
     gap: 0.75rem;
-    margin: 0.75rem;
+    padding: 0.75rem;
   }
 
   @media (max-width: 768px) {
     flex-direction: column;
+    align-items: stretch;
     gap: 1rem;
-    margin: 1rem 0.5rem;
-    min-height: calc(100vh - 250px);
+    padding: 1rem 0.5rem;
+    min-height: auto;
   }
 
   @media (max-width: 480px) {
-    margin: 0.5rem 0.25rem;
+    padding: 0.5rem 0.25rem;
     gap: 0.5rem;
-    min-height: calc(100vh - 280px);
   }
 `;
 
-const MainSection = styled.section`
+const LeftSection = styled.section`
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  flex: 1 1 50%;
+  flex: 0 0 48%;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
 
-  @media (max-width: 768px) {
-    flex: 1 1 100%;
+  > * {
     width: 100%;
-    margin-bottom: 1rem;
+    box-sizing: border-box;
+    min-width: 0;
+    flex-shrink: 0;
   }
 
-  @media (max-width: 480px) {
-    gap: 0.75rem;
-    margin-bottom: 0.5rem;
+  @media (max-width: 768px) {
+    flex: none;
+    max-width: 100%;
+    overflow-y: visible;
   }
 `;
 
-const DataSection = styled.section`
+const RightSection = styled.section`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
-  flex: 1 1 50%;
+  flex: 0 0 52%;
   min-width: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+
+  > * {
+    width: 100%;
+    box-sizing: border-box;
+    min-width: 0;
+    flex-shrink: 0;
+  }
 
   @media (max-width: 768px) {
-    flex: 1 1 100%;
-    width: 100%;
-  }
-
-  @media (max-width: 480px) {
-    gap: 0.75rem;
+    flex: none;
+    max-width: 100%;
+    overflow-y: visible;
   }
 `;
+
 
 const GrowBook = () => {
   return (
@@ -125,16 +148,18 @@ const GrowBook = () => {
       </ContainerHeader>
 
       <InnerContent>
-        <MainSection>
+        <LeftSection>
           <MediumSelector/>
           <GrowDayCounter/>
           <OGBNotes/>
-        </MainSection>
+        </LeftSection>
 
-        <DataSection>
+        <RightSection>
           <GrowLogs/>
-        </DataSection>
+        </RightSection>
       </InnerContent>
+
+
       <BottomBar/>
     </MainContainer>
   );

@@ -62,21 +62,6 @@ const MediumSelector = () => {
     return medium.dates.daysToChopChop;
   };
 
-  const getPhaseColor = (phase) => {
-    switch (phase?.toLowerCase()) {
-      case 'veg':
-      case 'vegetative':
-        return 'var(--main-arrow-up)';
-      case 'flower':
-      case 'flowering':
-        return 'var(--warning-text-color)';
-      case 'harvest':
-      case 'drying':
-        return 'var(--error-text-color)';
-      default:
-        return 'var(--primary-accent)';
-    }
-  };
 
   return (
     <SelectorContainer>
@@ -98,8 +83,8 @@ const MediumSelector = () => {
                 {currentMedium?.breeder_name || 'No strain'}
               </MetaItem>
               <MetaItem>
-                <PhaseBadge phase={currentMedium?.current_phase}>
-                  {currentMedium?.current_phase || 'Unknown'}
+                <PhaseBadge $phase={currentMedium?.current_phase}>
+                  {currentMedium?.plant_stage || currentMedium?.current_phase || 'Unknown'}
                 </PhaseBadge>
               </MetaItem>
             </MediumMeta>
@@ -182,7 +167,7 @@ const MediumSelector = () => {
                     </CardStats>
 
                     <CardFooter>
-                      <PhaseTag phase={medium?.current_phase}>
+                      <PhaseTag $phase={medium?.current_phase}>
                         {medium?.plant_stage || medium?.current_phase || 'Unknown'}
                       </PhaseTag>
                       <DayCounter>
@@ -205,8 +190,9 @@ export default MediumSelector;
 // Styled Components
 const SelectorContainer = styled.div`
   width: 100%;
-  max-width: 600px;
-  margin: 0 auto 1.5rem;
+  margin: 0;
+  box-sizing: border-box;
+
 `;
 
 const MainSelector = styled.div`
@@ -246,12 +232,12 @@ const MediumIcon = styled.div`
   width: 48px;
   height: 48px;
   border-radius: 12px;
-  background: linear-gradient(135deg, #4ade80 0%, #22c55e 100%);
+  background: linear-gradient(135deg, var(--chart-success-color), var(--secondary-accent));
   display: flex;
   align-items: center;
   justify-content: center;
   color: white;
-  box-shadow: 0 4px 12px rgba(74, 222, 128, 0.3);
+  box-shadow: 0 4px 12px var(--chart-success-color);
 
   @media (max-width: 640px) {
     width: 40px;
@@ -299,26 +285,26 @@ const PhaseBadge = styled.span`
   text-transform: uppercase;
   letter-spacing: 0.5px;
   background: ${props => {
-    const phase = props.phase?.toLowerCase();
+    const phase = props.$phase?.toLowerCase();
     if (phase === 'veg' || phase === 'vegetative') {
       return 'rgba(74, 222, 128, 0.2)';
     } else if (phase === 'flower' || phase === 'flowering') {
-      return 'rgba(251, 191, 36, 0.2)';
+      return 'color-mix(in srgb, var(--chart-warning-color) 20%, transparent)';
     } else if (phase === 'harvest' || phase === 'drying') {
-      return 'rgba(239, 68, 68, 0.2)';
+      return 'color-mix(in srgb, var(--chart-error-color) 20%, transparent)';
     }
-    return 'rgba(59, 130, 246, 0.2)';
+    return 'color-mix(in srgb, var(--chart-primary-color) 20%, transparent)';
   }};
   color: ${props => {
-    const phase = props.phase?.toLowerCase();
+    const phase = props.$phase?.toLowerCase();
     if (phase === 'veg' || phase === 'vegetative') {
-      return '#22c55e';
+      return 'var(--chart-success-color)';
     } else if (phase === 'flower' || phase === 'flowering') {
-      return '#f59e0b';
+      return 'var(--chart-warning-color)';
     } else if (phase === 'harvest' || phase === 'drying') {
-      return '#ef4444';
+      return 'var(--chart-error-color)';
     }
-    return '#3b82f6';
+    return 'var(--chart-primary-color)';
   }};
 `;
 
@@ -340,7 +326,7 @@ const ExpandButton = styled.div`
   }
 `;
 
-const OverviewGrid = motion(styled.div`
+const OverviewGrid = motion.create(styled.div`
   margin-top: 1rem;
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.05) 0%,
@@ -419,7 +405,7 @@ const PlantIcon = styled.div`
   height: 36px;
   border-radius: 8px;
   background: ${props => props.$isActive 
-    ? 'linear-gradient(135deg, #4ade80 0%, #22c55e 100%)'
+    ? 'linear-gradient(135deg, var(--chart-success-color) 0%, var(--chart-success-color) 100%)'
     : 'rgba(255, 255, 255, 0.1)'
   };
   display: flex;
@@ -436,7 +422,7 @@ const CardInfo = styled.div`
 const PlantCardName = styled.div`
   font-size: 0.95rem;
   font-weight: 600;
-  color: ${props => props.$isActive ? '#22c55e' : 'var(--main-text-color)'};
+  color: ${props => props.$isActive ? 'var(--chart-success-color)' : 'var(--main-text-color)'};
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -456,12 +442,12 @@ const MediumNameBadge = styled.div`
   gap: 0.25rem;
   margin-top: 0.25rem;
   padding: 0.125rem 0.5rem;
-  background: rgba(74, 222, 128, 0.15);
-  border: 1px solid rgba(74, 222, 128, 0.3);
+  background: color-mix(in srgb, var(--chart-success-color) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chart-success-color) 30%, transparent);
   border-radius: 8px;
   font-size: 0.7rem;
   font-weight: 600;
-  color: #22c55e;
+  color: var(--chart-success-color);
   white-space: nowrap;
   
   svg {
@@ -481,7 +467,7 @@ const StatItem = styled.div`
   align-items: center;
   gap: 0.5rem;
   font-size: 0.8rem;
-  color: ${props => props.$highlight ? '#ef4444' : 'var(--second-text-color)'};
+  color: ${props => props.$highlight ? 'var(--chart-error-color)' : 'var(--second-text-color)'};
 `;
 
 const StatIcon = styled.div`
@@ -513,22 +499,22 @@ const PhaseTag = styled.div`
   text-transform: uppercase;
   letter-spacing: 0.5px;
   background: ${props => {
-    const phase = props.phase?.toLowerCase();
+    const phase = props.$phase?.toLowerCase();
     if (phase === 'veg' || phase === 'vegetative') {
-      return 'rgba(74, 222, 128, 0.2)';
+      return 'color-mix(in srgb, var(--chart-success-color) 20%, transparent)';
     } else if (phase === 'flower' || phase === 'flowering') {
-      return 'rgba(251, 191, 36, 0.2)';
+      return 'color-mix(in srgb, var(--chart-warning-color) 20%, transparent)';
     }
-    return 'rgba(59, 130, 246, 0.2)';
+    return 'color-mix(in srgb, var(--chart-primary-color) 20%, transparent)';
   }};
   color: ${props => {
-    const phase = props.phase?.toLowerCase();
+    const phase = props.$phase?.toLowerCase();
     if (phase === 'veg' || phase === 'vegetative') {
-      return '#22c55e';
+      return 'var(--chart-success-color)';
     } else if (phase === 'flower' || phase === 'flowering') {
-      return '#f59e0b';
+      return 'var(--chart-warning-color)';
     }
-    return '#3b82f6';
+    return 'var(--chart-primary-color)';
   }};
 `;
 
@@ -566,8 +552,8 @@ const ErrorContainer = styled.div`
   align-items: center;
   gap: 1rem;
   padding: 1.25rem 1.5rem;
-  background: rgba(239, 68, 68, 0.1);
-  border: 1px solid rgba(239, 68, 68, 0.3);
+  background: color-mix(in srgb, var(--chart-error-color) 10%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chart-error-color) 30%, transparent);
   border-radius: 16px;
 `;
 
@@ -576,7 +562,7 @@ const ErrorIcon = styled.div`
 `;
 
 const ErrorText = styled.div`
-  color: #ef4444;
+  color: var(--chart-error-color);
   font-size: 0.95rem;
 `;
 

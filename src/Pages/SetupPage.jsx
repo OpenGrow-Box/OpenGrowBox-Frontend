@@ -3,6 +3,7 @@ import styled, { keyframes } from 'styled-components';
 import { useGlobalState } from '../Components/Context/GlobalContext';
 import { useNavigate } from 'react-router-dom';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
+import SecureTokenStorage from '../utils/secureTokenStorage';
 
 // Define the blue-green gradient
 const GradientDefs = () => (
@@ -36,7 +37,11 @@ const SetupPage = () => {
         try {
           setError(null);  // Clear error to ensure clean state
           await handleTokenChange("text.ogb_accesstoken", pendingToken);
-          localStorage.setItem(import.meta.env.PROD ? 'haToken' : 'devToken', pendingToken);
+          localStorage.setItem('haToken', pendingToken);
+          if (import.meta.env.DEV) {
+            localStorage.setItem('devToken', pendingToken);
+          }
+          SecureTokenStorage.storeToken(pendingToken);
           setPendingToken(null);
           setIsConnecting(false);
           navigate("/home");
@@ -86,7 +91,11 @@ const SetupPage = () => {
       setDeep('Conf.hassServer', inputServerUrl);
       localStorage.setItem('devServerUrl', inputServerUrl);
     }
-    localStorage.setItem(import.meta.env.PROD ? 'haToken' : 'devToken', inputToken);
+    localStorage.setItem('haToken', inputToken);
+    if (isDev) {
+      localStorage.setItem('devToken', inputToken);
+    }
+    SecureTokenStorage.storeToken(inputToken);
     
     // If already connected, complete immediately
     if (connection) {

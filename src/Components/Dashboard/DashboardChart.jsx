@@ -1,7 +1,6 @@
 import { useState, useEffect } from 'react';
 import styled, { keyframes } from 'styled-components';
 import ReactECharts from 'echarts-for-react';
-import { useGlobalState } from '../Context/GlobalContext';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatTime, formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
@@ -67,44 +66,12 @@ const SensorChart = ({
     return localISOTime;
   };
 
-  const { state } = useGlobalState();
-  const srvAddr = state?.Conf?.hassServer;
-  const accessToken = state?.Conf?.haToken;
+  const { haApiBaseUrl, haToken: accessToken } = useHomeAssistant();
 
   // In dev mode, use Vite proxy. In production, use full URL
   const isDev = import.meta.env.DEV;
   
-  const getApiUrl = (srvAddr) => {
-    // In development, use relative URL to leverage Vite proxy
-    if (isDev) {
-      return ''; // Empty string means relative URL (/api/...)
-    }
-    
-    if (!srvAddr) return '';
-    
-    try {
-      let urlString = srvAddr;
-      
-      // Add protocol if missing
-      if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
-        urlString = `http://${urlString}`;
-      }
-      
-      const url = new URL(urlString);
-      
-      // If no port specified, add default HA port
-      if (!url.port) {
-        url.port = '8123';
-      }
-      
-      return url.toString().replace(/\/$/, ''); // Remove trailing slash
-    } catch (e) {
-      console.error('Invalid server address:', srvAddr, e);
-      return '';
-    }
-  };
-
-  const apiBaseUrl = getApiUrl(srvAddr);
+  const apiBaseUrl = haApiBaseUrl || '';
 
   const [startDate, setStartDate] = useState(getDefaultDate());
   const [endDate, setEndDate] = useState(getDefaultDate());
@@ -495,7 +462,7 @@ const SensorChart = ({
     };
 
     fetchHistoryData();
-  }, [startDate, endDate, sensorId, srvAddr, accessToken, minThreshold, maxThreshold, selectedView, title, unit]);
+  }, [startDate, endDate, sensorId, apiBaseUrl, accessToken, minThreshold, maxThreshold, selectedView, title, unit]);
 
   // Loading state
   if (loading && !chartOptions) {
@@ -1127,4 +1094,3 @@ const EmptyMessage = styled.p`
   font-size: 0.9rem;
   max-width: 250px;
 `;
-

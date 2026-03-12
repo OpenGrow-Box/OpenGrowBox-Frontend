@@ -51,6 +51,27 @@ const OGBNotes = () => {
     }
   }, [entities, currentRoom, hasUnsavedChanges]);
 
+  const autoSave = async () => {
+    if (hasUnsavedChanges && ogbNoteEntity && connection && isConnectionValid) {
+      try {
+        await connection.sendMessagePromise({
+          type: 'call_service',
+          domain: 'opengrowbox',
+          service: 'update_text',
+          service_data: {
+            entity_id: ogbNoteEntity,
+            text: noteText,
+          },
+        });
+        setStatus('Auto-saved!');
+        setHasUnsavedChanges(false);
+        setTimeout(() => setStatus(''), 2000);
+      } catch (error) {
+        console.error('Auto-save error:', error);
+      }
+    }
+  };
+
   const handleChange = (e) => {
     const value = e.target.value.slice(0, MAX_LENGTH);
     setNoteText(value);
@@ -59,7 +80,10 @@ const OGBNotes = () => {
 
     if (typingTimerRef.current) clearTimeout(typingTimerRef.current);
 
-    typingTimerRef.current = setTimeout(() => setIsTyping(false), 2000);
+    typingTimerRef.current = setTimeout(() => {
+      setIsTyping(false);
+      autoSave();
+    }, 2000);
   };
 
   const handleSubmit = async (e) => {
@@ -69,7 +93,7 @@ const OGBNotes = () => {
       return;
     }
     await textChange(ogbNoteEntity, noteText, connection, isConnectionValid);
-    setStatus('Note Saved!');
+    setStatus('Saved!');
     setHasUnsavedChanges(false);
     setTimeout(() => setStatus(''), 3000);
   };
@@ -77,11 +101,11 @@ const OGBNotes = () => {
   return (
     <NotesContainer>
        <Header>
-          <Title>{currentRoom}&apos;s Notes</Title>
-         <InfoText $charCount={noteText.length}>{noteText.length}/{MAX_LENGTH} Chars</InfoText>
+          <Title>{currentRoom}&apos; Notes</Title>
+          <InfoText $charCount={noteText.length}>{noteText.length}/{MAX_LENGTH} Chars</InfoText>
        </Header>
 
-       <StyledForm onSubmit={handleSubmit}>
+       <StyledForm>
          <TextArea
            value={noteText}
            onChange={handleChange}
@@ -96,12 +120,7 @@ const OGBNotes = () => {
              <TypingText>Typing...</TypingText>
            </TypingIndicator>
          )}
-         <ButtonRow>
-           <Button type="submit" disabled={hasUnsavedChanges && !isTyping}>
-             <FaSave size={16} /> {hasUnsavedChanges ? 'Save Changes' : 'Save'}
-           </Button>
-           {status && <StatusText>{status}</StatusText>}
-         </ButtonRow>
+         {status && <StatusText>{status}</StatusText>}
        </StyledForm>
     </NotesContainer>
   );
@@ -116,21 +135,34 @@ const NotesContainer = styled.div`
   );
   backdrop-filter: blur(20px);
   border-radius: 24px;
-  padding: 2rem;
+  padding: 1.5rem;
   color: var(--main-text-color);
   box-shadow:
     0 8px 32px rgba(0, 0, 0, 0.12),
     0 2px 8px rgba(0, 0, 0, 0.08),
     var(--glass-shadow-inset);
   width: 100%;
-  max-width: 32rem;
-  margin: 1rem auto;
+  margin-bottom: 8rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
+  gap: 1rem;
   border: 1px solid var(--glass-border-light);
   position: relative;
-  overflow: hidden;
+  overflow: auto;
+  box-sizing: border-box;
+
+  @media (max-width: 768px) {
+    margin-bottom: 1.5rem;
+    padding: 0.75rem;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    margin-bottom: 1rem;
+    padding: 0.5rem;
+    gap: 0.5rem;
+    border-radius: 16px;
+  }
 
   &::before {
     content: '';
@@ -141,29 +173,27 @@ const NotesContainer = styled.div`
     height: 1px;
     background: linear-gradient(90deg,
       transparent 0%,
-      rgba(59, 130, 246, 0.3) 20%,
-      rgba(147, 51, 234, 0.3) 50%,
-      rgba(236, 72, 153, 0.3) 80%,
+      var(--primary-accent) 20%,
+      var(--secondary-accent) 50%,
+      var(--primary-accent) 80%,
       transparent 100%
     );
   }
 
   /* Responsive Anpassungen */
   @media (max-width: 768px) {
-    margin: 0.5rem;
-    max-width: calc(100% - 1rem);
-    padding: 1.5rem;
+    margin: 0;
+    padding: 1rem;
   }
 
   @media (max-width: 640px) {
-    margin: 0.25rem;
-    max-width: calc(100% - 0.5rem);
-    padding: 1.25rem;
+    margin: 0;
+    padding: 1rem;
     border-radius: 20px;
   }
 
   @media (max-width: 480px) {
-    padding: 1rem;
+    padding: 0.75rem;
     border-radius: 16px;
   }
 `;
@@ -195,7 +225,7 @@ const Title = styled.h4`
   margin: 0;
   font-size: 1.375rem;
   font-weight: 700;
-  background: linear-gradient(135deg, #3b82f6 0%, #8b5cf6 50%, #ec4899 100%);
+  background: linear-gradient(135deg, var(--chart-primary-color) 0%, var(--secondary-accent) 50%, var(--chart-error-color) 100%);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
@@ -214,7 +244,7 @@ const Title = styled.h4`
 const StyledForm = styled.form`
   display: flex;
   flex-direction: column;
-  gap: 1.25rem;
+  gap: 0.75rem;
   width: 100%;
   box-sizing: border-box;
   position: relative;
@@ -222,19 +252,16 @@ const StyledForm = styled.form`
 
 const TextArea = styled.textarea`
   width: 100%;
-  min-height: 14rem;
+  min-height: 8rem;
   font-size: 0.95rem;
   padding: 1rem;
   border-radius: 16px;
   border: 2px solid var(--glass-border-light);
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-    var(--input-bg-color)
-  color: var(--main-text-color);
+  background: var(--input-bg-color, rgba(255, 255, 255, 0.05));
+  color: var(--main-text-color, #fff);
   resize: vertical;
   outline: none;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: all 0.3s ease;
   box-sizing: border-box;
   font-family: inherit;
   line-height: 1.6;
@@ -247,38 +274,30 @@ const TextArea = styled.textarea`
 
   &:focus {
     border-color: rgba(59, 130, 246, 0.5);
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
-    box-shadow:
-      0 0 0 3px rgba(59, 130, 246, 0.15),
-      0 4px 16px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15), 0 4px 16px rgba(0, 0, 0, 0.15);
     transform: translateY(-1px);
   }
 
   &:hover {
-    border-color: var(--input-focus-border-color);
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.06) 100%
-    );
+    border-color: var(--input-focus-border-color, var(--primary-accent));
   }
 
   @media (max-width: 768px) {
-    min-height: 12rem;
+    min-height: 6rem;
     font-size: 0.925rem;
+    padding: 0.75rem;
   }
 
   @media (max-width: 640px) {
-    min-height: 10rem;
-    padding: 0.875rem;
+    min-height: 5rem;
+    padding: 0.625rem;
+    font-size: 0.875rem;
   }
 
   @media (max-width: 480px) {
-    font-size: 16px; /* Verhindert Zoom auf iOS */
-    min-height: 8rem;
-    padding: 0.75rem;
+    font-size: 16px;
+    min-height: 4rem;
+    padding: 0.5rem;
     border-radius: 12px;
   }
 `;
@@ -301,7 +320,7 @@ const Button = styled.button`
   padding: 0.75rem 1.5rem;
   font-size: 0.95rem;
   font-weight: 600;
-  background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%);
+  background: linear-gradient(135deg, var(--chart-primary-color) 0%, var(--chart-primary-color) 100%);
   color: white;
   border: none;
   border-radius: 12px;
@@ -311,7 +330,7 @@ const Button = styled.button`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--chart-primary-color) 30%, transparent);
   position: relative;
   overflow: hidden;
 
@@ -329,14 +348,14 @@ const Button = styled.button`
   }
 
   &:hover {
-    background: linear-gradient(135deg, #2563eb 0%, #1e40af 100%);
+    background: linear-gradient(135deg, var(--chart-primary-color) 0%, var(--chart-primary-color) 100%);
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.4);
+    box-shadow: 0 4px 16px color-mix(in srgb, var(--chart-primary-color) 40%, transparent);
   }
 
   &:active {
     transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(59, 130, 246, 0.3);
+    box-shadow: 0 2px 8px color-mix(in srgb, var(--chart-primary-color) 30%, transparent);
 
     &::before {
       width: 100%;
@@ -370,11 +389,11 @@ const Button = styled.button`
 const StatusText = styled.div`
   font-size: 0.875rem;
   font-weight: 600;
-  color: #10b981;
-  background: linear-gradient(135deg, rgba(16, 185, 129, 0.1) 0%, rgba(5, 150, 105, 0.1) 100%);
+  color: var(--chart-success-color);
+  background: linear-gradient(135deg, color-mix(in srgb, var(--chart-success-color) 10%, transparent) 0%, color-mix(in srgb, var(--chart-success-color) 10%, transparent) 100%);
   padding: 0.5rem 1rem;
   border-radius: 20px;
-  border: 1px solid rgba(16, 185, 129, 0.2);
+  border: 1px solid color-mix(in srgb, var(--chart-success-color) 20%, transparent);
   backdrop-filter: blur(4px);
   display: flex;
   align-items: center;
@@ -384,7 +403,7 @@ const StatusText = styled.div`
   &::before {
     content: '✓';
     font-size: 1rem;
-    color: #10b981;
+    color: var(--chart-success-color);
   }
 
   @keyframes statusFadeIn {
@@ -474,7 +493,7 @@ const TypingDot = styled.div`
   width: 6px;
   height: 6px;
   border-radius: 50%;
-  background: #3b82f6;
+  background: var(--chart-primary-color);
   animation: typingBounce 1.4s ease-in-out infinite both;
 
   &:nth-child(1) { animation-delay: -0.32s; }
@@ -498,4 +517,3 @@ const TypingText = styled.span`
   color: var(--second-text-color);
   font-weight: 500;
 `;
-

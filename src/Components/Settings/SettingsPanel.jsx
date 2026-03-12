@@ -128,8 +128,8 @@ const MenuFooter = styled.div`
 const SafeModeSection = styled.div`
   margin-top: 2rem;
   padding: 1.5rem;
-  background: rgba(59, 130, 246, 0.05);
-  border: 1px solid rgba(59, 130, 246, 0.2);
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
   border-radius: 12px;
 `;
 
@@ -142,7 +142,7 @@ const SafeModeHeader = styled.div`
 
 const SafeModeIcon = styled.div`
   font-size: 24px;
-  filter: drop-shadow(0 0 8px rgba(59, 130, 246, 0.5));
+  filter: drop-shadow(0 0 8px var(--primary-accent));
 `;
 
 const SafeModeTitle = styled.h4`
@@ -165,12 +165,12 @@ const SafeModeToggle = styled.div`
   gap: 12px;
   cursor: pointer;
   padding: 12px;
-  background: ${props => props.$enabled ? 'rgba(59, 130, 246, 0.1)' : 'rgba(255, 255, 255, 0.03)'};
+  background: ${props => props.$enabled ? 'var(--active-bg-color)' : 'var(--disabled-bg-color)'};
   border-radius: 8px;
   transition: background 0.3s ease;
 
   &:hover {
-    background: ${props => props.$enabled ? 'rgba(59, 130, 246, 0.15)' : 'rgba(255, 255, 255, 0.08)'};
+    background: ${props => props.$enabled ? 'var(--pressed-bg-color)' : 'var(--border-hover-color)'};
   }
 `;
 
@@ -178,10 +178,10 @@ const SafeModeToggleSlider = styled.div`
   position: relative;
   width: 56px;
   height: 28px;
-  background: ${props => props.$enabled ? 'linear-gradient(135deg, #3b82f6, #2563eb)' : 'var(--disabled-text-color)'};
+  background: ${props => props.$enabled ? 'linear-gradient(135deg, var(--primary-accent), var(--secondary-accent))' : 'var(--disabled-text-color)'};
   border-radius: 14px;
   transition: background 0.3s ease;
-  box-shadow: ${props => props.$enabled ? '0 4px 12px rgba(59, 130, 246, 0.3)' : 'none'};
+  box-shadow: ${props => props.$enabled ? '0 4px 12px var(--primary-accent)' : 'none'};
 `;
 
 const SafeModeToggleCircle = styled.div`
@@ -202,4 +202,3 @@ const SafeModeToggleLabel = styled.span`
   font-weight: 500;
   flex: 1;
 `;
-

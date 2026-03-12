@@ -2155,7 +2155,7 @@ const TabButton = styled.button`
   border-radius: 6px;
   border: none;
   background: ${props => props.active ? 'var(--primary-accent)' : 'transparent'};
-  color: ${props => props.active ? '#fff' : 'var(--main-text-color)'};
+  color: ${props => props.active ? 'white' : 'var(--main-text-color)'};
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -2268,8 +2268,8 @@ const RecordButton = styled.button`
   padding: 10px 20px;
   border-radius: 6px;
   border: none;
-  background: ${props => props.$isRecording ? '#f44336' : '#4CAF50'};
-  color: #fff;
+  background: ${props => props.$isRecording ? 'var(--chart-error-color)' : 'var(--chart-success-color)'};
+  color: white;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -2299,15 +2299,15 @@ const CancelButton = styled.button`
   padding: 10px 20px;
   border-radius: 6px;
   border: none;
-  background: #FFC107;
-  color: #000;
+  background: var(--chart-warning-color);
+  color: black;
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background: #FFB300;
+    background: var(--chart-warning-color);
     transform: translateY(-1px);
   }
 
@@ -2396,10 +2396,10 @@ const StatusContainer = styled.div`
   font-size: 13px;
   color: ${props => {
     switch(props.status) {
-      case 'streaming': return '#4CAF50';
-      case 'connecting': return '#FFC107';
-      case 'still': return '#2196F3';
-      case 'error': return '#F44336';
+      case 'streaming': return 'var(--chart-success-color)';
+      case 'connecting': return 'var(--chart-warning-color)';
+      case 'still': return 'var(--chart-primary-color)';
+      case 'error': return 'var(--chart-error-color)';
       default: return 'var(--placeholder-text-color)';
     }
   }};
@@ -2411,11 +2411,11 @@ const StatusDot = styled.div`
   border-radius: 50%;
   background: ${props => {
     switch(props.status) {
-      case 'streaming': return '#4CAF50';
-      case 'connecting': return '#FFC107';
-      case 'still': return '#2196F3';
-      case 'error': return '#F44336';
-      default: return '#9E9E9E';
+      case 'streaming': return 'var(--chart-success-color)';
+      case 'connecting': return 'var(--chart-warning-color)';
+      case 'still': return 'var(--chart-primary-color)';
+      case 'error': return 'var(--chart-error-color)';
+      default: return 'var(--chart-neutral-color)';
     }
   }};
   animation: ${props => props.status === 'streaming' ? 'pulse 2s ease-in-out infinite' : 'none'};
@@ -2831,22 +2831,22 @@ const CountdownBadge = styled.div`
   padding: 4px 8px;
   background: ${props => props.$disabled
     ? 'rgba(255, 255, 255, 0.05)'
-    : 'rgba(33, 150, 243, 0.1)'};
+    : 'color-mix(in srgb, var(--chart-primary-color) 10%, transparent)'};
   border: 1px solid ${props => props.$disabled
     ? 'rgba(255, 255, 255, 0.1)'
-    : 'rgba(33, 150, 243, 0.3)'};
+    : 'color-mix(in srgb, var(--chart-primary-color) 30%, transparent)'};
   border-radius: 4px;
   font-size: 14px;
   color: ${props => props.$disabled
     ? 'var(--placeholder-text-color)'
-    : '#2196F3'};
+    : 'var(--chart-primary-color)'};
   margin-left: 8px;
   white-space: nowrap;
 `;
 
 const NextCaptureInfo = styled.div`
   font-size: 11px;
-  color: #2196F3;
+  color: var(--chart-primary-color);
   margin-top: 4px;
   opacity: 0.8;
   font-size: 14px;
@@ -2939,11 +2939,11 @@ const NightModeBadge = styled.div`
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: rgba(103, 58, 183, 0.15);
-  border: 1px solid rgba(103, 58, 183, 0.3);
+  background: color-mix(in srgb, var(--secondary-accent) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--secondary-accent) 30%, transparent);
   border-radius: 16px;
   font-size: 13px;
-  color: #9C27B0;
+  color: var(--secondary-accent);
   margin-top: 8px;
 
   svg {
@@ -3102,11 +3102,11 @@ const NotificationIcon = styled.div`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: rgba(244, 67, 54, 0.2);
+  background: color-mix(in srgb, var(--chart-error-color) 20%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #f44336;
+  color: var(--chart-error-color);
   font-size: 20px;
 
   svg {
@@ -3122,7 +3122,7 @@ const NotificationMessage = styled.div`
 const NotificationTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
-  color: #ffcdd2;
+  color: color-mix(in srgb, var(--chart-error-color) 30%, white);
   margin-bottom: 4px;
 `;
 
@@ -3232,11 +3232,11 @@ const WarningIcon = styled.div`
   width: 28px;
   height: 28px;
   border-radius: 50%;
-  background: rgba(255, 193, 7, 0.2);
+  background: color-mix(in srgb, var(--chart-warning-color) 20%, transparent);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: #ffc107;
+  color: var(--chart-warning-color);
   font-size: 18px;
 
   svg {
@@ -3252,7 +3252,7 @@ const WarningContent = styled.div`
 const WarningTitle = styled.div`
   font-size: 13px;
   font-weight: 600;
-  color: #ffe082;
+  color: color-mix(in srgb, var(--chart-warning-color) 30%, white);
   margin-bottom: 4px;
 `;
 
@@ -3263,7 +3263,7 @@ const WarningMessage = styled.div`
 `;
 
 const WarningHighlight = styled.span`
-  color: #ffb74d;
+  color: var(--chart-warning-color);
   font-weight: 500;
 `;
 
@@ -3299,8 +3299,8 @@ const CompleteIcon = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(76, 175, 80, 0.3);
-  color: #81c784;
+  background: color-mix(in srgb, var(--chart-success-color) 30%, transparent);
+  color: var(--chart-success-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3312,8 +3312,8 @@ const ErrorIcon = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: rgba(244, 67, 54, 0.3);
-  color: #ef5350;
+  background: color-mix(in srgb, var(--chart-error-color) 30%, transparent);
+  color: var(--chart-error-color);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3338,7 +3338,7 @@ const ProgressBarContainer = styled.div`
 const ProgressBarFill = styled.div`
   height: 100%;
   width: ${props => props.percent}%;
-  background: linear-gradient(90deg, #6366f1 0%, #a855f7 50%, #ec4899 100%);
+  background: linear-gradient(90deg, var(--chart-primary-color) 0%, var(--secondary-accent) 50%, var(--chart-error-color) 100%);
   border-radius: 12px;
   transition: width 0.3s ease-out;
   position: relative;
@@ -3396,20 +3396,20 @@ const ProgressMeta = styled.div`
 
 const ErrorMessage = styled.div`
   padding: 12px;
-  background: rgba(244, 67, 54, 0.15);
-  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: color-mix(in srgb, var(--chart-error-color) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chart-error-color) 40%, transparent);
   border-radius: 6px;
-  color: #ffcdd2;
+  color: color-mix(in srgb, var(--chart-error-color) 30%, white);
   font-size: 13px;
   line-height: 1.4;
 `;
 
 const CompleteMessage = styled.div`
   padding: 12px;
-  background: rgba(76, 175, 80, 0.15);
-  border: 1px solid rgba(76, 175, 80, 0.4);
+  background: color-mix(in srgb, var(--chart-success-color) 15%, transparent);
+  border: 1px solid color-mix(in srgb, var(--chart-success-color) 40%, transparent);
   border-radius: 6px;
-  color: #c8e6c9;
+  color: color-mix(in srgb, var(--chart-success-color) 30%, white);
   font-size: 13px;
   line-height: 1.4;
 `;

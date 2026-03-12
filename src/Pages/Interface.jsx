@@ -5,6 +5,7 @@ import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import isValidJWT from '../misc/isValidJWT';
 import SetupPage from './SetupPage';
 import styled, { keyframes } from 'styled-components';
+import SecureTokenStorage from '../utils/secureTokenStorage';
 
 const loadingMessages = [
   'Checking your plant...',
@@ -27,7 +28,7 @@ const Interface = () => {
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(true);
-  const { connection, connectionState, isConfigurationValid } = useHomeAssistant();
+  const { connectionState, isConfigurationValid } = useHomeAssistant();
   const [loadingText, setLoadingText] = useState('');
 
   // Ladezeit in Millisekunden (z. B. 1000 = 1 Sekunde)
@@ -38,8 +39,10 @@ const Interface = () => {
     setLoadingText(getRandomMessage());
 
     const checkToken = async () => {
-      const storageKey = import.meta.env.PROD ? 'haToken' : 'devToken';
-      const localToken = localStorage.getItem(storageKey);
+      const localToken =
+        SecureTokenStorage.getToken() ||
+        localStorage.getItem('haToken') ||
+        localStorage.getItem('devToken');
 
       await new Promise((res) => setTimeout(res, loadingDuration));
 

@@ -233,25 +233,25 @@ const Version = styled.div`
   cursor: pointer;
   transition: all 0.3s ease;
   background: ${props => props.$hasUpdate 
-    ? 'linear-gradient(135deg, #FF6B6B, #FF8E8E)' 
+    ? 'linear-gradient(135deg, var(--chart-error-color), var(--chart-error-color))' 
     : 'var(--main-bg-card-color)'
   };
   border: ${props => props.$hasUpdate 
-    ? '2px solid #FF6B6B' 
+    ? '2px solid var(--chart-error-color)' 
     : '1px solid var(--main-text-color)'
   };
   color: ${props => props.$hasUpdate ? 'white' : 'var(--main-text-color)'};
   
   ${props => props.$hasUpdate && css`
     animation: ${pulse} 2s infinite;
-    box-shadow: 0 0 10px rgba(255, 165, 0, 0.3);
+    box-shadow: 0 0 10px color-mix(in srgb, var(--chart-warning-color) 30%, transparent);
   `}
   
   &:hover {
     transform: translateY(-2px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
     background: ${props => props.$hasUpdate 
-      ? 'linear-gradient(135deg, #FF8E8E, #FFB3B3)' 
+      ? 'linear-gradient(135deg, var(--chart-error-color), var(--chart-error-color))' 
       : 'var(--primary-accent, #10b981)'
     };
   }
@@ -319,22 +319,22 @@ const IconWrapper = styled.div`
   width: 3.5rem;
   height: 3.5rem;
   padding:0.5rem;
-  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  background: linear-gradient(135deg, var(--chart-success-color), var(--primary-accent));
   border-radius: 1rem;
   display: flex;
   align-items: center;
   justify-content: center;
   color:white;
   box-shadow: 
-    0 8px 25px rgba(16, 185, 129, 0.4),
-    0 0 0 1px rgba(16, 185, 129, 0.2);
+    0 8px 25px var(--chart-success-color),
+    0 0 0 1px var(--chart-success-color);
   position: relative;
 
   &::after {
     content: '';
     position: absolute;
     inset: -2px;
-    background: linear-gradient(135deg, #10b981, #059669);
+    background: linear-gradient(135deg, var(--chart-success-color), var(--primary-accent));
     border-radius: 1rem;
     z-index: -1;
     opacity: 0.5;

@@ -988,8 +988,8 @@ const UpgradeButton = styled.button`
 
 const DevBadge = styled.div`
   position: absolute;
-  top: 8px;
-  right: 8px;
+  top: 0.5rem;
+  right: 4rem;
   background: #ff4444;
   color: white;
   padding: 4px 8px;

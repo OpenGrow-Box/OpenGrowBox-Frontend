@@ -1,9 +1,13 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import styled from 'styled-components';
-import { MdArrowBack } from 'react-icons/md';
+import { MdArrowBack, MdAutoAwesome } from 'react-icons/md';
 import OGBIcon from '../../misc/OGBIcon'
+import Wizzard from '../Wizard/Wizzard';
+import { useState } from 'react';
+
 
 const DashboardTitle = ({firstText,secondText,thirdText}) => {
+  const [showWizzard, setShowWizzard] = useState(false);
   
   const handleBackToHA = () => {
     // Try to navigate back to Home Assistant main interface
@@ -72,15 +76,40 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
             transition={{ type: 'spring', stiffness: 260, damping: 20 }}
             style={{ display: 'inline-block', margin: '0 8px' }}
           >
-            <CannabisIcon/>
+            <OgbIcon/>
           </motion.div>
         </AnimatePresence>
       </TitleContent>
+      
+      <WizardButton
+        onClick={() => setShowWizzard(true)}
+        whileHover={{ scale: 1.1 }}
+        whileTap={{ scale: 0.9 }}
+        title="Open Wizard - Quick setup guide"
+      >
+        <MdAutoAwesome />
+      </WizardButton>
+      
+      {showWizzard && (
+        <WizardOverlay>
+          <WizardBackdrop onClick={() => setShowWizzard(false)} />
+          <WizardContent>
+            <WizardCloseButton
+              onClick={() => setShowWizzard(false)}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              ×
+            </WizardCloseButton>
+            <Wizzard />
+          </WizardContent>
+        </WizardOverlay>
+      )}
     </TitleContainer>
   );
 };
 
-const CannabisIcon = () => (
+const OgbIcon = () => (
   <motion.span
 
     initial={{ color: "#4CAF50" }}
@@ -101,6 +130,7 @@ const TitleContainer = styled.div`
   display: flex;
   align-items: center;
   gap: 0.75rem;
+  position: relative;
 `;
 
 const BackButton = styled(motion.button)`
@@ -170,6 +200,108 @@ const TitleContent = styled.div`
       width: 1.2rem;
       height: 1.2rem;
     }
+  }
+`;
+
+const WizardButton = styled(motion.button)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.5rem;
+  height: 2.3rem;
+  border: none;
+  border-radius: 8px;
+  background: var(--glass-bg-secondary, rgba(58, 217, 234, 0.12));
+  color: var(--primary-accent, #c26b0f);
+  cursor: pointer;
+  transition: all 0.3s ease;
+  position: fixed;
+  right: 1rem;
+  top: 0.5rem;
+  z-index: 100;
+
+  svg {
+    font-size: 1.5rem;
+    animation: gentle-shine 4s ease-in-out infinite;
+  }
+
+  &:hover {
+    background: var(--glass-bg-primary, rgba(255, 255, 255, 0.15));
+    transform: scale(1.1);
+    
+    svg {
+      animation: none;
+    }
+  }
+
+  &:active {
+    transform: scale(0.95);
+  }
+
+  @keyframes gentle-shine {
+    0%, 100% {
+      filter: drop-shadow(0 0 2px rgba(58, 217, 234, 0.3));
+    }
+    50% {
+      filter: drop-shadow(0 0 6px rgba(58, 217, 234, 0.6));
+    }
+  }
+`;
+
+const WizardOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+`;
+
+const WizardBackdrop = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  backdrop-filter: blur(5px);
+`;
+
+const WizardContent = styled.div`
+  position: relative;
+  background: var(--main-bg-card-color, rgba(53, 50, 50, 0.29));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  padding: 2rem;
+  max-width: 90vw;
+  max-height: 90vh;
+  overflow: auto;
+  box-shadow: var(--main-shadow-art);
+  z-index: 1001;
+`;
+
+const WizardCloseButton = styled(motion.button)`
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 32px;
+  height: 32px;
+  border: none;
+  border-radius: 50%;
+  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.08));
+  color: var(--main-text-color, #fff);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.2rem;
+  line-height: 1;
+
+  &:hover {
+    background: var(--glass-bg-primary, rgba(255, 255, 255, 0.12));
   }
 `;
 

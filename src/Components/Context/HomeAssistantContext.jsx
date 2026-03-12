@@ -6,6 +6,7 @@ import {
 } from 'home-assistant-js-websocket';
 
 import { useGlobalState } from './GlobalContext';
+import SecureTokenStorage from '../../utils/secureTokenStorage';
 
 const HomeAssistantContext = createContext();
 
@@ -53,9 +54,17 @@ export const HomeAssistantProvider = ({ children }) => {
   const MAX_UNAUTH_ATTEMPTS = 3;
 
   // Configuration
-  const configuredServer = getDeep("Conf.hassServer") || '';
-  // Read token from localStorage directly to avoid async state issues
-  const token = localStorage.getItem(import.meta.env.PROD ? 'haToken' : 'devToken') || getDeep('Conf.haToken') || '';
+  const configuredServer = getDeep("Conf.hassServer") || localStorage.getItem('devServerUrl') || '';
+  const getStoredToken = () => {
+    return (
+      SecureTokenStorage.getToken() ||
+      localStorage.getItem('haToken') ||
+      localStorage.getItem('devToken') ||
+      getDeep('Conf.haToken') ||
+      ''
+    );
+  };
+  const token = getStoredToken();
 
   // Environment detection
   const isDev = import.meta.env.DEV;
@@ -75,9 +84,31 @@ export const HomeAssistantProvider = ({ children }) => {
     return prodBaseUrl;
   };
   
-  const baseUrl = getBaseUrl();
+  const normalizeBaseUrl = (urlString) => {
+    if (!urlString) return '';
+
+    try {
+      let normalized = urlString;
+      if (!normalized.startsWith('http://') && !normalized.startsWith('https://')) {
+        normalized = `http://${normalized}`;
+      }
+
+      const url = new URL(normalized);
+      if (!url.port) {
+        url.port = '8123';
+      }
+
+      return url.toString().replace(/\/$/, '');
+    } catch (error) {
+      console.error('Invalid Home Assistant base URL:', urlString, error);
+      return '';
+    }
+  };
+
+  const baseUrl = normalizeBaseUrl(getBaseUrl());
   const wsBaseUrl = baseUrl;
-  const stateURL = baseUrl ? `${baseUrl}/api/states` : '';
+  const stateURL = isDev ? '/api/states' : (baseUrl ? `${baseUrl}/api/states` : '');
+  const apiBaseUrl = isDev ? '' : baseUrl;
 
   console.log('isDev:', isDev, 'envHaHost:', envHaHost, 'configuredServer:', configuredServer);
   console.log('HA Config - baseUrl:', baseUrl || 'not set', 'token:', token ? '[REDACTED]' : 'null');
@@ -379,7 +410,9 @@ export const HomeAssistantProvider = ({ children }) => {
         if (newAttempts >= MAX_UNAUTH_ATTEMPTS) {
           // Clear invalid token and redirect to config
           setDeep('Conf.haToken', null);
-          localStorage.removeItem(import.meta.env.PROD ? 'haToken' : 'devToken');
+          localStorage.removeItem('haToken');
+          localStorage.removeItem('devToken');
+          SecureTokenStorage.clearToken();
 
           setError('Invalid token. Please re-enter your Home Assistant Long-Lived Access Token.');
           console.warn(`Maximum unauthorized attempts (${MAX_UNAUTH_ATTEMPTS}) reached. Redirecting to config.`);
@@ -577,6 +610,9 @@ export const HomeAssistantProvider = ({ children }) => {
         isOnline,
         srvAddr,
         accessToken,
+        haToken: token,
+        haBaseUrl: baseUrl,
+        haApiBaseUrl: apiBaseUrl,
         setAccessToken,
         isConfigurationValid,
         reconnect: () => {

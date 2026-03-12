@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import ReactECharts from 'echarts-for-react';
 
-import { useGlobalState } from '../Context/GlobalContext';
+import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { FaLeaf, FaTimes, FaChartLine, FaChartBar, FaExclamationTriangle, FaChartArea } from 'react-icons/fa';
 import { formatDateTime, formatTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
@@ -105,44 +105,12 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 250
     return 'daily';
   });
 
-  const { state } = useGlobalState();
-  const srvAddr = state?.Conf?.hassServer;
-  const token = state?.Conf?.haToken;
+  const { haApiBaseUrl, haToken: token } = useHomeAssistant();
 
   // In dev mode, use Vite proxy. In production, use full URL
   const isDev = import.meta.env.DEV;
   
-  const getApiUrl = (srvAddr) => {
-    // In development, use relative URL to leverage Vite proxy
-    if (isDev) {
-      return ''; // Empty string means relative URL (/api/...)
-    }
-    
-    if (!srvAddr) return '';
-    
-    try {
-      let urlString = srvAddr;
-      
-      // Add protocol if missing
-      if (!urlString.startsWith('http://') && !urlString.startsWith('https://')) {
-        urlString = `http://${urlString}`;
-      }
-      
-      const url = new URL(urlString);
-      
-      // If no port specified, add default HA port
-      if (!url.port) {
-        url.port = '8123';
-      }
-      
-      return url.toString().replace(/\/$/, ''); // Remove trailing slash
-    } catch (e) {
-      console.error('Invalid server address:', srvAddr, e);
-      return '';
-    }
-  };
-
-  const apiBaseUrl = getApiUrl(srvAddr);
+  const apiBaseUrl = haApiBaseUrl || '';
 
   useEffect(() => {
     if (selectedView === 'daily') {
@@ -540,7 +508,7 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 250
 
   useEffect(() => {
     fetchHistoryData();
-  }, [startDate, endDate, sensorId, srvAddr, token]); // Dependencies hinzugefügt
+  }, [startDate, endDate, sensorId, apiBaseUrl, token]);
 
   return (
     <HistoryContainer>

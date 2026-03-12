@@ -19,8 +19,8 @@ const CONTRIBUTORS = [
   {name:"SZip"},
 ];
 
-const premiumLaunchDate = new Date('2025-12-01T00:00:00Z'); 
-const PREMIUM_RELEASE_DATE = new Date("2025-12-01T00:00:00Z");
+const premiumLaunchDate = new Date('2026-01-01T00:00:00Z'); 
+const PREMIUM_RELEASE_DATE = new Date("2026-01-01T00:00:00Z");
 
 export {
   ogbversions,
