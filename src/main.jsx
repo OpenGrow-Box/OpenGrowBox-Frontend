@@ -30,6 +30,13 @@ class OgbGui extends HTMLElement {
         margin: 0;
         padding: 0;
       }
+
+      #overlay-root {
+        position: fixed;
+        inset: 0;
+        z-index: 2147483647;
+        pointer-events: none;
+      }
     `;
     this.shadowRoot.appendChild(baseStyle);
     
@@ -37,6 +44,10 @@ class OgbGui extends HTMLElement {
     this.container = document.createElement('div');
     this.container.id = 'react-container';
     this.shadowRoot.appendChild(this.container);
+
+    this.overlayRoot = document.createElement('div');
+    this.overlayRoot.id = 'overlay-root';
+    this.shadowRoot.appendChild(this.overlayRoot);
   }
   
   connectedCallback() {
@@ -45,6 +56,13 @@ class OgbGui extends HTMLElement {
       container = document.createElement('div');
       container.id = 'react-container';
       this.shadowRoot.appendChild(container);
+    }
+
+    let overlayRoot = this.shadowRoot.getElementById('overlay-root');
+    if (!overlayRoot) {
+      overlayRoot = document.createElement('div');
+      overlayRoot.id = 'overlay-root';
+      this.shadowRoot.appendChild(overlayRoot);
     }
     
     // Create a style element for styled-components to inject into

@@ -12,9 +12,9 @@ import { FaSpinner, FaLeaf } from 'react-icons/fa';
 
 
 const Dashboard = () => {
-  const { currentRoom, entities, connectionState, connection } = useHomeAssistant();
+  const { currentRoom, entities, connectionState } = useHomeAssistant();
   const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [, setError] = useState(null);
   const [ setIsRoomDropdownOpen] = useState(false);
   const [selectedCO2SensorIndex, setSelectedCO2SensorIndex] = useState(0);
   const roomDropdownRef = useRef(null);
@@ -124,7 +124,7 @@ const Dashboard = () => {
       >
         <LeftSection>
           <MediumProvider>
-            <GrowMetrics room={currentRoom}/>
+            <GrowMetrics />
           </MediumProvider>
         </LeftSection>
 

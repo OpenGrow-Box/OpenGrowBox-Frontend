@@ -31,7 +31,7 @@ const Interface = () => {
   const { connectionState, isConfigurationValid } = useHomeAssistant();
   const [loadingText, setLoadingText] = useState('');
 
-  // Ladezeit in Millisekunden (z. B. 1000 = 1 Sekunde)
+  // Loading duration in milliseconds (e.g. 1000 = 1 second)
   const loadingDuration = 1000;
   const loadingSeconds = loadingDuration / 1000;
 

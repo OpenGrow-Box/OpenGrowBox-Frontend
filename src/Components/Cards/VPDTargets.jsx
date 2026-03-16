@@ -1,7 +1,9 @@
-import  { useState, useEffect } from 'react';
+import  { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
-import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage } from 'react-icons/fa';
+import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage, FaExclamationTriangle } from 'react-icons/fa';
+
+let updateTimeout = null;
 
 // 🔹 Pflanzenphasen & Zielwerte
 const plantStages = {
@@ -68,7 +70,9 @@ const VPDTargets = () => {
           )
           .map(([_, entity]) => entity.state);
 
-        if (selected.length > 0) setPlantStage(selected[0]);
+        if (selected.length > 0 && selected[0] !== plantStage) {
+          setPlantStage(selected[0]);
+        }
       } catch (err) {
         console.error('Plant stage update error:', err);
       }
@@ -84,10 +88,20 @@ const VPDTargets = () => {
           .map(([_, entity]) => parseFloat(entity.state))
           .filter(v => !isNaN(v));
 
-        if (tol.length > 0) setTolerance(tol[0]);
+        if (tol.length > 0 && tol[0] !== tolerance) {
+          setTolerance(tol[0]);
+        }
       } catch (err) {
         console.error('Tolerance update error:', err);
       }
+    };
+
+    const debouncedUpdate = () => {
+      if (updateTimeout) clearTimeout(updateTimeout);
+      updateTimeout = setTimeout(() => {
+        updatePlantStage();
+        updateTolerance();
+      }, 100);
     };
 
     updatePlantStage();
@@ -104,8 +118,7 @@ const VPDTargets = () => {
               id.includes('ogb_plantstage_') ||
               id.includes('ogb_vpdtolerance_')
             ) {
-              updatePlantStage();
-              updateTolerance();
+              debouncedUpdate();
             }
           }
         } catch (e) {
@@ -113,9 +126,12 @@ const VPDTargets = () => {
         }
       };
       connection.addEventListener('message', listener);
-      return () => connection.removeEventListener('message', listener);
+      return () => {
+        connection.removeEventListener('message', listener);
+        if (updateTimeout) clearTimeout(updateTimeout);
+      };
     }
-  }, [entities, connection, currentRoom]);
+  }, [entities, connection, currentRoom, plantStage, tolerance]);
 
   // 🔹 Berechnung
   let vpdResults = { perfection: 0, perfectMin: 0, perfectMax: 0 };

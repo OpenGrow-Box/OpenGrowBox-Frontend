@@ -1,10 +1,41 @@
-import React, { useState } from 'react'
+import React, { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { motion, } from 'framer-motion'
-import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdWaterDrop, MdLightMode, MdThermostat, MdOpacity, MdSettings, MdTune, MdDeviceThermostat, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdDelete, MdRefresh } from 'react-icons/md'
+import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdWaterDrop, MdLightMode, MdThermostat, MdOpacity, MdSettings, MdTune, MdDeviceThermostat, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdDelete, MdRefresh, MdNotifications } from 'react-icons/md'
 import Wiz_minmax from './Wiz_minmax'
+import { usePremium } from '../Context/OGBPremiumContext'
+import { useHomeAssistant } from '../Context/HomeAssistantContext'
+import {
+  PRIVATE_SUPPORT_URL,
+  UI_VERSION,
+  PLANT_CONFIG_EVENT,
+  PLANT_CONFIG_RESULT_EVENT,
+  SAVE_PLANT_CONFIG_EVENT,
+  SAVE_PLANT_CONFIG_RESULT_EVENT,
+  allSupportCategories,
+  getSupportRoute,
+  getSupportCategoryLabel,
+  buildGitHubIssueUrl,
+  formatStageName,
+  createDefaultPlantStages,
+  mergePlantAndLightStages,
+  normalizeRemotePlantStages,
+} from './wizardHelpers'
+import { createPlantStagesStepComponents } from './steps/plantStagesSteps'
+import { createSupportStepComponents } from './steps/supportSteps'
+import { createAdvancedStepComponents } from './steps/advancedSteps'
+import { createDebugStepComponents } from './steps/debugSteps'
 
-const Wizzard = () => {
+const Wizzard = ({ onComplete }) => {
+  const { currentPlan, subscription, isLoggedIn, userEmail, userId } = usePremium()
+  const { connection, currentRoom } = useHomeAssistant()
+  const contentRef = useRef(null)
+  const pendingPlantConfigRequestRef = useRef(null)
+  const plantConfigTimeoutRef = useRef(null)
+  const currentPlantConfigRequestRef = useRef(null)
+  const pendingSavePlantConfigRequestRef = useRef(null)
+  const savePlantConfigTimeoutRef = useRef(null)
+  const completionTimeoutRef = useRef(null)
   const [activeTab, setActiveTab] = useState('plantStages')
   const [currentStep, setCurrentStep] = useState(0)
   const [wizardData, setWizardData] = useState({
@@ -17,96 +48,267 @@ const Wizzard = () => {
     autoSetup: false,
     // Support state
     supportCategory: '',
+    supportSummary: '',
     supportMessage: '',
+    supportExpectedBehavior: '',
+    supportActualBehavior: '',
+    supportReproductionSteps: '',
     supportSubmitted: false,
+    supportSubmitError: '',
+    supportSubmitTarget: '',
+    supportSuccessTitle: '',
+    supportSuccessMessage: '',
     // Debug state
     debugMode: false,
     logLevel: 'info',
     generatedLogs: [],
     // Plant stages configuration
-    plantStages: {
-      germination: {
-        minTemp: 20,
-        maxTemp: 25,
-        minHumidity: 70,
-        maxHumidity: 85,
-        minVPD: 0.6,
-        maxVPD: 0.8,
-        minLight: 0,
-        maxLight: 30
-      },
-      clones: {
-        minTemp: 22,
-        maxTemp: 26,
-        minHumidity: 65,
-        maxHumidity: 80,
-        minVPD: 0.7,
-        maxVPD: 0.9,
-        minLight: 30,
-        maxLight: 50
-      },
-      earlyVeg: {
-        minTemp: 23,
-        maxTemp: 27,
-        minHumidity: 55,
-        maxHumidity: 70,
-        minVPD: 0.8,
-        maxVPD: 1.0,
-        minLight: 50,
-        maxLight: 70
-      },
-      midVeg: {
-        minTemp: 24,
-        maxTemp: 28,
-        minHumidity: 50,
-        maxHumidity: 65,
-        minVPD: 0.8,
-        maxVPD: 1.2,
-        minLight: 70,
-        maxLight: 85
-      },
-      lateVeg: {
-        minTemp: 24,
-        maxTemp: 28,
-        minHumidity: 45,
-        maxHumidity: 60,
-        minVPD: 0.9,
-        maxVPD: 1.3,
-        minLight: 75,
-        maxLight: 90
-      },
-      earlyFlower: {
-        minTemp: 22,
-        maxTemp: 26,
-        minHumidity: 40,
-        maxHumidity: 55,
-        minVPD: 1.0,
-        maxVPD: 1.4,
-        minLight: 80,
-        maxLight: 95
-      },
-      midFlower: {
-        minTemp: 22,
-        maxTemp: 26,
-        minHumidity: 40,
-        maxHumidity: 55,
-        minVPD: 1.0,
-        maxVPD: 1.4,
-        minLight: 85,
-        maxLight: 100
-      },
-      lateFlower: {
-        minTemp: 20,
-        maxTemp: 24,
-        minHumidity: 35,
-        maxHumidity: 50,
-        minVPD: 1.2,
-        maxVPD: 1.6,
-        minLight: 70,
-        maxLight: 85
-      }
-    }
+    plantStageMode: '',
+    autoPlantStageStatus: 'idle',
+    autoPlantStageError: '',
+    autoPlantStageSource: '',
+    currentPlantStageSource: '',
+    currentPlantStageLabel: '',
+    currentPlantStages: null,
+    currentPlantStageStatus: 'idle',
+    plantConfigRequestId: '',
+    plantConfigSaveStatus: 'idle',
+    plantConfigSaveError: '',
+    wizardSuccessMessage: '',
+    plantStages: createDefaultPlantStages()
   })
+
+  const plantStageStepsFactory = createPlantStagesStepComponents({
+    Wiz_minmax,
+    icons: { MdEco, MdThermostat, MdTune, MdRefresh, MdLocalFlorist, MdGrass, MdSpa, MdCheck },
+    helpers: { formatStageName, createDefaultPlantStages },
+    styles: {
+      StepContent,
+      WelcomeIcon,
+      PlantStageModeGrid,
+      PlantStageModeCard,
+      PlantStageModeIcon,
+      PlantStageModeTitle,
+      PlantStageModeDescription,
+      CurrentConfigCard,
+      CurrentConfigLabel,
+      CurrentConfigValue,
+      CurrentConfigHint,
+      CurrentConfigSummary,
+      CurrentConfigSummaryItem,
+      AutoConfigCard,
+      AutoConfigStatus,
+      AutoConfigMeta,
+      AutoConfigButton,
+      SupportErrorText,
+      LoadedConfigPreview,
+      LoadedConfigTitle,
+      LoadedConfigText,
+      StagesSummary,
+      StageSummaryCard,
+      StageTitle,
+      StageParams,
+      ParamRow,
+      SubmitSummary,
+      SummaryRow,
+      CompleteMessage,
+    },
+  })
+
+  const supportStepsFactory = createSupportStepComponents({
+    icons: { MdContactSupport, MdHelp, MdCheck, MdEmail },
+    helpers: { getSupportRoute, getSupportCategoryLabel, buildGitHubIssueUrl, PRIVATE_SUPPORT_URL, UI_VERSION },
+    styles: {
+      StepContent,
+      WelcomeIcon,
+      SupportPlanNotice,
+      SupportPlanBadge,
+      SupportPlanText,
+      SupportHelpCard,
+      SupportHelpText,
+      SupportHelpTitle,
+      SupportHelpDescription,
+      FaqButton,
+      SupportSectionTitle,
+      SupportSectionDescription,
+      CategoryGrid,
+      CategoryCard,
+      CategoryIcon,
+      CategoryLabel,
+      CategoryDescription,
+      CategoryRouteTag,
+      CategoryLockTag,
+      SupportHint,
+      SupportFieldGroup,
+      SupportFieldLabel,
+      SupportInput,
+      MessageTextarea,
+      CharCount,
+      SubmitSummary,
+      SummaryRow,
+      MessagePreview,
+      SupportPublicNotice,
+      SupportErrorText,
+      SubmitButton,
+    },
+    supportContext: { currentRoom, userEmail, userId },
+  })
+
+  const advancedStepsFactory = createAdvancedStepComponents({
+    icons: { MdSettings, MdNotifications, MdBugReport },
+    styles: { StepContent, WelcomeIcon, FeaturesList, FeatureItem },
+  })
+
+  const debugStepsFactory = createDebugStepComponents({
+    icons: { MdDownload, MdRefresh },
+    styles: {
+      StepContent,
+      SettingGroup,
+      SettingLabel,
+      LogContainer,
+      LogEntry,
+      LogTime,
+      LogLevel,
+      LogSource,
+      LogMessage,
+      LogActions,
+      ActionBtn,
+      ReportFeatures,
+      ReportFeature,
+      SubmitButton,
+    },
+    connection,
+    currentRoom,
+  })
+
+  const {
+    WelcomeStep: PlantWelcomeStep,
+    RemotePlantStagesStep,
+    SummaryStep: PlantSummaryStep,
+    GerminationConfigStep,
+    ClonesConfigStep,
+    EarlyVegConfigStep,
+    MidVegConfigStep,
+    LateVegConfigStep,
+    EarlyFlowerConfigStep,
+    MidFlowerConfigStep,
+    LateFlowerConfigStep,
+  } = plantStageStepsFactory
+
+  const {
+    SupportWelcomeStep,
+    SupportMessageStep,
+    SupportSubmitStep,
+  } = supportStepsFactory
+
+  const {
+    AdvancedWelcomeStep,
+    SystemSettingsStep,
+    NotificationLogSettingsStep,
+    AutomationRulesStep,
+  } = advancedStepsFactory
+
+  const {
+    DebugSettingsStep,
+    LogViewerStep,
+    DebugDataStep,
+    DebugReportStep,
+  } = debugStepsFactory
+
+  const normalizedPlan = String(currentPlan || subscription?.plan_name || 'free').toLowerCase()
+  const hasPrivateSupport = isLoggedIn && normalizedPlan !== 'free'
+  const supportCategories = useMemo(
+    () => allSupportCategories.map((category) => ({
+      ...category,
+      disabled: category.route === 'private' && !hasPrivateSupport,
+    })),
+    [hasPrivateSupport]
+  )
+
+  const plantStageSteps = useMemo(() => {
+    const steps = [
+        {
+          id: 'mode',
+          title: 'Plant Stage Configuration',
+          description: 'Choose how OpenGrowBox should handle plant stage targets',
+          component: PlantWelcomeStep,
+        },
+    ]
+
+    if (wizardData.plantStageMode === 'custom') {
+      steps.push(
+        {
+          id: 'germination',
+          title: 'Germination Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: GerminationConfigStep,
+        },
+        {
+          id: 'clones',
+          title: 'Clones Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: ClonesConfigStep,
+        },
+        {
+          id: 'earlyVeg',
+          title: 'Early Vegetative Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: EarlyVegConfigStep,
+        },
+        {
+          id: 'midVeg',
+          title: 'Mid Vegetative Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: MidVegConfigStep,
+        },
+        {
+          id: 'lateVeg',
+          title: 'Late Vegetative Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: LateVegConfigStep,
+        },
+        {
+          id: 'earlyFlower',
+          title: 'Early Flowering Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: EarlyFlowerConfigStep,
+        },
+        {
+          id: 'midFlower',
+          title: 'Mid Flowering Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: MidFlowerConfigStep,
+        },
+        {
+          id: 'lateFlower',
+          title: 'Late Flowering Stage',
+          description: 'Configure temperature, humidity, VPD, and light settings',
+          component: LateFlowerConfigStep,
+        }
+      )
+    }
+
+    if (wizardData.plantStageMode === 'default' || wizardData.plantStageMode === 'live') {
+      steps.push({
+        id: 'remoteConfig',
+        title: wizardData.plantStageMode === 'default' ? 'Default OGB Config' : 'Live Online OGB Config',
+        description:
+          wizardData.plantStageMode === 'default'
+            ? 'Request the default OpenGrowBox plant stage profile from the integration'
+            : 'Request the live online OpenGrowBox profile from the integration',
+        component: RemotePlantStagesStep,
+      })
+    }
+
+      steps.push({
+        id: 'summary',
+        title: 'Summary',
+        description: 'Review your complete plant stage configuration',
+        component: PlantSummaryStep,
+      })
+
+    return steps
+  }, [wizardData.plantStageMode])
 
   const tabs = [
     {
@@ -114,58 +316,7 @@ const Wizzard = () => {
       title: 'Plant Stages',
       icon: <MdEco />,
       description: 'Configure growth stage parameters',
-      steps: [
-        {
-          title: 'Plant Stage Configuration',
-          description: 'Configure optimal parameters for each growth stage',
-          component: WelcomeStep
-        },
-        {
-          title: 'Germination Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: GerminationConfigStep
-        },
-        {
-          title: 'Clones Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: ClonesConfigStep
-        },
-        {
-          title: 'Early Vegetative Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: EarlyVegConfigStep
-        },
-        {
-          title: 'Mid Vegetative Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: MidVegConfigStep
-        },
-        {
-          title: 'Late Vegetative Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: LateVegConfigStep
-        },
-        {
-          title: 'Early Flowering Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: EarlyFlowerConfigStep
-        },
-        {
-          title: 'Mid Flowering Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: MidFlowerConfigStep
-        },
-        {
-          title: 'Late Flowering Stage',
-          description: 'Configure temperature, humidity, VPD, and light settings',
-          component: LateFlowerConfigStep
-        },
-        {
-          title: 'Summary',
-          description: 'Review your complete plant stage configuration',
-          component: SummaryStep
-        }
-      ]
+      steps: plantStageSteps
     },
 
     {
@@ -178,6 +329,11 @@ const Wizzard = () => {
           title: 'Advanced Configuration',
           description: 'Configure advanced system parameters',
           component: AdvancedWelcomeStep
+        },
+        {
+          title: 'Notifications & Logs',
+          description: 'Configure notifications and log types',
+          component: NotificationLogSettingsStep
         },
         {
           title: 'System Settings',
@@ -200,13 +356,8 @@ const Wizzard = () => {
       steps: [
         {
           title: 'Support Center',
-          description: 'Get help with your OpenGrowBox',
+          description: 'Browse help resources or choose a support category',
           component: SupportWelcomeStep
-        },
-        {
-          title: 'Category',
-          description: 'Select a support category',
-          component: SupportCategoryStep
         },
         {
           title: 'Message',
@@ -238,6 +389,11 @@ const Wizzard = () => {
           component: LogViewerStep
         },
         {
+          title: 'Debug Data',
+          description: 'Request datastore values',
+          component: DebugDataStep
+        },
+        {
           title: 'Generate Report',
           description: 'Generate debug report',
           component: DebugReportStep
@@ -249,9 +405,335 @@ const Wizzard = () => {
   const activeTabData = tabs.find(tab => tab.id === activeTab)
   const steps = activeTabData.steps
 
+  useEffect(() => {
+    if (currentStep > steps.length - 1) {
+      setCurrentStep(Math.max(0, steps.length - 1))
+    }
+  }, [currentStep, steps.length])
+
+  const currentStepId = steps[currentStep]?.id
+  const isNextDisabled =
+    (activeTab === 'plantStages' && currentStepId === 'mode' && !wizardData.plantStageMode) ||
+    (activeTab === 'plantStages' && currentStepId === 'remoteConfig' && wizardData.autoPlantStageStatus !== 'success')
+
+  useEffect(() => {
+    if (!connection) {
+      return undefined
+    }
+
+    let unsubscribe
+
+    const subscribe = async () => {
+      unsubscribe = await connection.subscribeEvents((event) => {
+        const data = event?.data || {}
+        const requestId = data.requestId || data.request_id
+
+        if (currentPlantConfigRequestRef.current && requestId === currentPlantConfigRequestRef.current) {
+          currentPlantConfigRequestRef.current = null
+          const normalizedCurrentStages = mergePlantAndLightStages(
+            normalizeRemotePlantStages(data.plantStages || data.data || data.result || data),
+            data.lightPlantStages
+          )
+
+          setWizardData((prev) => ({
+            ...prev,
+            currentPlantStageStatus: data.success && normalizedCurrentStages ? 'success' : 'error',
+            currentPlantStageSource: data.activeSource || 'default',
+            currentPlantStageLabel: data.source || 'OpenGrowBox Default Library',
+            currentPlantStages: normalizedCurrentStages,
+          }))
+          return
+        }
+
+        if (!pendingPlantConfigRequestRef.current || requestId !== pendingPlantConfigRequestRef.current) {
+          return
+        }
+
+        if (plantConfigTimeoutRef.current) {
+          clearTimeout(plantConfigTimeoutRef.current)
+          plantConfigTimeoutRef.current = null
+        }
+
+        pendingPlantConfigRequestRef.current = null
+
+        const normalizedPlantStages = mergePlantAndLightStages(
+          normalizeRemotePlantStages(data.plantStages || data.data || data.result || data),
+          data.lightPlantStages
+        )
+
+        if (!data.success || !normalizedPlantStages) {
+          setWizardData((prev) => ({
+            ...prev,
+            autoPlantStageStatus: 'error',
+            autoPlantStageError: data.error || 'Could not load the requested plant config.',
+          }))
+          return
+        }
+
+        setWizardData((prev) => ({
+          ...prev,
+          plantStages: normalizedPlantStages,
+          autoPlantStageStatus: 'success',
+          autoPlantStageError: '',
+          autoPlantStageSource:
+            data.source ||
+            (prev.plantStageMode === 'default' ? 'OpenGrowBox Default Library' : 'OpenGrowBox Live Library'),
+        }))
+      }, PLANT_CONFIG_RESULT_EVENT)
+
+      await connection.subscribeEvents((event) => {
+        const data = event?.data || {}
+        const requestId = data.requestId || data.request_id
+
+        if (!pendingSavePlantConfigRequestRef.current || requestId !== pendingSavePlantConfigRequestRef.current) {
+          return
+        }
+
+        if (savePlantConfigTimeoutRef.current) {
+          clearTimeout(savePlantConfigTimeoutRef.current)
+          savePlantConfigTimeoutRef.current = null
+        }
+
+        pendingSavePlantConfigRequestRef.current = null
+
+        if (!data.success) {
+          setWizardData((prev) => ({
+            ...prev,
+            plantConfigSaveStatus: 'error',
+            plantConfigSaveError: data.error || 'Could not apply the selected plant config.',
+          }))
+          return
+        }
+
+        const normalizedPlantStages = mergePlantAndLightStages(
+          normalizeRemotePlantStages(data.plantStages || data.data || data.result || data),
+          data.lightPlantStages
+        )
+
+        setWizardData((prev) => ({
+          ...prev,
+          plantStages: normalizedPlantStages || prev.plantStages,
+          plantConfigSaveStatus: 'success',
+          plantConfigSaveError: '',
+          wizardSuccessMessage: 'Plant stage profile applied successfully.',
+          autoPlantStageSource: data.source || prev.autoPlantStageSource,
+          currentPlantStageSource: data.activeSource || prev.currentPlantStageSource,
+          currentPlantStageLabel: data.source || prev.currentPlantStageLabel,
+          currentPlantStages: normalizedPlantStages || prev.currentPlantStages,
+          currentPlantStageStatus: 'success',
+        }))
+      }, SAVE_PLANT_CONFIG_RESULT_EVENT)
+    }
+
+    subscribe()
+
+    return () => {
+      if (typeof unsubscribe === 'function') {
+        unsubscribe()
+      }
+    }
+  }, [connection])
+
+  useEffect(() => {
+    if (!connection) {
+      return
+    }
+
+    const requestId = `current-plant-config-${Date.now()}`
+    currentPlantConfigRequestRef.current = requestId
+
+    setWizardData((prev) => ({
+      ...prev,
+      currentPlantStageStatus: 'loading',
+    }))
+
+    connection.sendMessagePromise({
+      type: 'fire_event',
+      event_type: PLANT_CONFIG_EVENT,
+      event_data: {
+        room: currentRoom,
+        mode: 'current',
+        requestId,
+        atTime: new Date().toISOString(),
+      },
+    }).catch(() => {
+      currentPlantConfigRequestRef.current = null
+      setWizardData((prev) => ({
+        ...prev,
+        currentPlantStageStatus: 'error',
+      }))
+    })
+  }, [connection, currentRoom])
+
+  useEffect(() => {
+    if (wizardData.plantConfigSaveStatus !== 'success') {
+      return undefined
+    }
+
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current)
+    }
+
+    completionTimeoutRef.current = setTimeout(() => {
+      onComplete?.()
+    }, 1200)
+
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+        completionTimeoutRef.current = null
+      }
+    }
+  }, [wizardData.plantConfigSaveStatus, onComplete])
+
+  useEffect(() => {
+    if (!wizardData.supportSubmitted) {
+      return undefined
+    }
+
+    if (completionTimeoutRef.current) {
+      clearTimeout(completionTimeoutRef.current)
+    }
+
+    completionTimeoutRef.current = setTimeout(() => {
+      onComplete?.()
+    }, 1200)
+
+    return () => {
+      if (completionTimeoutRef.current) {
+        clearTimeout(completionTimeoutRef.current)
+        completionTimeoutRef.current = null
+      }
+    }
+  }, [wizardData.supportSubmitted, onComplete])
+
+  useEffect(() => {
+    if (contentRef.current) {
+      contentRef.current.scrollTo({ top: 0, behavior: 'auto' })
+    }
+  }, [activeTab, currentStep])
+
+  const requestPlantConfig = async (mode) => {
+    if (!connection) {
+      setWizardData((prev) => ({
+        ...prev,
+        autoPlantStageStatus: 'error',
+        autoPlantStageError: 'No Home Assistant connection available right now.',
+      }))
+      return
+    }
+
+    const requestId = `plant-config-${mode}-${Date.now()}`
+    pendingPlantConfigRequestRef.current = requestId
+
+    if (plantConfigTimeoutRef.current) {
+      clearTimeout(plantConfigTimeoutRef.current)
+    }
+
+    setWizardData((prev) => ({
+      ...prev,
+      autoPlantStageStatus: 'loading',
+      autoPlantStageError: '',
+      autoPlantStageSource: mode === 'default' ? 'OpenGrowBox Default Library' : 'OpenGrowBox Live Library',
+      plantConfigRequestId: requestId,
+    }))
+
+    try {
+      await connection.sendMessagePromise({
+        type: 'fire_event',
+        event_type: PLANT_CONFIG_EVENT,
+        event_data: {
+          room: currentRoom,
+          mode,
+          requestId,
+          atTime: new Date().toISOString(),
+        },
+      })
+
+      plantConfigTimeoutRef.current = setTimeout(() => {
+        if (pendingPlantConfigRequestRef.current !== requestId) {
+          return
+        }
+
+        pendingPlantConfigRequestRef.current = null
+        setWizardData((prev) => ({
+          ...prev,
+          autoPlantStageStatus: 'error',
+          autoPlantStageError: 'No response from the integration. Please make sure OpenGrowBox was reloaded in Home Assistant and try again.',
+        }))
+      }, 10000)
+    } catch (error) {
+      pendingPlantConfigRequestRef.current = null
+      setWizardData((prev) => ({
+        ...prev,
+        autoPlantStageStatus: 'error',
+        autoPlantStageError: 'Could not request the plant config from Home Assistant.',
+      }))
+    }
+  }
+
   const nextStep = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1)
+    }
+  }
+
+  const savePlantConfig = async () => {
+    if (!connection) {
+      setWizardData((prev) => ({
+        ...prev,
+        plantConfigSaveStatus: 'error',
+        plantConfigSaveError: 'No Home Assistant connection available right now.',
+      }))
+      return
+    }
+
+    const requestId = `save-plant-config-${wizardData.plantStageMode}-${Date.now()}`
+    pendingSavePlantConfigRequestRef.current = requestId
+
+    if (savePlantConfigTimeoutRef.current) {
+      clearTimeout(savePlantConfigTimeoutRef.current)
+    }
+
+    setWizardData((prev) => ({
+      ...prev,
+      plantConfigSaveStatus: 'loading',
+      plantConfigSaveError: '',
+      wizardSuccessMessage: '',
+    }))
+
+    try {
+      await connection.sendMessagePromise({
+        type: 'fire_event',
+        event_type: SAVE_PLANT_CONFIG_EVENT,
+        event_data: {
+          room: currentRoom,
+          mode: wizardData.plantStageMode,
+          requestId,
+          plantStages: wizardData.plantStages,
+          atTime: new Date().toISOString(),
+        },
+      })
+
+      savePlantConfigTimeoutRef.current = setTimeout(() => {
+        if (pendingSavePlantConfigRequestRef.current !== requestId) {
+          return
+        }
+
+        pendingSavePlantConfigRequestRef.current = null
+        setWizardData((prev) => ({
+          ...prev,
+          plantConfigSaveStatus: 'error',
+          plantConfigSaveError: 'No save response from the integration. Please try again.',
+        }))
+      }, 10000)
+    } catch (error) {
+      pendingSavePlantConfigRequestRef.current = null
+      setWizardData((prev) => ({
+        ...prev,
+        plantConfigSaveStatus: 'error',
+        plantConfigSaveError: 'Could not send the selected plant config to Home Assistant.',
+      }))
     }
   }
 
@@ -272,6 +754,24 @@ const Wizzard = () => {
     setCurrentStep(0)
   }
 
+  const handlePrimaryAction = () => {
+    if (activeTab === 'plantStages' && currentStep === steps.length - 1) {
+      savePlantConfig()
+      return
+    }
+
+    if (currentStep === steps.length - 1) {
+      setWizardData((prev) => ({
+        ...prev,
+        wizardSuccessMessage: 'Wizard completed successfully.',
+      }))
+      onComplete?.()
+      return
+    }
+
+    nextStep()
+  }
+
   return (
     <WizardContainer>
       <WizardHeader>
@@ -279,10 +779,10 @@ const Wizzard = () => {
           {tabs.map((tab) => (
             <Tab
               key={tab.id}
-              active={activeTab === tab.id}
+              $active={activeTab === tab.id}
               onClick={() => switchTab(tab.id)}
             >
-              <TabIcon>{tab.icon}</TabIcon>
+              <TabIcon $active={activeTab === tab.id}>{tab.icon}</TabIcon>
               <TabContent>
                 <TabTitle>{tab.title}</TabTitle>
                 <TabDescription>{tab.description}</TabDescription>
@@ -291,12 +791,21 @@ const Wizzard = () => {
           ))}
         </TabNavigation>
 
+        <HeaderMeta>
+          <HeaderMetaChip>
+            {tabs.find((tab) => tab.id === activeTab)?.title}
+          </HeaderMetaChip>
+          <HeaderMetaText>
+            Step {currentStep + 1} of {steps.length}
+          </HeaderMetaText>
+        </HeaderMeta>
+
         <StepIndicator>
           {steps.map((_, index) => (
             <StepDot
               key={index}
-              active={index === currentStep}
-              completed={index < currentStep}
+              $active={index === currentStep}
+              $completed={index < currentStep}
               onClick={() => setCurrentStep(index)}
             />
           ))}
@@ -307,12 +816,23 @@ const Wizzard = () => {
         </ProgressInfo>
       </WizardHeader>
 
-      <WizardContent>
+      <WizardContent ref={contentRef}>
+        {wizardData.wizardSuccessMessage && (
+          <WizardSuccessBanner>{wizardData.wizardSuccessMessage}</WizardSuccessBanner>
+        )}
         <CurrentStepComponent 
           data={wizardData} 
           updateData={updateWizardData}
           nextStep={nextStep}
           prevStep={prevStep}
+          requestPlantConfig={requestPlantConfig}
+          savePlantConfig={savePlantConfig}
+          supportCategories={supportCategories}
+          hasPrivateSupport={hasPrivateSupport}
+          currentPlan={normalizedPlan}
+          currentRoom={currentRoom}
+          userEmail={userEmail}
+          userId={userId}
         />
       </WizardContent>
 
@@ -329,576 +849,81 @@ const Wizzard = () => {
           Step {currentStep + 1} of {steps.length}
         </div>
 
-        <Button
-          variant="primary"
-          onClick={nextStep}
-        >
-          {currentStep === steps.length - 1 ? 'Finish' : 'Next'}
-          {currentStep < steps.length - 1 && <MdArrowForward />}
-        </Button>
+        {!(activeTab === 'support' && currentStep === steps.length - 1) && (
+          <Button
+            variant="primary"
+            onClick={handlePrimaryAction}
+            disabled={
+              isNextDisabled ||
+              (activeTab === 'plantStages' &&
+                (wizardData.plantConfigSaveStatus === 'loading' || wizardData.plantConfigSaveStatus === 'success'))
+            }
+          >
+            {activeTab === 'plantStages' && currentStep === steps.length - 1
+              ? wizardData.plantConfigSaveStatus === 'loading'
+                ? 'Applying...'
+                : wizardData.plantConfigSaveStatus === 'success'
+                  ? 'Applied'
+                  : 'Apply'
+              : currentStep === steps.length - 1 ? 'Finish' : 'Next'}
+            {currentStep < steps.length - 1 && <MdArrowForward />}
+          </Button>
+        )}
       </WizardFooter>
     </WizardContainer>
   )
 }
 
-// Welcome Step Component
-const WelcomeStep = ({ nextStep }) => (
-  <StepContent>
-    <WelcomeIcon>
-      <MdEco size={64} />
-    </WelcomeIcon>
-    <h2>Plant Stage Configuration</h2>
-    <p>This wizard will guide you through setting up optimal environmental parameters for each plant growth stage.</p>
-    <FeaturesList>
-      <FeatureItem>
-        <MdThermostat />
-        <span>PlantStage Config Control</span>
-      </FeatureItem>
-    </FeaturesList>
-    <p>Let's configure your plant stages for optimal growth conditions.</p>
-  </StepContent>
-)
-
-// Germination Stage Configuration Component
-const GerminationConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="germination"
-    stageName="Germination"
-    icon={<MdEco />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Clones Stage Configuration Component
-const ClonesConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="clones"
-    stageName="Clones"
-    icon={<MdLocalFlorist />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Early Vegetative Stage Configuration Component
-const EarlyVegConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="earlyVeg"
-    stageName="Early Vegetative"
-    icon={<MdGrass />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Mid Vegetative Stage Configuration Component
-const MidVegConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="midVeg"
-    stageName="Mid Vegetative"
-    icon={<MdGrass />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Late Vegetative Stage Configuration Component
-const LateVegConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="lateVeg"
-    stageName="Late Vegetative"
-    icon={<MdGrass />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Early Flowering Stage Configuration Component
-const EarlyFlowerConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="earlyFlower"
-    stageName="Early Flowering"
-    icon={<MdSpa />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Mid Flowering Stage Configuration Component
-const MidFlowerConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="midFlower"
-    stageName="Mid Flowering"
-    icon={<MdSpa />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-// Late Flowering Stage Configuration Component
-const LateFlowerConfigStep = ({ data, updateData, nextStep }) => (
-  <Wiz_minmax
-    stage="lateFlower"
-    stageName="Late Flowering"
-    icon={<MdSpa />}
-    data={data}
-    updateData={updateData}
-  />
-)
-
-
-const TemperatureControlStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Temperature Control Configuration</h3>
-    <p>Configure the temperature control system parameters.</p>
-    <Wiz_minmax
-      stage="germination"
-      stageName="Temperature"
-      icon={<MdThermostat />}
-      data={data}
-      updateData={updateData}
-      showDescription={false}
-    />
-  </StepContent>
-)
-
-const HumidityControlStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Humidity Control Configuration</h3>
-    <p>Configure the humidity control system parameters.</p>
-    <Wiz_minmax
-      stage="seedling"
-      stageName="Humidity"
-      icon={<MdOpacity />}
-      data={data}
-      updateData={updateData}
-      showDescription={false}
-    />
-  </StepContent>
-)
-
-const LightControlStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Light Control Configuration</h3>
-    <p>Configure the light control system parameters.</p>
-    <Wiz_minmax
-      stage="vegetative"
-      stageName="Light"
-      icon={<MdLightMode />}
-      data={data}
-      updateData={updateData}
-      showDescription={false}
-    />
-  </StepContent>
-)
-
-// Advanced Tab Components
-const AdvancedWelcomeStep = ({ nextStep }) => (
-  <StepContent>
-    <WelcomeIcon>
-      <MdSettings size={64} />
-    </WelcomeIcon>
-    <h2>Advanced Configuration</h2>
-    <p>This wizard will guide you through advanced system configuration options.</p>
-    <FeaturesList>
-      <FeatureItem>
-        <MdSettings />
-        <span>Soon....</span>
-      </FeatureItem>
-    </FeaturesList>
-    <p>Configure advanced system parameters for enhanced performance.</p>
-  </StepContent>
-)
-
-const SystemSettingsStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>System Settings</h3>
-    <p>Configure system-wide settings and parameters.</p>
-    <p>This section will contain system configuration options.</p>
-  </StepContent>
-)
-
-const AutomationRulesStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Automation Rules</h3>
-    <p>Configure automation rules and triggers for your system.</p>
-    <p>This section will contain automation configuration options.</p>
-  </StepContent>
-)
-
-// ============================================
-// SUPPORT TAB COMPONENTS
-// ============================================
-
-const supportCategories = [
-  { id: 'technical', label: 'Technical Issue', icon: <MdSettings />, description: 'Hardware or software problems' },
-  { id: 'account', label: 'Account & Billing', icon: <MdSettings />, description: 'Login, subscription, or payment issues' },
-  { id: 'feature', label: 'Feature Request', icon: <MdLightMode />, description: 'Suggest new features or improvements' },
-  { id: 'bug', label: 'Bug Report', icon: <MdBugReport />, description: 'Report a bug or unexpected behavior' },
-  { id: 'other', label: 'Other', icon: <MdHelp />, description: 'Anything else we can help with' }
-]
-
-const SupportWelcomeStep = () => (
-  <StepContent>
-    <WelcomeIcon>
-      <MdContactSupport size={64} />
-    </WelcomeIcon>
-    <h2>Support Center</h2>
-    <p>We're here to help! Choose a category below to get the support you need.</p>
-    <FeaturesList>
-      <FeatureItem>
-        <MdHelp />
-        <span>Browse FAQs</span>
-      </FeatureItem>
-      <FeatureItem>
-        <MdEmail />
-        <span>Contact Support</span>
-      </FeatureItem>
-      <FeatureItem>
-        <MdBugReport />
-        <span>Report Issues</span>
-      </FeatureItem>
-    </FeaturesList>
-    <p>Select a category to continue...</p>
-  </StepContent>
-)
-
-const SupportCategoryStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Select a Category</h3>
-    <p>Choose the category that best describes your issue:</p>
-    <CategoryGrid>
-      {supportCategories.map(category => (
-        <CategoryCard 
-          key={category.id}
-          selected={data.supportCategory === category.id}
-          onClick={() => updateData({ supportCategory: category.id })}
-        >
-          <CategoryIcon>{category.icon}</CategoryIcon>
-          <CategoryLabel>{category.label}</CategoryLabel>
-          <CategoryDescription>{category.description}</CategoryDescription>
-        </CategoryCard>
-      ))}
-    </CategoryGrid>
-  </StepContent>
-)
-
-const SupportMessageStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Describe Your Issue</h3>
-    <p>Please provide details about your issue:</p>
-    <MessageTextarea
-      value={data.supportMessage}
-      onChange={(e) => updateData({ supportMessage: e.target.value })}
-      placeholder="Describe your issue in detail. Include any error messages, steps to reproduce, and what you expected to happen..."
-      rows={8}
-    />
-    <CharCount>{data.supportMessage.length} / 2000 characters</CharCount>
-  </StepContent>
-)
-
-const SupportSubmitStep = ({ data, updateData }) => {
-  const handleSubmit = () => {
-    // In a real app, this would send to an API
-    updateData({ supportSubmitted: true })
-    alert('Support request submitted successfully! We will get back to you soon.')
-  }
-
-  if (data.supportSubmitted) {
-    return (
-      <StepContent>
-        <WelcomeIcon style={{ background: 'rgba(0, 255, 0, 0.2)' }}>
-          <MdCheck size={64} style={{ color: '#00ff00' }} />
-        </WelcomeIcon>
-        <h2>Request Submitted!</h2>
-        <p>Thank you for contacting us. Our support team will review your request and get back to you as soon as possible.</p>
-        <SubmitSummary>
-          <SummaryRow>
-            <span>Category:</span>
-            <strong>{supportCategories.find(c => c.id === data.supportCategory)?.label}</strong>
-          </SummaryRow>
-          <SummaryRow>
-            <span>Message:</span>
-            <MessagePreview>{data.supportMessage.substring(0, 100)}...</MessagePreview>
-          </SummaryRow>
-        </SubmitSummary>
-      </StepContent>
-    )
-  }
-
-  return (
-    <StepContent>
-      <h3>Review & Submit</h3>
-      <p>Please review your support request before submitting:</p>
-      
-      <SubmitSummary>
-        <SummaryRow>
-          <span>Category:</span>
-          <strong>{supportCategories.find(c => c.id === data.supportCategory)?.label || 'Not selected'}</strong>
-        </SummaryRow>
-        <SummaryRow>
-          <span>Message:</span>
-          <MessagePreview>{data.supportMessage || 'No message provided'}</MessagePreview>
-        </SummaryRow>
-      </SubmitSummary>
-
-      <SubmitButton 
-        onClick={handleSubmit}
-        disabled={!data.supportCategory || !data.supportMessage}
-      >
-        <MdEmail /> Submit Support Request
-      </SubmitButton>
-    </StepContent>
-  )
-}
-
-// ============================================
-// DEBUG TAB COMPONENTS
-// ============================================
-
-const logLevels = [
-  { id: 'debug', label: 'Debug', color: '#9b59b6' },
-  { id: 'info', label: 'Info', color: '#3498db' },
-  { id: 'warning', label: 'Warning', color: '#f39c12' },
-  { id: 'error', label: 'Error', color: '#e74c3c' }
-]
-
-const DebugSettingsStep = ({ data, updateData }) => (
-  <StepContent>
-    <h3>Debug Settings</h3>
-    <p>Configure debug options and log levels:</p>
-    
-    <SettingGroup>
-      <SettingLabel>
-        <span>Debug Mode</span>
-        <ToggleSwitch>
-          <ToggleInput 
-            type="checkbox" 
-            checked={data.debugMode}
-            onChange={(e) => updateData({ debugMode: e.target.checked })}
-          />
-          <ToggleSlider />
-        </ToggleSwitch>
-      </SettingLabel>
-      <SettingDescription>Enable detailed logging for troubleshooting</SettingDescription>
-    </SettingGroup>
-
-    <SettingGroup>
-      <SettingLabel>Log Level</SettingLabel>
-      <LogLevelButtons>
-        {logLevels.map(level => (
-          <LogLevelButton
-            key={level.id}
-            selected={data.logLevel === level.id}
-            color={level.color}
-            onClick={() => updateData({ logLevel: level.id })}
-          >
-            {level.label}
-          </LogLevelButton>
-        ))}
-      </LogLevelButtons>
-      <SettingDescription>Filter logs by severity level</SettingDescription>
-    </SettingGroup>
-  </StepContent>
-)
-
-const LogViewerStep = ({ data, updateData }) => {
-  const sampleLogs = [
-    { time: '2024-01-15 10:30:45', level: 'info', source: 'OGB', message: 'System started successfully' },
-    { time: '2024-01-15 10:30:46', level: 'info', source: 'HA', message: 'Connected to Home Assistant' },
-    { time: '2024-01-15 10:31:00', level: 'warning', source: 'OGB', message: 'Temperature sensor delay detected' },
-    { time: '2024-01-15 10:31:15', level: 'error', source: 'HA', message: 'Entity sensor.temp_1 unavailable' },
-    { time: '2024-01-15 10:32:00', level: 'info', source: 'OGB', message: 'Automation triggered: Light schedule' },
-    { time: '2024-01-15 10:32:30', level: 'debug', source: 'OGB', message: 'VPD calculation: 1.2 kPa' },
-    { time: '2024-01-15 10:33:00', level: 'error', source: 'HA', message: 'Unexpected error in climate control' },
-    { time: '2024-01-15 10:33:15', level: 'warning', source: 'OGB', message: 'Humidity outside target range' },
-  ]
-
-  const filteredLogs = sampleLogs.filter(log => {
-    const levelPriority = { debug: 0, info: 1, warning: 2, error: 3 }
-    return levelPriority[log.level] >= levelPriority[data.logLevel]
-  })
-
-  const downloadLogs = () => {
-    const logText = filteredLogs.map(l => `[${l.time}] [${l.level.toUpperCase()}] [${l.source}] ${l.message}`).join('\n')
-    const blob = new Blob([logText], { type: 'text/plain' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `ogb-debug-logs-${new Date().toISOString().split('T')[0]}.txt`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  const clearLogs = () => {
-    updateData({ generatedLogs: [] })
-  }
-
-  return (
-    <StepContent>
-      <h3>Log Viewer</h3>
-      <LogActions>
-        <ActionBtn onClick={downloadLogs}>
-          <MdDownload /> Export Logs
-        </ActionBtn>
-        <ActionBtn onClick={clearLogs} secondary>
-          <MdDelete /> Clear
-        </ActionBtn>
-      </LogActions>
-      
-      <LogContainer>
-        {filteredLogs.map((log, index) => (
-          <LogEntry key={index} level={log.level}>
-            <LogTime>{log.time}</LogTime>
-            <LogLevel level={log.level}>{log.level.toUpperCase()}</LogLevel>
-            <LogSource>[{log.source}]</LogSource>
-            <LogMessage>{log.message}</LogMessage>
-          </LogEntry>
-        ))}
-      </LogContainer>
-    </StepContent>
-  )
-}
-
-const DebugReportStep = ({ data, updateData }) => {
-  const generateReport = () => {
-    const report = {
-      timestamp: new Date().toISOString(),
-      debugMode: data.debugMode,
-      logLevel: data.logLevel,
-      systemInfo: {
-        appVersion: '1.0.0',
-        haVersion: '2024.1.0',
-        browser: navigator.userAgent,
-        platform: navigator.platform
-      },
-      recentErrors: [
-        { time: '10:33:15', source: 'HA', error: 'Unexpected error in climate control' },
-        { time: '10:31:15', source: 'HA', error: 'Entity sensor.temp_1 unavailable' }
-      ],
-      warnings: [
-        { time: '10:33:15', source: 'OGB', warning: 'Humidity outside target range' },
-        { time: '10:31:00', source: 'OGB', warning: 'Temperature sensor delay detected' }
-      ]
-    }
-    
-    const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `ogb-debug-report-${new Date().toISOString().split('T')[0]}.json`
-    a.click()
-    URL.revokeObjectURL(url)
-  }
-
-  return (
-    <StepContent>
-      <WelcomeIcon>
-        <MdBugReport size={64} />
-      </WelcomeIcon>
-      <h3>Generate Debug Report</h3>
-      <p>Create a comprehensive debug report including:</p>
-      <ReportFeatures>
-        <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> System configuration</ReportFeature>
-        <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Recent error logs</ReportFeature>
-        <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Warning messages</ReportFeature>
-        <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Device states</ReportFeature>
-        <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Automation history</ReportFeature>
-      </ReportFeatures>
-
-      <SubmitButton onClick={generateReport}>
-        <MdDownload /> Generate & Download Report
-      </SubmitButton>
-      
-      <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.7 }}>
-        This report can be attached to support requests for faster troubleshooting.
-      </p>
-    </StepContent>
-  )
-}
-
-
-
-// Summary Step Component
-const SummaryStep = ({ data }) => {
-  const { plantStages } = data
-
-  return (
-    <StepContent>
-      <h3>Complete Plant Stage Configuration</h3>
-      <p>Your OpenGrowBox is now configured with optimized plant stage parameters.</p>
-
-      <StagesSummary>
-        {Object.entries(plantStages).map(([stage, config]) => (
-          <StageSummaryCard key={stage}>
-            <StageTitle>{stage.charAt(0).toUpperCase() + stage.slice(1)} Stage</StageTitle>
-            <StageParams>
-              <ParamRow>
-                <span>Temperature:</span>
-                <span>{config.minTemp}°C - {config.maxTemp}°C</span>
-              </ParamRow>
-              <ParamRow>
-                <span>Humidity:</span>
-                <span>{config.minHumidity}% - {config.maxHumidity}%</span>
-              </ParamRow>
-              <ParamRow>
-                <span>VPD:</span>
-                <span>{config.minVPD} kPa - {config.maxVPD} kPa</span>
-              </ParamRow>
-              <ParamRow>
-                <span>Light:</span>
-                <span>{config.minLight}% - {config.maxLight}%</span>
-              </ParamRow>
-            </StageParams>
-          </StageSummaryCard>
-        ))}
-      </StagesSummary>
-
-      <CompleteMessage>
-        <h4><MdCheck style={{ marginRight: '0.5rem', color: 'var(--primary-accent)' }} />Configuration Complete!</h4>
-        <p>Your OpenGrowBox will now automatically monitor and adjust environmental conditions based on these plant stage parameters.</p>
-        <p>The system will detect the current growth stage and optimize lighting, temperature, humidity, and VPD accordingly.</p>
-      </CompleteMessage>
-    </StepContent>
-  )
-}
-
-
 // Styled Components
 const WizardContainer = styled.div`
   display: flex;
   flex-direction: column;
+  width: 100%;
   height: 100%;
-  min-height: 400px;
+  min-width: 0;
+  min-height: 0;
+  font-family: 'Segoe UI', 'Trebuchet MS', sans-serif;
+  line-height: 1.45;
+  letter-spacing: 0.01em;
   background: var(--main-bg-card-color, rgba(53, 50, 50, 0.29));
-  border-radius: 16px;
+  border-radius: inherit;
   overflow: hidden;
 `
 
 const WizardHeader = styled.div`
-  padding: 1rem;
+  padding: 1.15rem 1.15rem 1rem;
   background: var(--main-bg-nav-color, rgba(23, 21, 47, 0.95));
   border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  flex-shrink: 0;
+
+  @media (max-width: 768px) {
+    padding: 1rem 0.9rem 0.9rem;
+  }
 `
 
 const StepIndicator = styled.div`
   display: flex;
   justify-content: center;
-  gap: 0.5rem;
-  margin-bottom: 1rem;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.7rem;
 `
 
 const StepDot = styled.div`
-  width: 8px;
-  height: 8px;
+  width: ${props => (props.$active ? '12px' : '6px')};
+  height: ${props => (props.$active ? '12px' : '6px')};
   border-radius: 50%;
   background: ${props => 
-    props.completed ? 'var(--primary-accent, #00ff00)' : 
-    props.active ? 'var(--main-text-color, #fff)' : 
+    props.$completed ? 'var(--primary-accent, #00ff00)' : 
+    props.$active ? 'var(--main-text-color, #fff)' : 
     'var(--second-text-color, rgba(255, 255, 255, 0.5))'};
-  cursor: ${props => props.active ? 'pointer' : 'default'};
-  transition: all 0.3s ease;
+  cursor: ${props => props.$active ? 'pointer' : 'default'};
+  opacity: ${props => (props.$active || props.$completed ? 0.95 : 0.4)};
+  box-shadow: ${props =>
+    props.$active
+      ? '0 0 0 2px rgba(255, 255, 255, 0.08)'
+      : 'none'};
+  transition: all 0.25s ease;
 `
 
 const ProgressInfo = styled.div`
@@ -906,22 +931,53 @@ const ProgressInfo = styled.div`
 `
 
 const StepTitle = styled.h3`
-  margin: 0 0 0.3rem 0;
+  margin: 0 0 0.4rem 0;
   color: var(--main-text-color, #fff);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.22rem;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+
+  @media (max-width: 768px) {
+    font-size: 1.08rem;
+  }
 `
 
 const StepDescription = styled.p`
   margin: 0;
   color: var(--second-text-color, rgba(255, 255, 255, 0.7));
-  font-size: 0.8rem;
+  font-size: 0.95rem;
+  line-height: 1.45;
+  max-width: 58rem;
+  margin-inline: auto;
+
+  @media (max-width: 768px) {
+    font-size: 0.88rem;
+  }
 `
 
 const WizardContent = styled.div`
   flex: 1;
-  padding: 1rem 1rem 3rem 1rem;
+  min-height: 0;
+  min-width: 0;
+  padding: 1rem;
   overflow-y: auto;
+  overflow-x: hidden;
+
+  @media (max-width: 768px) {
+    padding: 0.85rem;
+  }
+`
+
+const WizardSuccessBanner = styled.div`
+  margin-bottom: 0.9rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: rgba(34, 197, 94, 0.14);
+  border: 1px solid rgba(34, 197, 94, 0.24);
+  color: #bbf7d0;
+  font-size: 0.92rem;
+  font-weight: 700;
+  line-height: 1.4;
 `
 
 const WizardFooter = styled.div`
@@ -931,10 +987,22 @@ const WizardFooter = styled.div`
   padding: 0.75rem 1rem;
   background: var(--main-bg-nav-color, rgba(23, 21, 47, 0.95));
   border-top: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  flex-shrink: 0;
 
   .step-info {
     color: var(--second-text-color, rgba(255, 255, 255, 0.7));
     font-size: 0.8rem;
+  }
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+    flex-wrap: wrap;
+
+    .step-info {
+      order: 3;
+      width: 100%;
+      text-align: center;
+    }
   }
 `
 
@@ -1215,13 +1283,151 @@ const FeaturesList = styled.div`
   }
 `
 
+const PlantStageModeGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0 1rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`
+
+const CurrentConfigCard = styled.div`
+  margin-top: 1.1rem;
+  padding: 0.95rem 1rem;
+  border-radius: 14px;
+  background: var(--glass-bg-secondary, rgba(255,255,255,0.05));
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+`
+
+const CurrentConfigLabel = styled.div`
+  color: var(--second-text-color, rgba(255,255,255,0.72));
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+`
+
+const CurrentConfigValue = styled.div`
+  margin-top: 0.35rem;
+  color: var(--main-text-color, #fff);
+  font-size: 1rem;
+  font-weight: 700;
+`
+
+const CurrentConfigHint = styled.div`
+  margin-top: 0.3rem;
+  color: var(--second-text-color, rgba(255,255,255,0.72));
+  font-size: 0.88rem;
+  line-height: 1.45;
+`
+
+const CurrentConfigSummary = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.65rem;
+  margin-top: 0.9rem;
+`
+
+const CurrentConfigSummaryItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+  padding: 0.7rem 0.75rem;
+  border-radius: 10px;
+  background: var(--glass-bg-primary, rgba(255,255,255,0.06));
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+
+  strong {
+    color: var(--main-text-color, #fff);
+    font-size: 0.84rem;
+  }
+
+  span {
+    color: var(--second-text-color, rgba(255,255,255,0.75));
+    font-size: 0.8rem;
+    line-height: 1.35;
+  }
+`
+
+const PlantStageModeCard = styled.button`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.7rem;
+  text-align: left;
+  padding: 1.1rem;
+  border-radius: 14px;
+  border: 1px solid ${props =>
+    props.$selected
+      ? 'var(--input-focus-border-color, var(--primary-accent))'
+      : 'var(--glass-border, rgba(255,255,255,0.1))'};
+  background: ${props =>
+    props.$selected
+      ? 'var(--glass-bg-primary, rgba(255,255,255,0.08))'
+      : 'var(--glass-bg-secondary, rgba(255,255,255,0.04))'};
+  color: var(--main-text-color, #fff);
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    transform: translateY(-2px);
+    border-color: var(--border-hover-color, rgba(255,255,255,0.16));
+    background: var(--glass-bg-primary, rgba(255,255,255,0.08));
+    box-shadow: 0 12px 30px rgba(0, 0, 0, 0.14);
+  }
+`
+
+const PlantStageModeIcon = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 12px;
+  background: var(--glass-bg-primary, rgba(255,255,255,0.08));
+  color: var(--primary-accent, var(--main-unit-color));
+  font-size: 1.35rem;
+`
+
+const PlantStageModeTitle = styled.div`
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--main-text-color, #fff);
+`
+
+const PlantStageModeDescription = styled.div`
+  color: var(--second-text-color, rgba(255,255,255,0.75));
+  font-size: 0.9rem;
+  line-height: 1.45;
+`
+
 const FeatureItem = styled.div`
   display: flex;
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
   background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
   border-radius: 8px;
+  text-decoration: none;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
+
+  &:hover {
+    background: var(--glass-bg-primary, rgba(255, 255, 255, 0.08));
+    border-color: var(--border-hover-color, rgba(255, 255, 255, 0.16));
+    transform: translateY(-1px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
+  }
+
+  &:focus-visible {
+    outline: none;
+    border-color: var(--input-focus-border-color, var(--primary-accent));
+    box-shadow: 0 0 0 3px var(--button-hover-bg, rgba(255, 255, 255, 0.08));
+  }
   
   svg {
     color: var(--primary-accent, var(--main-unit-color));
@@ -1235,54 +1441,74 @@ const FeatureItem = styled.div`
   }
 `
 
+const SupportHint = styled.p`
+  margin-top: 1rem;
+  color: var(--second-text-color, rgba(255, 255, 255, 0.72));
+  font-size: 0.92rem;
+  text-align: center;
+`
+
 // Tab Navigation Styled Components
 const TabNavigation = styled.div`
   display: flex;
-  gap: 0.4rem;
-  margin-bottom: 0.75rem;
+  align-items: stretch;
+  justify-content: center;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+  margin-bottom: 0.85rem;
   border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
-  padding-bottom: 0.75rem;
+  padding-bottom: 0.85rem;
   
   @media (max-width: 768px) {
     flex-direction: column;
-    gap: 0.25rem;
+    gap: 0.35rem;
   }
 `
 
 const Tab = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 0.75rem;
-  border-radius: 6px;
+  gap: 0.7rem;
+  padding: 0.72rem 0.9rem;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
+  min-width: 220px;
+  max-width: 280px;
+  flex: 1 1 240px;
   background: ${props => 
-    props.active ? 
+    props.$active ? 
     'var(--glass-bg-primary, rgba(255, 255, 255, 0.1))' : 
     'transparent'};
   border: 1px solid ${props => 
-    props.active ? 
+    props.$active ? 
     'var(--primary-accent, rgba(255, 255, 255, 0.2))' : 
-    'transparent'};
+    'rgba(255, 255, 255, 0.04)'};
+  box-shadow: ${props =>
+    props.$active ? '0 10px 24px rgba(0, 0, 0, 0.16)' : 'none'};
   
   &:hover {
     background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
     border-color: var(--glass-border, rgba(255, 255, 255, 0.2));
+    transform: translateY(-1px);
   }
   
   @media (max-width: 768px) {
-    padding: 0.4rem 0.5rem;
+    padding: 0.65rem 0.8rem;
+    min-width: 100%;
+    max-width: 100%;
+    flex-basis: 100%;
   }
 `
 
 const TabIcon = styled.div`
   color: ${props => 
-    props.active ? 
+    props.$active ? 
     'var(--primary-accent, var(--main-unit-color))' : 
     'var(--second-text-color, rgba(255, 255, 255, 0.6))'};
-  font-size: 1rem;
-  transition: color 0.3s ease;
+  font-size: 1.2rem;
+  transition: color 0.3s ease, transform 0.3s ease;
+  transform: ${props => (props.$active ? 'scale(1.05)' : 'none')};
 `
 
 const TabContent = styled.div`
@@ -1293,15 +1519,50 @@ const TabContent = styled.div`
 
 const TabTitle = styled.div`
   color: var(--main-text-color, #fff);
-  font-size: 0.8rem;
-  font-weight: 600;
+  font-size: 0.96rem;
+  font-weight: 700;
   transition: color 0.3s ease;
 `
 
 const TabDescription = styled.div`
   color: var(--second-text-color, rgba(255, 255, 255, 0.6));
-  font-size: 0.7rem;
+  font-size: 0.8rem;
+  line-height: 1.35;
   transition: color 0.3s ease;
+`
+
+const HeaderMeta = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.85rem;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.45rem;
+  }
+`
+
+const HeaderMetaChip = styled.div`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.38rem 0.75rem;
+  border-radius: 999px;
+  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.12));
+  color: var(--main-text-color, #fff);
+  font-size: 0.76rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+`
+
+const HeaderMetaText = styled.div`
+  color: var(--second-text-color, rgba(255, 255, 255, 0.72));
+  font-size: 0.84rem;
+  font-weight: 600;
 `
 
 // ============================================
@@ -1310,16 +1571,131 @@ const TabDescription = styled.div`
 
 const CategoryGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.7rem;
+  margin: 0.9rem 0 0.4rem;
+`
+
+const SupportSectionTitle = styled.h3`
+  margin: 1.35rem 0 0.45rem;
+  color: var(--main-text-color, #fff);
+  font-size: 1.02rem;
+  font-weight: 700;
+`
+
+const SupportSectionDescription = styled.p`
+  margin: 0 0 0.55rem;
+  color: var(--second-text-color, rgba(255, 255, 255, 0.74));
+  font-size: 0.88rem;
+  line-height: 1.45;
+`
+
+const SupportPlanNotice = styled.div`
+  display: flex;
+  align-items: center;
   gap: 0.75rem;
-  margin: 1rem 0;
+  margin-top: 1rem;
+  padding: 0.85rem 1rem;
+  border-radius: 12px;
+  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+`
+
+const SupportPlanBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.3rem 0.65rem;
+  border-radius: 999px;
+  background: var(--glass-bg-primary, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--glass-border-light, rgba(255, 255, 255, 0.14));
+  color: var(--main-text-color, #fff);
+  font-size: 0.74rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+`
+
+const SupportPlanText = styled.div`
+  color: var(--second-text-color, rgba(255, 255, 255, 0.75));
+  font-size: 0.88rem;
+  line-height: 1.45;
+`
+
+const SupportHelpCard = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-top: 1rem;
+  padding: 1rem 1.1rem;
+  border-radius: 14px;
+  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+`
+
+const SupportHelpText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+`
+
+const SupportHelpTitle = styled.div`
+  color: var(--main-text-color, #fff);
+  font-size: 0.96rem;
+  font-weight: 700;
+`
+
+const SupportHelpDescription = styled.div`
+  color: var(--second-text-color, rgba(255, 255, 255, 0.72));
+  font-size: 0.88rem;
+  line-height: 1.45;
+`
+
+const FaqButton = styled.a`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  padding: 0.7rem 0.95rem;
+  border-radius: 10px;
+  text-decoration: none;
+  white-space: nowrap;
+  background: var(--glass-bg-primary, rgba(255, 255, 255, 0.08));
+  border: 1px solid var(--glass-border-light, rgba(255, 255, 255, 0.14));
+  color: var(--main-text-color, #fff);
+  font-size: 0.88rem;
+  font-weight: 700;
+  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.1));
+    border-color: var(--input-focus-border-color, var(--primary-accent));
+  }
+
+  svg {
+    font-size: 1rem;
+    color: var(--primary-accent, var(--main-unit-color));
+  }
 `
 
 const CategoryCard = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  padding: 1rem;
+  justify-content: flex-start;
+  gap: 0.35rem;
+  min-height: 168px;
+  padding: 0.9rem 0.8rem;
   background: ${props => props.selected 
     ? 'var(--glass-bg-primary, rgba(255, 255, 255, 0.15))' 
     : 'var(--glass-bg-secondary, rgba(255, 255, 255, 0.05))'};
@@ -1327,33 +1703,72 @@ const CategoryCard = styled.div`
     ? 'var(--primary-accent, #00ff00)' 
     : 'var(--glass-border, rgba(255, 255, 255, 0.1))'};
   border-radius: 12px;
-  cursor: pointer;
+  cursor: ${props => (props.disabled ? 'not-allowed' : 'pointer')};
+  opacity: ${props => (props.disabled ? 0.58 : 1)};
   transition: all 0.2s ease;
   text-align: center;
 
   &:hover {
-    transform: translateY(-2px);
-    border-color: var(--primary-accent, #00ff00);
-    background: var(--glass-bg-primary, rgba(255, 255, 255, 0.1));
+    transform: ${props => (props.disabled ? 'none' : 'translateY(-2px)')};
+    border-color: ${props => (props.disabled ? 'var(--glass-border, rgba(255, 255, 255, 0.1))' : 'var(--primary-accent, #00ff00)')};
+    background: ${props => (props.disabled ? 'var(--glass-bg-secondary, rgba(255, 255, 255, 0.05))' : 'var(--glass-bg-primary, rgba(255, 255, 255, 0.1))')};
+  }
+
+  @media (max-width: 768px) {
+    min-height: auto;
   }
 `
 
+const CategoryLockTag = styled.span`
+  margin-top: 0.2rem;
+  padding: 0.2rem 0.5rem;
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
+  border: 1px solid rgba(148, 163, 184, 0.2);
+  color: #cbd5e1;
+  font-size: 0.66rem;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+`
+
+const CategoryRouteTag = styled.span`
+  display: inline-flex;
+  align-items: center;
+  margin-top: 0.35rem;
+  padding: 0.24rem 0.55rem;
+  border-radius: 999px;
+  background: ${props =>
+    props.$route === 'github'
+      ? 'rgba(96, 165, 250, 0.14)'
+      : 'rgba(34, 197, 94, 0.14)'};
+  border: 1px solid ${props =>
+    props.$route === 'github'
+      ? 'rgba(96, 165, 250, 0.24)'
+      : 'rgba(34, 197, 94, 0.24)'};
+  color: ${props => (props.$route === 'github' ? '#93c5fd' : '#86efac')};
+  font-size: 0.68rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+`
+
 const CategoryIcon = styled.div`
-  font-size: 1.5rem;
-  margin-bottom: 0.5rem;
+  font-size: 1.35rem;
+  margin-bottom: 0.35rem;
   color: var(--primary-accent, #00ff00);
 `
 
 const CategoryLabel = styled.div`
   color: var(--main-text-color, #fff);
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 0.25rem;
+  font-size: 0.82rem;
+  font-weight: 700;
+  margin-bottom: 0.15rem;
 `
 
 const CategoryDescription = styled.div`
   color: var(--second-text-color, rgba(255, 255, 255, 0.7));
-  font-size: 0.7rem;
+  font-size: 0.68rem;
   line-height: 1.3;
 `
 
@@ -1380,6 +1795,27 @@ const MessageTextarea = styled.textarea`
   }
 `
 
+const SupportFieldGroup = styled.div`
+  margin-top: 1rem;
+`
+
+const SupportFieldLabel = styled.label`
+  display: block;
+  margin-bottom: 0.45rem;
+  color: var(--main-text-color, #fff);
+  font-size: 0.88rem;
+  font-weight: 700;
+`
+
+const SupportInput = styled.input`
+  width: 100%;
+  padding: 0.85rem 0.95rem;
+  border-radius: 10px;
+  background: var(--input-bg-color, rgba(255, 255, 255, 0.06));
+  border: 1px solid var(--input-border-color, rgba(255, 255, 255, 0.12));
+  color: var(--main-text-color, #fff);
+`
+
 const CharCount = styled.div`
   text-align: right;
   font-size: 0.75rem;
@@ -1393,6 +1829,98 @@ const SubmitSummary = styled.div`
   border-radius: 8px;
   padding: 1rem;
   margin: 1rem 0;
+`
+
+const SupportErrorText = styled.div`
+  margin: 0.85rem 0 0;
+  padding: 0.8rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.12);
+  border: 1px solid rgba(239, 68, 68, 0.22);
+  color: #fecaca;
+  font-size: 0.88rem;
+  line-height: 1.45;
+`
+
+const SupportPublicNotice = styled.div`
+  margin-top: 0.85rem;
+  padding: 0.8rem 0.9rem;
+  border-radius: 10px;
+  background: rgba(96, 165, 250, 0.12);
+  border: 1px solid rgba(96, 165, 250, 0.22);
+  color: #bfdbfe;
+  font-size: 0.86rem;
+  line-height: 1.45;
+`
+
+const AutoConfigCard = styled.div`
+  margin-top: 1rem;
+  padding: 1rem;
+  border-radius: 14px;
+  background: var(--glass-bg-secondary, rgba(255,255,255,0.05));
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.1));
+`
+
+const AutoConfigStatus = styled.div`
+  color: ${props =>
+    props.$status === 'success'
+      ? '#86efac'
+      : props.$status === 'error'
+        ? '#fca5a5'
+        : 'var(--main-text-color, #fff)'};
+  font-size: 1rem;
+  font-weight: 700;
+`
+
+const AutoConfigMeta = styled.div`
+  margin-top: 0.55rem;
+  color: var(--second-text-color, rgba(255,255,255,0.75));
+  font-size: 0.88rem;
+  line-height: 1.45;
+
+  strong {
+    color: var(--main-text-color, #fff);
+    word-break: break-word;
+  }
+`
+
+const AutoConfigButton = styled.button`
+  margin-top: 1rem;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  padding: 0.72rem 0.95rem;
+  border: 1px solid var(--glass-border-light, rgba(255,255,255,0.14));
+  border-radius: 10px;
+  background: var(--glass-bg-primary, rgba(255,255,255,0.08));
+  color: var(--main-text-color, #fff);
+  font-size: 0.88rem;
+  font-weight: 700;
+  cursor: pointer;
+  transition: transform 0.2s ease, border-color 0.2s ease;
+
+  &:hover {
+    transform: translateY(-1px);
+    border-color: var(--input-focus-border-color, var(--primary-accent));
+  }
+`
+
+const LoadedConfigPreview = styled.div`
+  margin-top: 1.25rem;
+`
+
+const LoadedConfigTitle = styled.h4`
+  margin: 0 0 0.35rem;
+  color: var(--main-text-color, #fff);
+  font-size: 1rem;
+  font-weight: 700;
+`
+
+const LoadedConfigText = styled.p`
+  margin: 0 0 0.9rem;
+  color: var(--second-text-color, rgba(255,255,255,0.75));
+  font-size: 0.9rem;
+  line-height: 1.45;
 `
 
 const SummaryRow = styled.div`
@@ -1565,7 +2093,7 @@ const ActionBtn = styled.button`
   padding: 0.5rem 0.75rem;
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.2));
   border-radius: 6px;
-  background: ${props => props.secondary 
+  background: ${props => props.$secondary 
     ? 'transparent' 
     : 'var(--glass-bg-secondary, rgba(255, 255, 255, 0.1))'};
   color: var(--main-text-color, #fff);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdDevices, MdTerminal, MdShowChart, MdVideocam } from 'react-icons/md';
+import { MdDevices, MdTerminal, MdVideocam } from 'react-icons/md';
 import BottomBar from '../Components/Navigation/BottomBar';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import RoomsCard from '../Components/Cards/RoomsCard';
@@ -15,11 +15,9 @@ import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
 import CameraCard from '../Components/Cards/ControlCards/CameraCard';
 
 import OtherSensors from '../Components/Cards/OtherSensors';
-import { usePremium } from '../Components/Context/OGBPremiumContext';
 
 const Home = () => {
   const { roomOptions } = useHomeAssistant();
-  const { isPremium } = usePremium();
   const [activeTab, setActiveTab] = useState('devices');
   
  

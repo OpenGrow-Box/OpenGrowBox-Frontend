@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars */
 import styled, { keyframes } from 'styled-components';
 import { useLocation } from 'react-router-dom';
+import PropTypes from 'prop-types';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import { FaArrowLeft, FaHome, FaLeaf } from 'react-icons/fa';
 import OGBIcon from '../misc/OGBIcon';
@@ -618,7 +620,7 @@ export default function NotFound404({ homeUrl = '/ogb-gui/home' }) {
 
     window.location.href = homeUrl;
   };
-
+  
   return (
     <Page>
       <Card>
@@ -680,3 +682,7 @@ export default function NotFound404({ homeUrl = '/ogb-gui/home' }) {
     </Page>
   );
 }
+
+NotFound404.propTypes = {
+  homeUrl: PropTypes.string,
+};

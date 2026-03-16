@@ -1,6 +1,6 @@
 import React from 'react'
 import styled from 'styled-components'
-import { MdThermostat, MdOpacity, MdWaterDrop, MdLightMode, MdEco } from 'react-icons/md'
+import { MdThermostat, MdOpacity, MdWaterDrop, MdLightMode, MdEco, MdScience, MdCompost } from 'react-icons/md'
 
 // Growth stage color scheme
 const stageColors = {
@@ -22,7 +22,10 @@ const parameterColors = {
   temperature: '#4CAF50', // Green spectrum
   humidity: '#2196F3', // Blue spectrum  
   vpd: '#FF9800', // Orange spectrum
-  light: '#FFC107' // Yellow/Gold spectrum
+  light: '#FFC107', // Yellow/Gold spectrum
+  ec: '#9C27B0', // Purple spectrum
+  ph: '#00BCD4', // Cyan spectrum
+  co2: '#E91E63', // Pink spectrum
 }
 
 const Wiz_minmax = ({ stage, stageName, icon, data, updateData, showDescription = true }) => {
@@ -173,6 +176,99 @@ const Wiz_minmax = ({ stage, stageName, icon, data, updateData, showDescription 
             <span>{stageData.maxLight}%</span>
           </RangeDisplay>
         </ConfigSection>
+
+        <ConfigSection paramColor={parameterColors.ec}>
+          <SectionTitle paramColor={parameterColors.ec}>
+            <MdCompost /> EC (mS/cm)
+          </SectionTitle>
+          <RangeInputWrapper
+            label="Min EC"
+            value={stageData.minEC}
+            onChange={(e) => updateStageData('minEC', parseFloat(e.target.value))}
+            min="0.1"
+            max="5.0"
+            step="0.1"
+            isEC={true}
+            paramColor={parameterColors.ec}
+          />
+          <RangeInputWrapper
+            label="Max EC"
+            value={stageData.maxEc}
+            onChange={(e) => updateStageData('maxEc', parseFloat(e.target.value))}
+            min="0.1"
+            max="5.0"
+            step="0.1"
+            isEC={true}
+            paramColor={parameterColors.ec}
+          />
+          <RangeDisplay paramColor={parameterColors.ec}>
+            <span>{stageData.minEC}</span>
+            <span>→</span>
+            <span>{stageData.maxEc}</span>
+          </RangeDisplay>
+        </ConfigSection>
+
+        <ConfigSection paramColor={parameterColors.ph}>
+          <SectionTitle paramColor={parameterColors.ph}>
+            <MdScience /> pH
+          </SectionTitle>
+          <RangeInputWrapper
+            label="Min pH"
+            value={stageData.minPh}
+            onChange={(e) => updateStageData('minPh', parseFloat(e.target.value))}
+            min="4.0"
+            max="8.0"
+            step="0.1"
+            isPH={true}
+            paramColor={parameterColors.ph}
+          />
+          <RangeInputWrapper
+            label="Max pH"
+            value={stageData.maxPh}
+            onChange={(e) => updateStageData('maxPh', parseFloat(e.target.value))}
+            min="4.0"
+            max="8.0"
+            step="0.1"
+            isPH={true}
+            paramColor={parameterColors.ph}
+          />
+          <RangeDisplay paramColor={parameterColors.ph}>
+            <span>{stageData.minPh}</span>
+            <span>→</span>
+            <span>{stageData.maxPh}</span>
+          </RangeDisplay>
+        </ConfigSection>
+
+        <ConfigSection paramColor={parameterColors.co2}>
+          <SectionTitle paramColor={parameterColors.co2}>
+            <MdEco /> CO₂ (ppm)
+          </SectionTitle>
+          <RangeInputWrapper
+            label="Min CO₂"
+            value={stageData.minCo2}
+            onChange={(e) => updateStageData('minCo2', parseInt(e.target.value))}
+            min="200"
+            max="2000"
+            step="50"
+            isCO2={true}
+            paramColor={parameterColors.co2}
+          />
+          <RangeInputWrapper
+            label="Max CO₂"
+            value={stageData.maxCo2}
+            onChange={(e) => updateStageData('maxCo2', parseInt(e.target.value))}
+            min="200"
+            max="2000"
+            step="50"
+            isCO2={true}
+            paramColor={parameterColors.co2}
+          />
+          <RangeDisplay paramColor={parameterColors.co2}>
+            <span>{stageData.minCo2}</span>
+            <span>→</span>
+            <span>{stageData.maxCo2}</span>
+          </RangeDisplay>
+        </ConfigSection>
       </ConfigGrid>
 
 
@@ -200,6 +296,7 @@ const ConfigContainer = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
+  min-width: 0;
 `
 
 const StageHeader = styled.div`
@@ -267,10 +364,19 @@ const StageIcon = styled.div`
 
 const ConfigGrid = styled.div`
   display: grid;
-  grid-template-columns: 1fr 1fr;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 0.5rem;
+  min-width: 0;
   
-  @media (max-width: 768px) {
+  @media (max-width: 1200px) {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+  
+  @media (max-width: 900px) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  
+  @media (max-width: 600px) {
     grid-template-columns: 1fr;
     gap: 0.4rem;
   }
@@ -285,6 +391,7 @@ const ConfigSection = styled.div`
   position: relative;
   overflow: hidden;
   height: fit-content;
+  min-width: 0;
   
   &::before {
     content: '';
@@ -476,19 +583,27 @@ const StageDescription = styled.div`
 `
 
 // Enhanced input component for range values
-const RangeInputWrapper = ({ label, value, onChange, min, max, step, isLight = false, paramColor }) => (
-  <RangeInput paramColor={paramColor}>
-    <label>{label}</label>
-    <input
-      type="range"
-      value={value}
-      onChange={onChange}
-      min={min}
-      max={max}
-      step={step}
-    />
-    <div className="value-display">{value}{isLight ? '%' : ''}</div>
-  </RangeInput>
-)
+const RangeInputWrapper = ({ label, value, onChange, min, max, step, isLight = false, isEC = false, isPH = false, isCO2 = false, paramColor }) => {
+  let suffix = ''
+  if (isLight) suffix = '%'
+  else if (isEC) suffix = ''
+  else if (isPH) suffix = ''
+  else if (isCO2) suffix = ''
+  
+  return (
+    <RangeInput paramColor={paramColor}>
+      <label>{label}</label>
+      <input
+        type="range"
+        value={value}
+        onChange={onChange}
+        min={min}
+        max={max}
+        step={step}
+      />
+      <div className="value-display">{value}{suffix}</div>
+    </RangeInput>
+  )
+}
 
 export default Wiz_minmax

@@ -126,13 +126,15 @@ const DashboardSlider = () => {
         <FilterToggle>
           <FilterOption 
             $active={filterByRoom} 
-            onClick={() => setFilterByRoom(true)}
+            $disabled={currentIndex === 11 || currentIndex === 12}
+            onClick={() => currentIndex !== 11 && currentIndex !== 12 && setFilterByRoom(true)}
           >
             Room
           </FilterOption>
           <FilterOption 
             $active={!filterByRoom} 
-            onClick={() => setFilterByRoom(false)}
+            $disabled={currentIndex === 11 || currentIndex === 12}
+            onClick={() => currentIndex !== 11 && currentIndex !== 12 && setFilterByRoom(false)}
           >
             All
           </FilterOption>
@@ -259,13 +261,14 @@ const FilterOption = styled.button`
   background: ${props => props.$active ? 'var(--primary-button-color)' : 'transparent'};
   border: none;
   border-radius: 10px;
-  cursor: pointer;
-  color: ${props => props.$active ? '#fff' : 'var(--main-text-color)'};
+  cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
+  color: ${props => props.$disabled ? 'var(--main-unit-color)' : (props.$active ? '#fff' : 'var(--main-text-color)')};
   font-size: 0.7rem;
   font-weight: 500;
   transition: all 0.2s ease;
+  opacity: ${props => props.$disabled ? 0.5 : 1};
 
   &:hover {
-    background: ${props => props.$active ? 'var(--primary-button-color)' : 'rgba(255, 255, 255, 0.1)'};
+    background: ${props => props.$disabled ? 'transparent' : (props.$active ? 'var(--primary-button-color)' : 'rgba(255, 255, 255, 0.1)')};
   }
 `;

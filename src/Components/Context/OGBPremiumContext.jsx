@@ -18,6 +18,10 @@ export const OGBPremiumProvider = ({ children }) => {
   const [subscription, setSubscription] = useState(null);
   const [userProfile, setUserProfile] = useState(null);
   const [maxRoomsReached,setMaxRoomsReached] = useState(false)
+  
+  // CRITICAL: Block room switching while a switch is in progress
+  // This prevents race conditions where user can add more rooms than allowed
+  const [isRoomSwitching, setIsRoomSwitching] = useState(false);
 
   // Mutex to prevent concurrent async operations
   const operationLockRef = useRef(false);
@@ -275,11 +279,12 @@ export const OGBPremiumProvider = ({ children }) => {
             restored: true // Flag to indicate this was a restore, not fresh login
           });
           
-
           
+
           // Load grow plans in background
           try {
-            await getGrowPlans(roomForRestore || currentRoom);
+            const restoredRoom = data?.room || getActualRoom() || currentRoom;
+            await getGrowPlans(restoredRoom);
             console.log('✅ Grow plans loaded after state restore');
           } catch (error) {
             console.error('⚠️ Error loading grow plans after restore:', error);
@@ -299,11 +304,29 @@ export const OGBPremiumProvider = ({ children }) => {
         case "Connect Success":
           setOGBSessions(data?.ogb_sessions);
           setOgbMaxConnections(data?.ogb_max_sessions);
+          setSubscription((prev) => prev ? ({
+            ...prev,
+            usage: {
+              ...(prev.usage || {}),
+              activeConnections: data?.active_connections ?? (typeof data?.ogb_sessions === 'object' ? data.ogb_sessions?.active : data?.ogb_sessions),
+              activeRooms: data?.active_rooms ?? prev?.usage?.activeRooms ?? [],
+              roomsUsed: Array.isArray(data?.active_rooms) ? data.active_rooms.length : prev?.usage?.roomsUsed,
+            },
+          }) : prev);
           break;
 
         case "Disconnect Success":   
           setOGBSessions(data?.ogb_sessions);
           setOgbMaxConnections(data?.ogb_max_sessions);
+          setSubscription((prev) => prev ? ({
+            ...prev,
+            usage: {
+              ...(prev.usage || {}),
+              activeConnections: data?.active_connections ?? (typeof data?.ogb_sessions === 'object' ? data.ogb_sessions?.active : data?.ogb_sessions),
+              activeRooms: data?.active_rooms ?? prev?.usage?.activeRooms ?? [],
+              roomsUsed: Array.isArray(data?.active_rooms) ? data.active_rooms.length : prev?.usage?.roomsUsed,
+            },
+          }) : prev);
           break;
 
         default:
@@ -443,25 +466,48 @@ export const OGBPremiumProvider = ({ children }) => {
         unsubscribeUsage = await connection.subscribeEvents(
           (event) => {
             console.log('📊 Received api_usage_update:', event.data);
-            const { usage, timestamp, lastEndpoint, lastMethod } = event.data;
+            const { usage, timestamp, lastEndpoint, lastMethod, plan, features, limits } = event.data;
             
-            // Update subscription.usage with fresh data
-            if (usage) {
-              setSubscription(prev => {
-                if (!prev) return prev;
-                return {
-                  ...prev,
-                  usage: usage
-                };
-              });
+            // Update subscription with full structure (plan, features, limits, usage)
+            setSubscription(prev => {
+              if (!prev) return prev;
               
-              // Also update ogbSessions if activeConnections is provided
-              if (usage.activeConnections !== undefined) {
-                setOGBSessions(usage.activeConnections);
+              const newSubscription = {
+                ...prev,
+                usage: {
+                  ...(prev.usage || {}),
+                  ...usage,
+                  activeRooms: Array.isArray(usage.activeRooms) ? usage.activeRooms : (prev.usage?.activeRooms || []),
+                  roomsUsed: Array.isArray(usage.activeRooms) ? usage.activeRooms.length : (usage.roomsUsed ?? prev.usage?.roomsUsed ?? 0),
+                }
+              };
+              
+              // Update plan, features, limits if provided
+              if (plan) {
+                newSubscription.plan_name = plan;
+              }
+              if (features) {
+                newSubscription.features = features;
+              }
+              if (limits) {
+                newSubscription.limits = limits;
               }
               
-              console.log('✅ Subscription usage updated in real-time:', usage);
+              return newSubscription;
+            });
+            
+            // Also update ogbSessions if activeConnections is provided
+            if (usage?.activeConnections !== undefined) {
+              setOGBSessions(usage.activeConnections);
             }
+            
+            // Update currentPlan if plan changed
+            if (plan) {
+              setCurrentPlan(plan);
+              setIsPremium(plan !== 'free' && plan !== 'trial');
+            }
+            
+            console.log('✅ Subscription updated in real-time:', { plan, features, limits, usage });
           },
           "api_usage_update"
         );
@@ -498,7 +544,7 @@ export const OGBPremiumProvider = ({ children }) => {
         unsubscribeSession = await connection.subscribeEvents(
           (event) => {
             console.log('📊 Received session_update:', event.data);
-            const { active_sessions, max_sessions } = event.data;
+            const { active_sessions, max_sessions, active_rooms, roomsUsed } = event.data;
             
             // Update session counts with fresh data
             if (active_sessions !== undefined) {
@@ -507,7 +553,21 @@ export const OGBPremiumProvider = ({ children }) => {
             if (max_sessions !== undefined) {
               setOgbMaxConnections(max_sessions);
             }
-            console.log('✅ Session count updated in real-time:', { active_sessions, max_sessions });
+            setSubscription(prev => {
+              if (!prev) return prev;
+              return {
+                ...prev,
+                usage: {
+                  ...(prev.usage || {}),
+                  activeConnections: active_sessions ?? prev.usage?.activeConnections ?? 0,
+                  activeRooms: Array.isArray(active_rooms) ? active_rooms : (prev.usage?.activeRooms || []),
+                  roomsUsed: Array.isArray(active_rooms)
+                    ? active_rooms.length
+                    : (roomsUsed ?? prev.usage?.roomsUsed ?? 0),
+                },
+              };
+            });
+            console.log('✅ Session count updated in real-time:', { active_sessions, max_sessions, active_rooms, roomsUsed });
           },
           "session_update"
         );
@@ -558,7 +618,26 @@ export const OGBPremiumProvider = ({ children }) => {
               setSession(sharedSession);
               setAuthStatus('authenticated');
               setIsPremium(data.is_premium || false);
-              setSubscription(data.subscription_data || null);
+              setSubscription(prev => {
+                const nextSubscription = data.subscription_data || prev || null;
+                if (!nextSubscription) return nextSubscription;
+
+                const activeConnections = typeof data.ogb_sessions === 'object'
+                  ? (data.ogb_sessions?.active ?? data.ogb_sessions?.total ?? 0)
+                  : (data.ogb_sessions ?? nextSubscription?.usage?.activeConnections ?? 0);
+
+                return {
+                  ...nextSubscription,
+                  usage: {
+                    ...(nextSubscription.usage || {}),
+                    activeConnections,
+                    activeRooms: Array.isArray(nextSubscription?.usage?.activeRooms) ? nextSubscription.usage.activeRooms : [],
+                    roomsUsed: Array.isArray(nextSubscription?.usage?.activeRooms)
+                      ? nextSubscription.usage.activeRooms.length
+                      : (nextSubscription?.usage?.roomsUsed ?? 0),
+                  },
+                };
+              });
               setCurrentPlan(data.subscription_data?.plan_name || 'free');
               setOGBSessions(data.ogb_sessions || 0);
               setOgbMaxConnections(data.ogb_max_sessions || 0);
@@ -799,23 +878,33 @@ export const OGBPremiumProvider = ({ children }) => {
    * @returns {boolean} true if user CAN add a new room, false if limit reached
    */
   const canAddNewRoom = () => {
+    const currentSessions = normalizeSessionCount(ogbSessions);
     // If no max sessions set, allow (API will enforce)
     if (!ogbMaxSessions || ogbMaxSessions <= 0) {
       return true;
     }
     // Can add if current sessions < max sessions
-    return ogbSessions < ogbMaxSessions;
+    return currentSessions < ogbMaxSessions;
   };
 
   /**
    * Check if user has reached max room limit.
-   * @returns {boolean} true if limit reached, false if can add more
+   * CRITICAL: Also returns true if a room switch is in progress to prevent race conditions.
+   * @returns {boolean} true if limit reached or switching in progress, false if can add more
    */
   const isMaxRoomsReached = () => {
+    // CRITICAL: If we're currently switching rooms, block all room additions
+    // This prevents the race condition where user can add more rooms than allowed
+    if (isRoomSwitching) {
+      console.log('⏳ isMaxRoomsReached: TRUE (room switch in progress)');
+      return true;
+    }
+    
+    const currentSessions = normalizeSessionCount(ogbSessions);
     if (!ogbMaxSessions || ogbMaxSessions <= 0) {
       return false;
     }
-    return ogbSessions >= ogbMaxSessions;
+    return currentSessions >= ogbMaxSessions;
   };
 
   const getProfile = async () => {
@@ -964,6 +1053,33 @@ export const OGBPremiumProvider = ({ children }) => {
     });
   };
 
+  const normalizeSessionCount = (value) => {
+    if (typeof value === 'number') {
+      return value;
+    }
+
+    if (value && typeof value === 'object') {
+      return value.active ?? value.total ?? 0;
+    }
+
+    return 0;
+  };
+
+  const waitForRoomControlState = async (roomName, expectedState, timeoutMs = 12000) => {
+    const entityId = `select.ogb_maincontrol_${roomName.toLowerCase()}`;
+    const start = Date.now();
+
+    while (Date.now() - start < timeoutMs) {
+      const entityState = entities?.[entityId]?.state;
+      if (entityState === expectedState) {
+        return true;
+      }
+      await new Promise((resolve) => setTimeout(resolve, 400));
+    }
+
+    return false;
+  };
+
   const refreshProfile = async () => {
     try {
       await loadUserProfile(true);
@@ -999,7 +1115,10 @@ export const OGBPremiumProvider = ({ children }) => {
         },
       });
 
-      console.log(`✅ Room ${roomToDisconnect} disconnected from Premium`);
+      console.log(`✅ Room ${roomToDisconnect} disconnected from Premium (service call sent)`);
+
+      // Don't wait for the state to change - just continue
+      // The backend will handle the state change asynchronously
       
       // Reset maxRoomsReached flag since we freed up a slot
       setMaxRoomsReached(false);
@@ -1010,7 +1129,8 @@ export const OGBPremiumProvider = ({ children }) => {
       return true;
     } catch (error) {
       console.error(`❌ Failed to disconnect room ${roomToDisconnect}:`, error);
-      throw error;
+      // Continue anyway - the user wanted to switch, so try to set the new room to Premium
+      return false;
     }
   };
 
@@ -1029,34 +1149,121 @@ export const OGBPremiumProvider = ({ children }) => {
     try {
       console.log(`🔄 Switching Premium from ${fromRoom} to ${toRoom}...`);
       
-      // Step 1: Disconnect old room
+      // CRITICAL: Set switching state to block other room changes
+      setIsRoomSwitching(true);
+      
+      // Step 1: Disconnect old room - this triggers backend to disconnect WebSocket
       await disconnectRoom(fromRoom);
       
-      // Step 2: Wait a moment for backend to process the disconnect
-      await new Promise(resolve => setTimeout(resolve, 500));
+      // Step 2: Wait for backend to fully process the disconnect
+      // The WebSocket needs time to close and free up the session slot
+      await new Promise(resolve => setTimeout(resolve, 4000));
       
-      // Step 3: Connect new room
+      // Step 3: Force refresh user profile to get accurate session state
+      await loadUserProfile(true);
+      
+      // Step 4: Set new room to Premium - with retry mechanism
       const newRoomEntityId = `select.ogb_maincontrol_${toRoom.toLowerCase()}`;
       
-      await connection.sendMessagePromise({
-        type: 'call_service',
-        domain: 'select',
-        service: 'select_option',
-        service_data: { 
-          entity_id: newRoomEntityId, 
-          option: 'Premium' 
-        },
-      });
-
-      console.log(`✅ Premium switched from ${fromRoom} to ${toRoom}`);
+      console.log(`📤 Setting ${toRoom} to Premium (with retry)...`);
       
-      // Refresh profile to get updated session counts
+      // Retry mechanism: try up to 5 times with increasing delay
+      let premiumConnected = false;
+      let attempts = 0;
+      const maxAttempts = 5;
+      
+      while (attempts < maxAttempts && !premiumConnected) {
+        if (attempts > 0) {
+          // Wait before retry - increasing delay
+          const delay = attempts * 1500;
+          console.log(`⏳ Retrying Premium switch for ${toRoom} in ${delay}ms...`);
+          await new Promise(resolve => setTimeout(resolve, delay));
+        }
+        
+        try {
+          // Send service call to set room to Premium
+          await connection.sendMessagePromise({
+            type: 'call_service',
+            domain: 'select',
+            service: 'select_option',
+            service_data: { 
+              entity_id: newRoomEntityId, 
+              option: 'Premium' 
+            },
+          });
+          
+          // Wait for state to update
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          
+          // CRITICAL: Get current state directly from Home Assistant, NOT from React context
+          const hass = connection;
+          const stateResponse = await hass.sendMessagePromise({
+            type: 'get_states',
+          });
+          
+          // Find the entity in the fresh state list
+          const freshEntity = stateResponse.find(e => e.entity_id === newRoomEntityId);
+          const currentState = freshEntity?.state;
+          
+          console.log(`🔍 Direct HA state check: ${newRoomEntityId} = ${currentState}`);
+          
+          if (currentState === 'Premium') {
+            premiumConnected = true;
+            console.log(`✅ ${toRoom} is now in Premium mode (attempt ${attempts + 1})`);
+            break;
+          } else {
+            console.log(`⚠️ ${toRoom} not in Premium yet (attempt ${attempts + 1}), state: ${currentState}`);
+          }
+          
+        } catch (err) {
+          console.warn(`⚠️ Error setting ${toRoom} to Premium (attempt ${attempts + 1}):`, err.message);
+        }
+        
+        attempts++;
+      }
+      
+      if (!premiumConnected) {
+        console.warn(`⚠️ ${toRoom} did not switch to Premium after ${maxAttempts} attempts, trying one more time...`);
+        
+        // LAST RESORT: Force set the state directly
+        try {
+          await connection.sendMessagePromise({
+            type: 'call_service',
+            domain: 'select',
+            service: 'select_option',
+            service_data: { 
+              entity_id: newRoomEntityId, 
+              option: 'Premium' 
+            },
+          });
+          
+          await new Promise(resolve => setTimeout(resolve, 2000));
+          
+          // Final check
+          const finalStateResponse = await connection.sendMessagePromise({ type: 'get_states' });
+          const finalEntity = finalStateResponse.find(e => e.entity_id === newRoomEntityId);
+          
+          if (finalEntity?.state === 'Premium') {
+            premiumConnected = true;
+            console.log(`✅ ${toRoom} FORCE SET to Premium!`);
+          }
+        } catch (err) {
+          console.error(`❌ Final force set failed:`, err.message);
+        }
+      }
+      
+      // Step 5: Final profile refresh
       await loadUserProfile(true);
+      
+      console.log(`✅ Premium switched from ${fromRoom} to ${toRoom}`);
       
       return true;
     } catch (error) {
       console.error(`❌ Failed to switch Premium from ${fromRoom} to ${toRoom}:`, error);
       throw error;
+    } finally {
+      // CRITICAL: Always release the switching lock, even on error
+      setIsRoomSwitching(false);
     }
   };
 
@@ -1065,12 +1272,14 @@ export const OGBPremiumProvider = ({ children }) => {
    * @returns {string[]} - Array of room names in Premium mode
    */
   const getPremiumRooms = () => {
+    // CRITICAL: Only check actual entity states, not subscription data which may be stale
     if (!entities) return [];
     
     const premiumRooms = [];
     Object.entries(entities).forEach(([key, entity]) => {
       const match = key.match(/^select\.ogb_maincontrol_(.+)$/);
       if (match && entity.state === 'Premium') {
+        // Keep original casing from entity name
         premiumRooms.push(match[1]);
       }
     });
@@ -1085,6 +1294,7 @@ export const OGBPremiumProvider = ({ children }) => {
         isPremium,
         isSubActive,
         ogbSessions,
+        activeSessionCount: normalizeSessionCount(ogbSessions),
         ogbMaxSessions,
         loading,
         subscription,
@@ -1097,6 +1307,8 @@ export const OGBPremiumProvider = ({ children }) => {
         activeGrowPlan,
         growPlans,
         currentPlan,
+        // CRITICAL: Room switching state to prevent race conditions
+        isRoomSwitching,
         ///
         login,
         logout,

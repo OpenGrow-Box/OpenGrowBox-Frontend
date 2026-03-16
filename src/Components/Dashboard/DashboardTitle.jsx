@@ -1,13 +1,59 @@
 import { motion, AnimatePresence } from 'framer-motion';
 import styled from 'styled-components';
 import { MdArrowBack, MdAutoAwesome } from 'react-icons/md';
+import { createPortal } from 'react-dom';
 import OGBIcon from '../../misc/OGBIcon'
 import Wizzard from '../Wizard/Wizzard';
-import { useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 
+const getWizardPortalTarget = (anchorElement) => {
+  const rootNode = anchorElement?.getRootNode?.();
+
+  if (rootNode && typeof rootNode.getElementById === 'function') {
+    const shadowOverlayRoot = rootNode.getElementById('overlay-root');
+    if (shadowOverlayRoot) {
+      return shadowOverlayRoot;
+    }
+
+    const reactContainer = rootNode.getElementById('react-container');
+    if (reactContainer) {
+      return reactContainer;
+    }
+  }
+
+  const reactContainer = document.getElementById('react-container');
+  return reactContainer || document.body;
+};
 
 const DashboardTitle = ({firstText,secondText,thirdText}) => {
   const [showWizzard, setShowWizzard] = useState(false);
+  const titleContainerRef = useRef(null);
+  const wizardPortalTarget = useMemo(() => {
+    if (typeof document === 'undefined') {
+      return null;
+    }
+
+    return getWizardPortalTarget(titleContainerRef.current);
+  }, [showWizzard]);
+
+  const wizardModal = showWizzard && wizardPortalTarget
+    ? createPortal(
+        <WizardOverlay>
+          <WizardBackdrop onClick={() => setShowWizzard(false)} />
+          <WizardContent>
+            <WizardCloseButton
+              onClick={() => setShowWizzard(false)}
+              whileHover={{ scale: 1.1 }}
+              whileTap={{ scale: 0.9 }}
+            >
+              ×
+            </WizardCloseButton>
+            <Wizzard onComplete={() => setShowWizzard(false)} />
+          </WizardContent>
+        </WizardOverlay>,
+        wizardPortalTarget
+      )
+    : null;
   
   const handleBackToHA = () => {
     // Try to navigate back to Home Assistant main interface
@@ -31,81 +77,68 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
   };
 
   return (
-    <TitleContainer>
-      <BackButton
-        onClick={handleBackToHA}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        title="Back to Home Assistant"
-      >
-        <MdArrowBack />
-      </BackButton>
-
-      <TitleContent>
-        <motion.span
-          initial={{ opacity: 0, x: -20 }}
-          animate={{ opacity: 1, x: 0 }}
-          transition={{ duration: 0.5 }}
+    <>
+      <TitleContainer ref={titleContainerRef}>
+        <BackButton
+          onClick={handleBackToHA}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          title="Back to Home Assistant"
         >
-          {firstText}
-        </motion.span>
+          <MdArrowBack />
+        </BackButton>
 
-        <motion.span
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 0.4, duration: 0.5 }}
-        >
-          {secondText}
-        </motion.span>
-
-        <motion.span
-          initial={{ opacity: 0, y: 20 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.6, duration: 0.5 }}
-          style={{ marginLeft: 0.4,marginTop:0.5 }}
-        >
-          {thirdText}
-        </motion.span>
-
-        <AnimatePresence>
-          <motion.div
-            key="cannabis"
-            initial={{ scale: 0, rotate: -90 }}
-            animate={{ scale: 1, rotate: 0 }}
-            exit={{ scale: 0, rotate: 90 }}
-            transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-            style={{ display: 'inline-block', margin: '0 8px' }}
+        <TitleContent>
+          <motion.span
+            initial={{ opacity: 0, x: -20 }}
+            animate={{ opacity: 1, x: 0 }}
+            transition={{ duration: 0.5 }}
           >
-            <OgbIcon/>
-          </motion.div>
-        </AnimatePresence>
-      </TitleContent>
-      
-      <WizardButton
-        onClick={() => setShowWizzard(true)}
-        whileHover={{ scale: 1.1 }}
-        whileTap={{ scale: 0.9 }}
-        title="Open Wizard - Quick setup guide"
-      >
-        <MdAutoAwesome />
-      </WizardButton>
-      
-      {showWizzard && (
-        <WizardOverlay>
-          <WizardBackdrop onClick={() => setShowWizzard(false)} />
-          <WizardContent>
-            <WizardCloseButton
-              onClick={() => setShowWizzard(false)}
-              whileHover={{ scale: 1.1 }}
-              whileTap={{ scale: 0.9 }}
+            {firstText}
+          </motion.span>
+
+          <motion.span
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 0.4, duration: 0.5 }}
+          >
+            {secondText}
+          </motion.span>
+
+          <motion.span
+            initial={{ opacity: 0, y: 20 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.6, duration: 0.5 }}
+            style={{ marginLeft: 0.4, marginTop: 0.5 }}
+          >
+            {thirdText}
+          </motion.span>
+
+          <AnimatePresence>
+            <motion.div
+              key="cannabis"
+              initial={{ scale: 0, rotate: -90 }}
+              animate={{ scale: 1, rotate: 0 }}
+              exit={{ scale: 0, rotate: 90 }}
+              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
+              style={{ display: 'inline-block', margin: '0 8px' }}
             >
-              ×
-            </WizardCloseButton>
-            <Wizzard />
-          </WizardContent>
-        </WizardOverlay>
-      )}
-    </TitleContainer>
+              <OgbIcon />
+            </motion.div>
+          </AnimatePresence>
+        </TitleContent>
+
+        <WizardButton
+          onClick={() => setShowWizzard(true)}
+          whileHover={{ scale: 1.1 }}
+          whileTap={{ scale: 0.9 }}
+          title="Open Wizard - Quick setup guide"
+        >
+          <MdAutoAwesome />
+        </WizardButton>
+      </TitleContainer>
+      {wizardModal}
+    </>
   );
 };
 
@@ -246,28 +279,35 @@ const WizardButton = styled(motion.button)`
       filter: drop-shadow(0 0 6px rgba(58, 217, 234, 0.6));
     }
   }
+
+  @media (max-width: 768px) {
+    right: 0.75rem;
+    top: 0.45rem;
+  }
 `;
 
 const WizardOverlay = styled.div`
   position: fixed;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
+  inset: 0;
   display: flex;
   align-items: center;
   justify-content: center;
-  z-index: 1000;
+  z-index: 20000;
+  padding: 1.5rem;
+  background: rgba(2, 6, 23, 0.72);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  overflow: auto;
+  pointer-events: auto;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
 `;
 
 const WizardBackdrop = styled.div`
   position: absolute;
-  top: 0;
-  left: 0;
-  width: 100%;
-  height: 100%;
-  background: rgba(0, 0, 0, 0.7);
-  backdrop-filter: blur(5px);
+  inset: 0;
 `;
 
 const WizardContent = styled.div`
@@ -275,12 +315,23 @@ const WizardContent = styled.div`
   background: var(--main-bg-card-color, rgba(53, 50, 50, 0.29));
   border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
   border-radius: 16px;
-  padding: 2rem;
-  max-width: 90vw;
-  max-height: 90vh;
-  overflow: auto;
+  width: min(1120px, 100%);
+  max-width: calc(100vw - 2rem);
+  height: min(820px, calc(100vh - 3rem));
+  max-height: calc(100vh - 3rem);
+  overflow: hidden;
   box-shadow: var(--main-shadow-art);
-  z-index: 1001;
+  z-index: 20001;
+  isolation: isolate;
+  margin: auto;
+
+  @media (max-width: 768px) {
+    width: 100%;
+    max-width: 100%;
+    height: min(100%, calc(100vh - 1.5rem));
+    max-height: calc(100vh - 1.5rem);
+    border-radius: 14px;
+  }
 `;
 
 const WizardCloseButton = styled(motion.button)`
@@ -299,6 +350,7 @@ const WizardCloseButton = styled(motion.button)`
   justify-content: center;
   font-size: 1.2rem;
   line-height: 1;
+  z-index: 2;
 
   &:hover {
     background: var(--glass-bg-primary, rgba(255, 255, 255, 0.12));

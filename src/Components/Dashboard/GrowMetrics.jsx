@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { FaLeaf, FaChartBar, FaCircle, FaSync, FaBullseye, FaCheck, FaExclamationTriangle, FaTimes, FaChartArea, FaSeedling, FaCalendarAlt, FaClock, FaFlask } from 'react-icons/fa';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
-import { getThemeColor } from '../../utils/themeColors';
+import { createDefaultPlantStages } from '../Wizard/wizardHelpers';
 
 const LoadingIndicator = () => (
   <LoadingWrapper>
@@ -17,7 +17,7 @@ const LoadingIndicator = () => (
   </LoadingWrapper>
 );
 
-const GrowMetrics = ({ room = 'default' }) => {
+const GrowMetrics = () => {
   const [selectedMetric, setSelectedMetric] = useState('all');
   const [timeRange, setTimeRange] = useState('since_start');
   const [loading, setLoading] = useState(false);
@@ -63,150 +63,247 @@ const GrowMetrics = ({ room = 'default' }) => {
     vpd: { min: 1.1, max: 1.35, optimal: 1.2 },
     temperature: { min: 22, max: 28, optimal: (22 + 28) / 2 },
     humidity: { min: 50, max: 60, optimal: (50 + 60) / 2 },
-    co2: { min: 600, max: 1000, optimal: 800 },
+    co2: { min: 600, max: 1000, optimal: 850 },
     pH: { min: 5.8, max: 6.2, optimal: 6.0 },
-    EC: { min: 400.0, max: 5000, optimal: 2500 },
+    EC: { min: 400.0, max: 3000, optimal: 1500 },
   };
 
-  // Sensor Entity IDs - dynamisch aus verfügbaren Entities ermitteln
+  // Dynamic sensor type detection - simplified like Dashboard.jsx
+  const detectSensorType = (entity, selectedRoom) => {
+    const id = entity.entity_id?.toLowerCase() || '';
+    const attrs = entity.attributes || {};
+    const unit = (attrs.unit_of_measurement || '').toLowerCase();
+    const deviceClass = (attrs.device_class || '').toLowerCase();
+    
+    // Skip if no valid state
+    if (entity.state === undefined || entity.state === null) return null;
+    
+    // Check if has valid numeric value
+    const hasValidValue = !isNaN(parseFloat(entity.state));
+    if (!hasValidValue) return null;
+    
+    // Skip non-sensor entities
+    if (!id.startsWith('sensor.')) return null;
+    
+    // CO2: same logic as Dashboard.jsx
+    if (id.includes('co2') || id.includes('carbon') || id.includes('co₂')) return 'co2';
+    
+    // pH: ID contains ph
+    if (id.includes('ph') && !id.includes('phase')) return 'pH';
+    
+    // EC: ID contains ec, tds, or conductivity
+    if (id.includes('ec_') || id.includes('_ec') || id.includes('tds') || id.includes('conductivity')) return 'EC';
+    
+    // VPD: unit is kPa or ID contains vpd
+    if (unit === 'kpa' || id.includes('vpd')) return 'vpd';
+    
+    // Temperature: unit is °C/°F or device_class is temperature
+    if (unit.includes('°c') || unit.includes('°f') || deviceClass === 'temperature') return 'temperature';
+    
+    // Humidity: unit is % and device_class is humidity or ID contains humid/moisture
+    if (unit === '%' && (deviceClass === 'humidity' || id.includes('humid') || id.includes('moisture'))) return 'humidity';
+    
+    return null;
+  };
+
+  // Auto-detect sensor entities based on type - simplified like Dashboard.jsx
   const sensorEntities = useMemo(() => {
-    const room = currentRoom?.toLowerCase() || 'default';
-
-    // Definierte Sensor-Patterns für verschiedene Metriken
-    const patterns = {
-      vpd: [
-        `sensor.ogb_currentvpd_${room}`,
-      ],
-      temperature: [
-        `sensor.ogb_avgtemperature_${room}`,
-      ],
-      humidity: [
-        `sensor.ogb_avghumidity_${room}`,
-      ],
-      // Für pH, EC, CO₂ jetzt room-spezifische Patterns
-      pH: [`sensor.ogb_ph_${room}`, `sensor.${room}_ph`],
-      EC: [`sensor.ogb_ec_${room}`, `sensor.${room}_ec`],
-      co2: [`sensor.ogb_co2_${room}`, `sensor.${room}_co2`],
-    };
-
     const foundEntities = {};
-
-    Object.entries(patterns).forEach(([metric, pattern]) => {
-      if (Array.isArray(pattern)) {
-        // alte Logik: Liste von fixen Namen
-        for (const candidate of pattern) {
-          if (entities && entities[candidate]) {
-            foundEntities[metric] = candidate;
-            break;
-          }
-        }
-      } else if (pattern instanceof RegExp) {
-        // neue Logik: Regex-Suche
-        const match = Object.keys(entities || {}).find(eid => pattern.test(eid));
-        if (match) {
-          foundEntities[metric] = match;
-        }
+    
+    // Get all sensor entities
+    const allSensors = Object.values(entities || {}).filter(
+      e => e?.entity_id?.startsWith('sensor.')
+    );
+    
+    // Debug: log all sensor IDs
+    const allSensorIds = allSensors.map(e => e.entity_id).filter(id => 
+      id.includes('co2') || id.includes('ec') || id.includes('ph') || id.includes('humid') || id.includes('temp') || id.includes('vpd')
+    );
+    console.log('[GrowMetrics] Relevant sensors:', allSensorIds);
+    
+    // Auto-detect each sensor's type
+    allSensors.forEach(entity => {
+      const metricType = detectSensorType(entity, currentRoom);
+      if (metricType && !foundEntities[metricType]) {
+        foundEntities[metricType] = entity.entity_id;
+        console.log('[GrowMetrics] Detected:', metricType, '=', entity.entity_id, 'value:', entity.state);
       }
     });
 
+    console.log('[GrowMetrics] Auto-detected sensors:', foundEntities);
+    console.log('[GrowMetrics] Room:', currentRoom, '| Total sensors:', allSensors.length);
 
     return foundEntities;
   }, [entities, currentRoom]);
 
+  // Dynamic control entity detection based on entity name keywords
+  const detectControlEntity = (entity, selectedRoom) => {
+    const id = entity.entity_id?.toLowerCase() || '';
+    const name = id.split('.')[1] || '';
+    
+    // Check room association
+    const attrsRoom = entity.attributes?.room || entity.attributes?.area || '';
+    const entityRoom = name.replace(/^(ogb_|dev|_)/g, '').split('_')[0];
+    const belongsToRoom = !selectedRoom || 
+      name.includes(selectedRoom.toLowerCase()) ||
+      attrsRoom.toLowerCase() === selectedRoom.toLowerCase() ||
+      entityRoom === selectedRoom.toLowerCase();
+    
+    if (!belongsToRoom) return null;
+    
+    // Determine metric type based on keywords in entity name
+    let metric = null;
+    if (name.includes('temp') && !name.includes('compare')) metric = 'temperature';
+    else if (name.includes('hum')) metric = 'humidity';
+    else if (name.includes('vpd')) metric = 'vpd';
+    else if (name.includes('ph')) metric = 'pH';
+    else if (name.includes('ec') || name.includes('conductivity') || name.includes('tds')) metric = 'EC';
+    else if (name.includes('co2') || name.includes('carbon')) metric = 'co2';
+    
+    if (!metric) return null;
+    
+    // Determine bound type (min/max/optimal)
+    let bound = null;
+    if (name.includes('min')) bound = 'min';
+    else if (name.includes('max')) bound = 'max';
+    else if (name.includes('target') || name.includes('optimal') || name.includes('opt')) bound = 'optimal';
+    
+    if (!bound) return null;
+    
+    return { metric, bound };
+  };
 
+  // Auto-detect control entities (target min/max/optimal values)
   const controlEntities = useMemo(() => {
-    const room = currentRoom?.toLowerCase() || 'default';
-
-    const patterns = {
-      temperature: {
-        min: [`number.ogb_mintemp_${room}`],
-        max: [`number.ogb_maxtemp_${room}`],
-        optimal: [`number.ogb_opttemp_${room}`],
-      },
-      humidity: {
-        min: [`number.ogb_minhum_${room}`],
-        max: [`number.ogb_maxhum_${room}`],
-        optimal: [`number.ogb_opthum_${room}`],
-      },
-      vpd: {
-        min: [`sensor.ogb_current_vpd_target_min_${room}`],
-        max: [`sensor.ogb_current_vpd_target_max_${room}`],
-        optimal: [`sensor.ogb_current_vpd_target_${room}`],
-      },
-      co2: {
-        min: [`number.ogb_co2minvalue_${room}`],
-        max: [`number.ogb_co2maxvalue_${room}`],
-        optimal: [`number.ogb_co2targetvalue_${room}`],
-      },
-      pH: {
-        min: [`number.ogb_minph_${room}`, `number.${room}_ph_min`],
-        max: [`number.ogb_maxph_${room}`, `number.${room}_ph_max`],
-        optimal: [`number.ogb_feed_ph_target_${room}`],
-      },
-      EC: {
-        min: [`number.ogb_minec_${room}`, `number.${room}_ec_min`],
-        max: [`number.ogb_maxec_${room}`, `number.${room}_ec_max`],
-        optimal: [`number.ogb_feed_ec_target_${room}`],
-      },
+    const found = { 
+      temperature: {}, 
+      humidity: {}, 
+      vpd: {}, 
+      pH: {}, 
+      EC: {}, 
+      co2: {} 
     };
-
-    const found = {};
-    Object.entries(patterns).forEach(([metric, limits]) => {
-      found[metric] = {};
-      Object.entries(limits).forEach(([bound, entityPatterns]) => {
-        for (const pattern of entityPatterns) {
-          if (entities && entities[pattern]) {
-            found[metric][bound] = pattern;
-            break;
-          }
-        }
-      });
+    
+    // Get all number entities and sensor entities that might be targets
+    const allEntities = Object.values(entities || {}).filter(e => {
+      if (!e?.entity_id) return false;
+      const id = e.entity_id.toLowerCase();
+      return id.startsWith('number.') || 
+             (id.startsWith('sensor.') && (id.includes('target') || id.includes('min') || id.includes('max')));
     });
-
+    
+    allEntities.forEach(entity => {
+      const result = detectControlEntity(entity, currentRoom);
+      if (result && !found[result.metric][result.bound]) {
+        found[result.metric][result.bound] = entity.entity_id;
+      }
+    });
+    
+    console.log('[GrowMetrics] Dynamic control entities:', found);
+    console.log('[GrowMetrics] Room:', currentRoom, '| Total control entities:', allEntities.length);
+    
     return found;
   }, [entities, currentRoom]);
 
-  // Kombiniere Control Entities Werte mit Default Werten als Fallback
+  // Kombiniere Target Values aus: Wizard Defaults → HA Entities → Hardcoded
+  /* eslint-disable react/prop-types */
   const loadedTargetValues = useMemo(() => {
     const result = {};
+    
+    // Get current plant stage from HA
+    const plantStageEntity = entities?.[`select.ogb_plantstage_${currentRoom?.toLowerCase()}`];
+    const currentPlantStage = plantStageEntity?.state?.toLowerCase() || 'germination';
+    
+    // Mapping from HA stage name to wizard stage key
+    const stageMapping = {
+      'germination': 'germination',
+      'clones': 'clones', 
+      'earlyveg': 'earlyVeg',
+      'midveg': 'midVeg',
+      'lateveg': 'lateVeg',
+      'earlyflower': 'earlyFlower',
+      'midflower': 'midFlower',
+      'lateflower': 'lateFlower',
+    };
+    
+    const wizardStageKey = stageMapping[currentPlantStage] || 'germination';
+    
+    // Get wizard default plant stages
+    const wizardDefaults = createDefaultPlantStages();
+    const currentStageData = wizardDefaults[wizardStageKey] || wizardDefaults.germination;
+    
+    console.log('[GrowMetrics] Current plant stage:', currentPlantStage, '->', wizardStageKey);
+    console.log('[GrowMetrics] Using stage defaults:', currentStageData);
 
     Object.keys(defaultTargetValues).forEach(metric => {
       const controlEntity = controlEntities[metric];
       const defaultValues = defaultTargetValues[metric];
 
+      // Starte mit Defaults
       result[metric] = {
         min: defaultValues.min,
         max: defaultValues.max,
         optimal: defaultValues.optimal
       };
 
-      // Wenn Control Entities verfügbar sind, deren Werte verwenden
+      // Priority 1: Lese aus Plant Stages (Wizard Daten)
+      if (currentStageData) {
+        if (metric === 'pH') {
+          if (currentStageData.minPh != null) result[metric].min = currentStageData.minPh;
+          if (currentStageData.maxPh != null) result[metric].max = currentStageData.maxPh;
+        }
+        if (metric === 'EC') {
+          if (currentStageData.minEC != null) result[metric].min = currentStageData.minEC;
+          if (currentStageData.maxEc != null) result[metric].max = currentStageData.maxEc;
+        }
+        if (metric === 'co2') {
+          if (currentStageData.minCo2 != null) result[metric].min = currentStageData.minCo2;
+          if (currentStageData.maxCo2 != null) result[metric].max = currentStageData.maxCo2;
+        }
+        if (metric === 'temperature') {
+          if (currentStageData.minTemp != null) result[metric].min = currentStageData.minTemp;
+          if (currentStageData.maxTemp != null) result[metric].max = currentStageData.maxTemp;
+        }
+        if (metric === 'humidity') {
+          if (currentStageData.minHumidity != null) result[metric].min = currentStageData.minHumidity;
+          if (currentStageData.maxHumidity != null) result[metric].max = currentStageData.maxHumidity;
+        }
+        if (metric === 'vpd') {
+          if (currentStageData.minVPD != null) result[metric].min = currentStageData.minVPD;
+          if (currentStageData.maxVPD != null) result[metric].max = currentStageData.maxVPD;
+        }
+      }
+
+      // Priority 2: Lese aus HA Control Entities (überschreibt Plant Stages Werte)
       if (controlEntity && entities) {
         if (controlEntity.min && entities[controlEntity.min]) {
           const minValue = parseFloat(entities[controlEntity.min].state);
-          if (!isNaN(minValue)) {
+          if (!isNaN(minValue) && minValue > 0) {
             result[metric].min = minValue;
           }
         }
 
         if (controlEntity.max && entities[controlEntity.max]) {
           const maxValue = parseFloat(entities[controlEntity.max].state);
-          if (!isNaN(maxValue)) {
+          if (!isNaN(maxValue) && maxValue > 0) {
             result[metric].max = maxValue;
           }
         }
 
         if (controlEntity.optimal && entities[controlEntity.optimal]) {
           const optimalValue = parseFloat(entities[controlEntity.optimal].state);
-          if (!isNaN(optimalValue)) {
+          if (!isNaN(optimalValue) && optimalValue > 0) {
             result[metric].optimal = optimalValue;
           }
         }
       }
+      
+      console.log(`[GrowMetrics] Target ${metric}:`, result[metric]);
     });
 
     return result;
-  }, [controlEntities, entities]);
+  }, [controlEntities, entities, currentMedium, mediums, currentMediumIndex, currentRoom]);
+  /* eslint-enable react/prop-types */
 
   // Format date for display
   const formatDate = (dateStr) => {
@@ -377,7 +474,16 @@ const GrowMetrics = ({ room = 'default' }) => {
           timestamp: new Date(reading.timestamp).toISOString()
         }));
 
-      setHistoricalData(sortedData);
+      // Performance: Sample data wenn zu viele Readings vorhanden
+      const maxReadings = 10000;
+      let sampledData = sortedData;
+      if (sortedData.length > maxReadings) {
+        const step = Math.ceil(sortedData.length / maxReadings);
+        sampledData = sortedData.filter((_, index) => index % step === 0);
+        console.log(`[GrowMetrics] Sampled data from ${sortedData.length} to ${sampledData.length} readings (step: ${step})`);
+      }
+
+      setHistoricalData(sampledData);
 
       // Target Values setzen
       setTargetValues(loadedTargetValues);
@@ -394,7 +500,7 @@ const GrowMetrics = ({ room = 'default' }) => {
   // Fetch data only when fetch parameters change
   useEffect(() => {
     fetchAllGrowData();
-  }, [timeRange, room, apiBaseUrl, token, currentMediumIndex, growStartDate]);
+  }, [timeRange, currentRoom, apiBaseUrl, token, currentMediumIndex, growStartDate]);
 
   // Update target values separately (doesn't trigger data fetch)
   useEffect(() => {
@@ -578,14 +684,14 @@ const GrowMetrics = ({ room = 'default' }) => {
     <Container>
       <Header>
         <Title><FaChartBar size={18} /> Analytics</Title>
-        <OverallScore score={overallScore.avgRange}>
+        <OverallScore $score={overallScore.avgRange}>
           Overall Range: {overallScore.avgRange}%
         </OverallScore>
-        <OverallScore score={overallScore.avgOptimal}>
+        <OverallScore $score={overallScore.avgOptimal}>
           Overall Optimal: {overallScore.avgOptimal}%
         </OverallScore>
         <LiveButton
-          isActive={isLive}
+          $isActive={isLive}
           onClick={() => setIsLive(!isLive)}
         >
           <FaCircle size={12} color={isLive ? 'var(--error-text-color)' : 'var(--disabled-text-color)'} /> {isLive ? 'Live' : 'Live Off'}
@@ -1242,24 +1348,24 @@ const Title = styled.h2`
 const OverallScore = styled.div`
   padding: 0.5rem 0.875rem;
   border-radius: 20px;
-  background: ${props => props.score >= 80 
+  background: ${props => props.$score >= 80 
     ? 'rgba(34, 197, 94, 0.15)' 
-    : props.score >= 60 
+    : props.$score >= 60 
       ? 'rgba(245, 158, 11, 0.15)' 
       : 'rgba(239, 68, 68, 0.15)'
   };
-  color: ${props => props.score >= 80 
+  color: ${props => props.$score >= 80 
     ? '#22c55e' 
-    : props.score >= 60 
+    : props.$score >= 60 
       ? '#f59e0b' 
       : '#ef4444'
   };
   font-weight: 600;
   font-size: 0.75rem;
   letter-spacing: 0.02em;
-  border: 1px solid ${props => props.score >= 80
+  border: 1px solid ${props => props.$score >= 80
     ? 'rgba(34, 197, 94, 0.3)'
-    : props.score >= 60
+    : props.$score >= 60
       ? 'rgba(245, 158, 11, 0.3)'
       : 'rgba(239, 68, 68, 0.3)'
   };
@@ -1611,15 +1717,15 @@ const SummaryPercentage = styled.div`
 const LiveButton = styled.button`
   padding: 0.5rem 0.875rem;
   border-radius: 20px;
-  background: ${props => props.isActive
+  background: ${props => props.$isActive
     ? 'rgba(239, 68, 68, 0.15)'
     : 'rgba(107, 114, 128, 0.15)'
   };
-  border: 1px solid ${props => props.isActive
+  border: 1px solid ${props => props.$isActive
     ? 'rgba(239, 68, 68, 0.3)'
     : 'rgba(255, 255, 255, 0.15)'
   };
-  color: ${props => props.isActive ? '#ef4444' : 'var(--second-text-color)'};
+  color: ${props => props.$isActive ? '#ef4444' : 'var(--second-text-color)'};
   font-weight: 600;
   font-size: 0.75rem;
   cursor: pointer;
@@ -1629,12 +1735,12 @@ const LiveButton = styled.button`
   gap: 0.375rem;
   white-space: nowrap;
 
-  ${props => props.isActive && `
+  ${props => props.$isActive && `
     animation: livePulse 2s ease-in-out infinite;
   `}
 
   &:hover {
-    background: ${props => props.isActive
+    background: ${props => props.$isActive
       ? 'rgba(239, 68, 68, 0.25)'
       : 'rgba(107, 114, 128, 0.25)'
     };

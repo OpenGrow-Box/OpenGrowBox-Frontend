@@ -3,24 +3,29 @@ import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
-import { classifyAndNormalize } from './sensorClassifier';
+import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 import { getThemeColor } from '../../../utils/themeColors';
 
-const AllTemps = ({ pause, resume, isPlaying }) => {
-  const { entities } = useHomeAssistant();
+const AllTemps = ({ pause, resume, isPlaying, filterByRoom }) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [allTempSensors, setAllTempSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
 
   useEffect(() => {
-    const normalizedSensors = classifyAndNormalize(entities)
+    let normalizedSensors = classifyAndNormalize(entities)
       .filter(s => 
         (s.category === "temperature" ) && 
-        s.context === "air"  // ← Hier der zusätzliche Filter!
+        s.context === "air"
       );
 
+    // Filter by current room if enabled
+    if (filterByRoom && currentRoom) {
+      normalizedSensors = filterSensorsByRoom(normalizedSensors, currentRoom);
+    }
+
     setAllTempSensors(normalizedSensors);
-  }, [entities]);
+  }, [entities, currentRoom, filterByRoom]);
 
 
   const getColorForValue = (value) => {

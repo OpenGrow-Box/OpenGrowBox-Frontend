@@ -2,26 +2,30 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
-import { classifyAndNormalize } from './sensorClassifier';
+import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 import { getThemeColor } from '../../../utils/themeColors';
 
-const AllHums = ({ pause, resume, isPlaying }) => {
-  const { entities,currentRoom } = useHomeAssistant();
+const AllHums = ({ pause, resume, isPlaying, filterByRoom }) => {
+  const { entities, currentRoom } = useHomeAssistant();
   const [allHumSensors, setHumSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
 
 useEffect(() => {
 
-  const normalizedSensors = classifyAndNormalize(entities)
+  let normalizedSensors = classifyAndNormalize(entities)
     .filter(s => 
       s.category === "humidity" &&
       s.context === "air"
-      //s.name?.toLowerCase().includes(currentRoom.toLowerCase()) // <- hier prüfen wir den Namen
     );
 
+  // Filter by current room if enabled
+  if (filterByRoom && currentRoom) {
+    normalizedSensors = filterSensorsByRoom(normalizedSensors, currentRoom);
+  }
+
   setHumSensors(normalizedSensors);
-}, [entities, currentRoom]);
+}, [entities, currentRoom, filterByRoom]);
 
 
 

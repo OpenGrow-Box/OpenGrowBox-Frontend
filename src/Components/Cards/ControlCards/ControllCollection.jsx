@@ -41,9 +41,27 @@ const dynamicFilters = {
           'ogb_mpc_control_': 'Control horizon for MPC controller'
         }
       },
+      'AI Control': {
+        includeKeywords: ['mpc', 'model', 'predictive'],
+        excludeKeywords: ['drying', 'mpc', 'hydro','target',"crop","dampening","ambient"],
+        additionalTooltips: {
+          'ogb_mpc_horizon_': 'Prediction horizon for MPC controller',
+          'ogb_mpc_control_': 'Control horizon for MPC controller'
+        }
+      },
       'VPD Target': {
         includeKeywords: ['leaf'],
         excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop"],
+        additionalTooltips: {}
+      },
+      'Closed Environment': {
+        includeKeywords: ['leaf'],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light","planttype"],
+        additionalTooltips: {}
+      },
+      'Script Mode': {
+        includeKeywords: ['leaf'],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light","planttype"],
         additionalTooltips: {}
       },
       'Disabled': {
@@ -353,7 +371,7 @@ const dynamicFilters = {
       },
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ["retriveduration","retriveintervall"],
+        excludeKeywords: ["retriveduration","retriveintervall","light"],
         additionalTooltips: { }
       }
 
@@ -479,7 +497,7 @@ const groupMappings = {
     excludeKeywords: ['Device', 'water', 'hydro'],
   },
   'Special Settings': {
-    includeKeywords: ['area','medium','console','planttype'],
+    includeKeywords: ['area','medium','console','planttype','season'],
     excludeKeywords: ["mediumctrl",'determination'],
   },
   'Targets': {

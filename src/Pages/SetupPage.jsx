@@ -23,7 +23,7 @@ const SetupPage = () => {
   const [inputServerUrl, setInputServerUrl] = useState(import.meta.env.VITE_HA_HOST || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [pendingToken, setPendingToken] = useState(null);
-  const { setDeep, accessToken } = useGlobalState();
+  const { setDeep } = useGlobalState();
   const navigate = useNavigate();
   const { connection, reconnect, loading, error, connectionState, setError } = useHomeAssistant();
   
