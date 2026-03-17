@@ -660,13 +660,36 @@ const CameraCard = () => {
 
                 // Decode base64 and trigger download
                 try {
-                  // Decode base64 data
-                  const byteCharacters = atob(data.file_data);
-                  const byteNumbers = new Array(byteCharacters.length);
-                  for (let i = 0; i < byteCharacters.length; i++) {
-                    byteNumbers[i] = byteCharacters.charCodeAt(i);
+                  // Handle chunked base64 data (array of chunks) or single string
+                  let byteArray;
+
+                  if (Array.isArray(data.file_data)) {
+                    // Chunked data - decode each chunk and concatenate
+                    // First, calculate total size for efficient pre-allocation
+                    let totalSize = 0;
+                    const decodedChunks = [];
+                    for (const chunk of data.file_data) {
+                      const byteCharacters = atob(chunk);
+                      decodedChunks.push(byteCharacters);
+                      totalSize += byteCharacters.length;
+                    }
+
+                    // Pre-allocate and fill in one pass
+                    byteArray = new Uint8Array(totalSize);
+                    let offset = 0;
+                    for (const byteCharacters of decodedChunks) {
+                      for (let i = 0; i < byteCharacters.length; i++) {
+                        byteArray[offset++] = byteCharacters.charCodeAt(i);
+                      }
+                    }
+                  } else {
+                    // Single string data (legacy format)
+                    const byteCharacters = atob(data.file_data);
+                    byteArray = new Uint8Array(byteCharacters.length);
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                      byteArray[i] = byteCharacters.charCodeAt(i);
+                    }
                   }
-                  const byteArray = new Uint8Array(byteNumbers);
 
                   // Determine MIME type based on format
                   const mimeType = data.format === 'mp4' ? 'video/mp4' : 'application/zip';
@@ -954,13 +977,37 @@ const CameraCard = () => {
             if (data.camera_entity === selectedCamera) {
               setIsDownloadingZip(false);
               if (data.success && data.zip_data) {
-                // Convert base64 to blob and trigger download
-                const byteCharacters = atob(data.zip_data);
-                const byteNumbers = new Array(byteCharacters.length);
-                for (let i = 0; i < byteCharacters.length; i++) {
-                  byteNumbers[i] = byteCharacters.charCodeAt(i);
+                // Handle chunked base64 data (array of chunks) or single string
+                let byteArray;
+
+                if (Array.isArray(data.zip_data)) {
+                  // Chunked data - decode each chunk and concatenate
+                  // First, calculate total size for efficient pre-allocation
+                  let totalSize = 0;
+                  const decodedChunks = [];
+                  for (const chunk of data.zip_data) {
+                    const byteCharacters = atob(chunk);
+                    decodedChunks.push(byteCharacters);
+                    totalSize += byteCharacters.length;
+                  }
+
+                  // Pre-allocate and fill in one pass
+                  byteArray = new Uint8Array(totalSize);
+                  let offset = 0;
+                  for (const byteCharacters of decodedChunks) {
+                    for (let i = 0; i < byteCharacters.length; i++) {
+                      byteArray[offset++] = byteCharacters.charCodeAt(i);
+                    }
+                  }
+                } else {
+                  // Single string data (legacy format)
+                  const byteCharacters = atob(data.zip_data);
+                  byteArray = new Uint8Array(byteCharacters.length);
+                  for (let i = 0; i < byteCharacters.length; i++) {
+                    byteArray[i] = byteCharacters.charCodeAt(i);
+                  }
                 }
-                const byteArray = new Uint8Array(byteNumbers);
+
                 const blob = new Blob([byteArray], { type: 'application/zip' });
                 const blobUrl = URL.createObjectURL(blob);
 
