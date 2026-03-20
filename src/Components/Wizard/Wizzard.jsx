@@ -1,7 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { motion, } from 'framer-motion'
-import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdWaterDrop, MdLightMode, MdThermostat, MdOpacity, MdSettings, MdTune, MdDeviceThermostat, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdDelete, MdRefresh, MdNotifications } from 'react-icons/md'
+import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdWaterDrop, MdLightMode, MdThermostat, MdOpacity, MdSettings, MdTune, MdDeviceThermostat, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdDelete, MdRefresh, MdNotifications, MdDevices, MdLabel, MdEdit, MdSave, MdSearch, MdClose, MdAutoAwesome, MdList, MdOutlineLabel, MdWindPower } from 'react-icons/md'
 import Wiz_minmax from './Wiz_minmax'
 import { usePremium } from '../Context/OGBPremiumContext'
 import { useHomeAssistant } from '../Context/HomeAssistantContext'
@@ -23,8 +23,8 @@ import {
 } from './wizardHelpers'
 import { createPlantStagesStepComponents } from './steps/plantStagesSteps'
 import { createSupportStepComponents } from './steps/supportSteps'
-import { createAdvancedStepComponents } from './steps/advancedSteps'
 import { createDebugStepComponents } from './steps/debugSteps'
+import { createSetupStepComponents } from './steps/setupSteps'
 
 const Wizzard = ({ onComplete }) => {
   const { currentPlan, subscription, isLoggedIn, userEmail, userId } = usePremium()
@@ -154,13 +154,8 @@ const Wizzard = ({ onComplete }) => {
     supportContext: { currentRoom, userEmail, userId },
   })
 
-  const advancedStepsFactory = createAdvancedStepComponents({
-    icons: { MdSettings, MdNotifications, MdBugReport },
-    styles: { StepContent, WelcomeIcon, FeaturesList, FeatureItem },
-  })
-
   const debugStepsFactory = createDebugStepComponents({
-    icons: { MdDownload, MdRefresh },
+    icons: { MdDownload, MdRefresh, MdCheck },
     styles: {
       StepContent,
       SettingGroup,
@@ -176,6 +171,28 @@ const Wizzard = ({ onComplete }) => {
       ReportFeatures,
       ReportFeature,
       SubmitButton,
+    },
+    connection,
+    currentRoom,
+  })
+
+  const setupStepsFactory = createSetupStepComponents({
+    icons: { 
+      MdDevices, 
+      MdLabel, 
+      MdEdit, 
+      MdSave, 
+      MdSearch, 
+      MdClose,
+      MdAutoAwesome,
+      MdList,
+      MdOutlineLabel,
+      MdThermostat,
+      MdLightMode,
+      MdWindPower
+    },
+    styles: {
+      StepContent,
     },
     connection,
     currentRoom,
@@ -202,18 +219,17 @@ const Wizzard = ({ onComplete }) => {
   } = supportStepsFactory
 
   const {
-    AdvancedWelcomeStep,
-    SystemSettingsStep,
-    NotificationLogSettingsStep,
-    AutomationRulesStep,
-  } = advancedStepsFactory
+    DebugWelcomeStep,
+    LogViewerStep,
+  } = debugStepsFactory
 
   const {
-    DebugSettingsStep,
-    LogViewerStep,
-    DebugDataStep,
-    DebugReportStep,
-  } = debugStepsFactory
+    SetupWelcomeStep,
+    DeviceManagerStep,
+    EntityManagerStep,
+    LabelManagerStep,
+    AutoSetupStep,
+  } = setupStepsFactory
 
   const normalizedPlan = String(currentPlan || subscription?.plan_name || 'free').toLowerCase()
   const hasPrivateSupport = isLoggedIn && normalizedPlan !== 'free'
@@ -319,34 +335,7 @@ const Wizzard = ({ onComplete }) => {
       steps: plantStageSteps
     },
 
-    {
-      id: 'advanced',
-      title: 'Advanced',
-      icon: <MdSettings />,
-      description: 'Advanced system configuration',
-      steps: [
-        {
-          title: 'Advanced Configuration',
-          description: 'Configure advanced system parameters',
-          component: AdvancedWelcomeStep
-        },
-        {
-          title: 'Notifications & Logs',
-          description: 'Configure notifications and log types',
-          component: NotificationLogSettingsStep
-        },
-        {
-          title: 'System Settings',
-          description: 'Configure system-wide settings',
-          component: SystemSettingsStep
-        },
-        {
-          title: 'Automation Rules',
-          description: 'Configure automation rules and triggers',
-          component: AutomationRulesStep
-        }
-      ]
-    },
+
 
     {
       id: 'support',
@@ -371,7 +360,6 @@ const Wizzard = ({ onComplete }) => {
         }
       ]
     },
-
     {
       id: 'debug',
       title: 'Debug',
@@ -379,27 +367,50 @@ const Wizzard = ({ onComplete }) => {
       description: 'Debug logs and system info',
       steps: [
         {
-          title: 'Debug Settings',
-          description: 'Configure debug options',
-          component: DebugSettingsStep
+          title: 'Debug Tools',
+          description: 'Select a tool',
+          component: DebugWelcomeStep
         },
         {
           title: 'Log Viewer',
           description: 'View and analyze logs',
           component: LogViewerStep
         },
+      ]
+    },
+    {
+      id: 'setup',
+      title: 'Setup',
+      icon: <MdDevices />,
+      description: 'Manage devices and entities',
+      steps: [
         {
-          title: 'Debug Data',
-          description: 'Request datastore values',
-          component: DebugDataStep
+          title: 'Setup Tools',
+          description: 'Select a tool',
+          component: SetupWelcomeStep
         },
         {
-          title: 'Generate Report',
-          description: 'Generate debug report',
-          component: DebugReportStep
+          title: 'Device Manager',
+          description: 'View, edit, and auto-name devices',
+          component: DeviceManagerStep
+        },
+        {
+          title: 'Entity Manager',
+          description: 'Manage entity names and attributes',
+          component: EntityManagerStep
+        },
+        {
+          title: 'Label Manager',
+          description: 'Add and manage labels',
+          component: LabelManagerStep
+        },
+        {
+          title: 'Auto Setup',
+          description: 'Auto-generate logical names',
+          component: AutoSetupStep
         }
       ]
-    }
+    },
   ]
 
   const activeTabData = tabs.find(tab => tab.id === activeTab)
@@ -795,11 +806,6 @@ const Wizzard = ({ onComplete }) => {
           <HeaderMetaChip>
             {tabs.find((tab) => tab.id === activeTab)?.title}
           </HeaderMetaChip>
-          <HeaderMetaText>
-            Step {currentStep + 1} of {steps.length}
-          </HeaderMetaText>
-        </HeaderMeta>
-
         <StepIndicator>
           {steps.map((_, index) => (
             <StepDot
@@ -810,6 +816,12 @@ const Wizzard = ({ onComplete }) => {
             />
           ))}
         </StepIndicator>
+          <HeaderMetaText>
+            Step {currentStep + 1} of {steps.length}
+          </HeaderMetaText>
+        </HeaderMeta>
+
+
         <ProgressInfo>
           <StepTitle>{steps[currentStep].title}</StepTitle>
           <StepDescription>{steps[currentStep].description}</StepDescription>
@@ -934,7 +946,7 @@ const StepTitle = styled.h3`
   margin: 0 0 0.4rem 0;
   color: var(--main-text-color, #fff);
   font-size: 1.22rem;
-  font-weight: 700;
+  font-weight: 600;
   letter-spacing: -0.01em;
 
   @media (max-width: 768px) {
@@ -1514,7 +1526,7 @@ const TabIcon = styled.div`
 const TabContent = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.2rem;
+  gap: 0.1rem;
 `
 
 const TabTitle = styled.div`
@@ -1536,7 +1548,7 @@ const HeaderMeta = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 0.75rem;
-  margin-bottom: 0.85rem;
+  margin-bottom: 0.2rem;
 
   @media (max-width: 768px) {
     flex-direction: column;

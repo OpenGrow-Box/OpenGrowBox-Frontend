@@ -1,4 +1,4 @@
-import  { useState, useEffect, useRef } from 'react';
+import  { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage, FaExclamationTriangle } from 'react-icons/fa';
@@ -53,9 +53,10 @@ const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
 
 const VPDTargets = () => {
   const { entities, connection, currentRoom } = useHomeAssistant();
-  const [plantStage, setPlantStage] = useState('Germination');
+  const [plantStage, setPlantStage] = useState('EarlyVeg');
   const [tolerance, setTolerance] = useState(5);
-  const [error, setError] = useState('');
+  const [vpdTarget, setVpdTarget] = useState(null);
+  const [tentMode, setTentMode] = useState('');
 
   // 🔹 Entity-Werte aus HomeAssistant holen
   useEffect(() => {
@@ -96,16 +97,55 @@ const VPDTargets = () => {
       }
     };
 
+    const updateVpdTarget = () => {
+      try {
+        const target = Object.entries(entities)
+          .filter(([key, entity]) =>
+            key.startsWith('number.ogb_vpdtarget_') &&
+            key.toLowerCase().includes(currentRoom.toLowerCase())
+          )
+          .map(([_, entity]) => parseFloat(entity.state))
+          .filter(v => !isNaN(v));
+
+        if (target.length > 0 && target[0] !== vpdTarget) {
+          setVpdTarget(target[0]);
+        }
+      } catch (err) {
+        console.error('VPD target update error:', err);
+      }
+    };
+
+    const updateTentMode = () => {
+      try {
+        const mode = Object.entries(entities)
+          .filter(([key]) =>
+            key.startsWith('select.ogb_tentmode_') &&
+            key.toLowerCase().includes(currentRoom.toLowerCase())
+          )
+          .map(([_, entity]) => entity.state);
+
+        if (mode.length > 0 && mode[0] !== tentMode) {
+          setTentMode(mode[0]);
+        }
+      } catch (err) {
+        console.error('Tent mode update error:', err);
+      }
+    };
+
     const debouncedUpdate = () => {
       if (updateTimeout) clearTimeout(updateTimeout);
       updateTimeout = setTimeout(() => {
         updatePlantStage();
         updateTolerance();
+        updateVpdTarget();
+        updateTentMode();
       }, 100);
     };
 
     updatePlantStage();
     updateTolerance();
+    updateVpdTarget();
+    updateTentMode();
 
     // 🔹 Live-Updates aus HA
     if (connection) {
@@ -116,7 +156,9 @@ const VPDTargets = () => {
             const id = data.entity_id.toLowerCase();
             if (
               id.includes('ogb_plantstage_') ||
-              id.includes('ogb_vpdtolerance_')
+              id.includes('ogb_vpdtolerance_') ||
+              id.includes('ogb_vpdtarget_') ||
+              id.includes('ogb_tentmode_')
             ) {
               debouncedUpdate();
             }
@@ -131,17 +173,24 @@ const VPDTargets = () => {
         if (updateTimeout) clearTimeout(updateTimeout);
       };
     }
-  }, [entities, connection, currentRoom, plantStage, tolerance]);
+  }, [entities, connection, currentRoom]);
 
   // 🔹 Berechnung
   let vpdResults = { perfection: 0, perfectMin: 0, perfectMax: 0 };
+  let error = '';
   try {
-    const selectedStage = plantStages[plantStage];
-    if (!selectedStage) throw new Error(`Unknown stage: ${plantStage}`);
-    vpdResults = calculatePerfectVpd(selectedStage.vpdRange, tolerance);
+    const isVpdTargetMode = String(tentMode || '').toLowerCase().includes('target');
+
+    if (isVpdTargetMode && typeof vpdTarget === 'number' && !isNaN(vpdTarget)) {
+      vpdResults = calculatePerfectVpd([vpdTarget, vpdTarget], tolerance);
+    } else {
+      const selectedStage = plantStages[plantStage];
+      if (!selectedStage) throw new Error(`Unknown stage: ${plantStage}`);
+      vpdResults = calculatePerfectVpd(selectedStage.vpdRange, tolerance);
+    }
   } catch (err) {
     console.error(err);
-    setError(err.message);
+    error = err?.message || 'Unknown error';
   }
 
   // 🔹 Anzeige

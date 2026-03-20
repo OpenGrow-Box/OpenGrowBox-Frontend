@@ -51,7 +51,7 @@ const dynamicFilters = {
       },
       'VPD Target': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop"],
+        excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop",'hydro',"crop","ambient","light","planttype"],
         additionalTooltips: {}
       },
       'Closed Environment': {

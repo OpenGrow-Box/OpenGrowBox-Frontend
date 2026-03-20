@@ -1,7 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react'
+import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 export const createDebugStepComponents = ({ icons, styles, connection, currentRoom }) => {
-  const { MdDownload, MdRefresh } = icons
+  const { MdDownload, MdRefresh, MdCheck } = icons
   const {
     StepContent,
     SettingGroup,
@@ -27,35 +27,54 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
     { id: 'error', label: 'Error', color: '#e74c3c' },
   ]
 
-  const DebugSettingsStep = ({ data, updateData }) => (
-    <StepContent>
-      <h3>Debug Tools</h3>
-      <p>Tools for troubleshooting your OpenGrowBox system:</p>
-      <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem' }}>
-        <div style={{ padding: '1rem', background: 'var(--glass-bg-secondary)', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>Log Viewer</h4>
-          <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>View real-time logs from your grow box</p>
-        </div>
-        <div style={{ padding: '1rem', background: 'var(--glass-bg-secondary)', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>Debug Data</h4>
-          <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>Request internal data from the system</p>
-        </div>
-        <div style={{ padding: '1rem', background: 'var(--glass-bg-secondary)', borderRadius: '8px' }}>
-          <h4 style={{ margin: '0 0 0.5rem 0' }}>Generate Report</h4>
-          <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>Create a debug report for support</p>
-        </div>
+  const DebugWelcomeStep = ({ data, updateData, nextStep }) => {
+    const selectTool = (tool) => {
+      updateData({ selectedDebugTool: tool })
+      nextStep()
+    }
+
+    const ToolCard = ({ tool, title, description, icon }) => (
+      <div 
+        onClick={() => selectTool(tool)}
+        style={{ 
+          padding: '1rem', 
+          background: 'var(--glass-bg-secondary)', 
+          borderRadius: '8px',
+          cursor: 'pointer',
+          border: data.selectedDebugTool === tool ? '2px solid var(--primary-accent)' : '2px solid transparent',
+          transition: 'all 0.2s ease',
+        }}
+      >
+        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{icon}</div>
+        <h4 style={{ margin: '0 0 0.5rem 0' }}>{title}</h4>
+        <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>{description}</p>
       </div>
-    </StepContent>
-  )
+    )
+
+    return (
+      <StepContent>
+        <h3>Debug Tools</h3>
+        <p>Select a tool to troubleshoot your OpenGrowBox system:</p>
+        <div style={{ display: 'grid', gap: '1rem', marginTop: '1rem', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))' }}>
+          <ToolCard 
+            tool="logViewer" 
+            title="Log Viewer" 
+            description="View real-time and historical logs"
+            icon="📋"
+          />
+        </div>
+      </StepContent>
+    )
+  }
 
   const LogViewerStep = ({ data, updateData, connection, currentRoom }) => {
     const [logs, setLogs] = useState([])
     const [filterText, setFilterText] = useState('')
     const [levelFilter, setLevelFilter] = useState('all')
     const [loading, setLoading] = useState(false)
-    const [isInitialLoad, setIsInitialLoad] = useState(true)
     const [error, setError] = useState(null)
-    const [currentRequestId, setCurrentRequestId] = useState(null)
+    const hasLoadedRef = useRef(false)
+    const historyUnsubscribeRef = useRef(null)
 
     // Helper to extract message from various log data formats
     const extractMessage = (logData) => {
@@ -85,15 +104,32 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         return
       }
       
+      // Cleanup previous subscription
+      if (historyUnsubscribeRef.current) {
+        console.log('[Wizard Debug] Cleaning up previous subscription')
+        historyUnsubscribeRef.current.then((unsub) => {
+          if (unsub) unsub()
+        }).catch(() => {})
+        historyUnsubscribeRef.current = null
+      }
+      
       setLoading(true)
       setError(null)
       const requestId = `log_fetch_${Date.now()}`
-      setCurrentRequestId(requestId)
       console.log('[Wizard Debug] Fetching historical logs with requestId:', requestId, 'room:', currentRoom)
+      
+      let unsubscribed = false
+      const safeUnsubscribe = () => {
+        if (!unsubscribed) {
+          unsubscribed = true
+          return true
+        }
+        return false
+      }
       
       try {
         // Subscribe to response FIRST, then send request
-        const unsubscribe = await connection.subscribeEvents(
+        const unsubscribePromise = connection.subscribeEvents(
           (event) => {
             console.log('[Wizard Debug] Received ogbClientLogsResponse:', event?.data)
             if (event?.event_type === 'ogbClientLogsResponse') {
@@ -119,24 +155,33 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
                   message: extractMessage(log.data),
                   raw: log.data,
                   type: log.type,
+                  timestamp: log.timestamp,
                   isHistorical: true,
                 }))
                 console.log('[Wizard Debug] Parsed', historicalLogs.length, 'historical logs')
                 setLogs(prev => {
                   const realtime = prev.filter(l => !l.isHistorical)
-                  return [...realtime, ...historicalLogs.slice(0, 300)]
+                  const existingTimestamps = new Set(realtime.map(l => l.timestamp))
+                  const newHistorical = historicalLogs.filter(l => !existingTimestamps.has(l.timestamp))
+                  return [...realtime, ...newHistorical.slice(0, 300)]
                 })
+                hasLoadedRef.current = true
               } else {
                 console.log('[Wizard Debug] No logs in response, file might be empty')
-                setLogs([])
+                hasLoadedRef.current = true
               }
               setLoading(false)
-              setIsInitialLoad(false)
-              unsubscribe()
+              if (safeUnsubscribe()) {
+                unsubscribePromise.then((unsub) => {
+                  if (unsub) unsub()
+                }).catch(() => {})
+              }
             }
           },
           'ogbClientLogsResponse'
         )
+        
+        historyUnsubscribeRef.current = unsubscribePromise
 
         // Send request 
         console.log('[Wizard Debug] Sending getOGBClientLogs request')
@@ -154,31 +199,37 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         const timeoutId = setTimeout(() => {
           console.log('[Wizard Debug] Timeout - stopping loading')
           setLoading(false)
-          setIsInitialLoad(false)
-          unsubscribe()
+          if (safeUnsubscribe()) {
+            unsubscribePromise.then((unsub) => {
+              if (unsub) unsub()
+            }).catch(() => {})
+          }
         }, 15000)
 
         // Clear timeout if we get response
-        return () => clearTimeout(timeoutId)
+        return () => {
+          clearTimeout(timeoutId)
+          historyUnsubscribeRef.current = null
+        }
 
       } catch (e) {
         console.error('[Wizard Debug] Fetch historical logs failed:', e)
         setError(e.message || 'Failed to fetch logs')
         setLoading(false)
-        setIsInitialLoad(false)
+        hasLoadedRef.current = true
       }
     }, [connection, currentRoom])
 
     // Initial load - fetch historical logs
     useEffect(() => {
-      console.log('[Wizard Debug] Initial load check - connection:', !!connection, 'currentRoom:', currentRoom, 'isInitialLoad:', isInitialLoad)
-      if (connection && currentRoom && isInitialLoad) {
+      console.log('[Wizard Debug] Initial load check - connection:', !!connection, 'currentRoom:', currentRoom, 'hasLoaded:', hasLoadedRef.current)
+      if (connection && currentRoom && !hasLoadedRef.current) {
         fetchHistoricalLogs()
       }
-    }, [connection, currentRoom, fetchHistoricalLogs, isInitialLoad])
+    }, [connection, currentRoom, fetchHistoricalLogs])
 
     const handleRefresh = () => {
-      setLogs([])
+      setLogs(prev => prev.filter(l => !l.isHistorical))
       fetchHistoricalLogs()
     }
 
@@ -186,41 +237,32 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
     useEffect(() => {
       if (!connection) return
 
-      let unsubscribe = null
+      let unsubscribePromise = connection.subscribeEvents(
+        (event) => {
+          if (event?.event_type === 'LogForClient') {
+            const eventData = event.data || {}
+            const newLog = {
+              id: `realtime_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
+              time: event.time_fired ? new Date(event.time_fired).toLocaleTimeString() : new Date().toLocaleTimeString(),
+              level: (eventData.DebugType || eventData.type || 'INFO').toUpperCase(),
+              source: eventData.Name || eventData.name || currentRoom || 'OGB',
+              message: extractMessage(eventData),
+              raw: eventData,
+              type: eventData.DebugType || eventData.type,
+              isHistorical: false,
+            }
+            setLogs(prev => [newLog, ...prev.slice(0, 499)])
+          }
+        },
+        'LogForClient'
+      )
 
-      const setupSubscription = async () => {
-        try {
-          unsubscribe = await connection.subscribeEvents(
-            (event) => {
-              if (event?.event_type === 'LogForClient') {
-                const eventData = event.data || {}
-                const newLog = {
-                  id: `realtime_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-                  time: event.time_fired ? new Date(event.time_fired).toLocaleTimeString() : new Date().toLocaleTimeString(),
-                  level: (eventData.DebugType || eventData.type || 'INFO').toUpperCase(),
-                  source: eventData.Name || eventData.name || currentRoom || 'OGB',
-                  message: extractMessage(eventData),
-                  raw: eventData,
-                  type: eventData.DebugType || eventData.type,
-                  isHistorical: false,
-                }
-                setLogs(prev => [newLog, ...prev.slice(0, 499)])
-              }
-            },
-            'LogForClient'
-          )
-          console.log('[Wizard Debug] Subscribed to realtime LogForClient')
-        } catch (e) {
-          console.error('[Wizard Debug] Subscription failed:', e)
-        }
-      }
-
-      setupSubscription()
+      console.log('[Wizard Debug] Subscribed to realtime LogForClient')
 
       return () => {
-        if (unsubscribe) {
-          unsubscribe()
-        }
+        unsubscribePromise.then((unsubscribe) => {
+          if (unsubscribe) unsubscribe()
+        }).catch(() => {})
       }
     }, [connection, currentRoom])
 
@@ -339,177 +381,8 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
     )
   }
 
-  // Debug Data Viewer Step - requests specific data from backend
-  const DebugDataStep = ({ data, updateData, connection, currentRoom }) => {
-    const [debugData, setDebugData] = useState(null)
-    const [loading, setLoading] = useState(false)
-    const [selectedRequest, setSelectedRequest] = useState('all')
-
-    const requestOptions = [
-      { id: 'all', label: 'All Data' },
-      { id: 'plantStages', label: 'Plant Stages' },
-      { id: 'tentData', label: 'Tent Data' },
-      { id: 'vpd', label: 'VPD Data' },
-      { id: 'mediums', label: 'Mediums' },
-      { id: 'growData', label: 'Grow Data' },
-      { id: 'control', label: 'Control Settings' },
-    ]
-
-    const requestDebugData = useCallback(async () => {
-      if (!connection || !currentRoom) return
-
-      setLoading(true)
-      const requestId = `wizard_debug_${Date.now()}`
-
-      try {
-        // Subscribe to response
-        const unsubscribe = await connection.subscribeEvents(
-          (event) => {
-            if (event?.event_type === 'ogbDebugInfoResponse' && event?.data?.room === currentRoom) {
-              console.log('[Wizard Debug] Debug response:', event.data)
-              if (event.data.success && event.data.data) {
-                setDebugData(event.data.data)
-              }
-              setLoading(false)
-            }
-          },
-          'ogbDebugInfoResponse'
-        )
-
-        // Send request
-        connection.sendMessage({
-          type: 'fire_event',
-          event_type: 'giveDebugInfo',
-          event_data: {
-            room: currentRoom,
-            request: selectedRequest,
-            requestId: requestId,
-          }
-        })
-
-        // Cleanup after timeout
-        setTimeout(() => {
-          unsubscribe()
-          setLoading(false)
-        }, 5000)
-
-      } catch (e) {
-        console.error('[Wizard Debug] Request failed:', e)
-        setLoading(false)
-      }
-    }, [connection, currentRoom, selectedRequest])
-
-    const exportDebugData = () => {
-      if (!debugData) return
-      const blob = new Blob([JSON.stringify(debugData, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `ogb-debug-data-${selectedRequest}-${new Date().toISOString().split('T')[0]}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-    }
-
-    return (
-      <StepContent>
-        <h3>Debug Data Viewer</h3>
-        <p>Request specific data from the OpenGrowBox datastore</p>
-
-        <SettingGroup>
-          <SettingLabel>Select Data to Request</SettingLabel>
-          <select
-            value={selectedRequest}
-            onChange={(e) => setSelectedRequest(e.target.value)}
-            style={{
-              width: '100%',
-              padding: '0.5rem',
-              borderRadius: '6px',
-              border: '1px solid var(--glass-border)',
-              background: 'var(--glass-bg-secondary)',
-              color: 'var(--main-text-color)',
-            }}
-          >
-            {requestOptions.map(opt => (
-              <option key={opt.id} value={opt.id}>{opt.label}</option>
-            ))}
-          </select>
-        </SettingGroup>
-
-        <LogActions>
-          <ActionBtn onClick={requestDebugData} disabled={loading}>
-            <MdRefresh /> {loading ? 'Loading...' : 'Request Data'}
-          </ActionBtn>
-          <ActionBtn onClick={exportDebugData} disabled={!debugData} $secondary>
-            <MdDownload /> Export JSON
-          </ActionBtn>
-        </LogActions>
-
-        {debugData && (
-          <div style={{ marginTop: '1rem' }}>
-            <SettingLabel>Response Data:</SettingLabel>
-            <pre style={{
-              background: 'var(--glass-bg-secondary)',
-              padding: '1rem',
-              borderRadius: '6px',
-              maxHeight: '400px',
-              overflow: 'auto',
-              fontSize: '0.7rem',
-              textAlign: 'left',
-              whiteSpace: 'pre-wrap',
-              wordBreak: 'break-all',
-            }}>
-              {JSON.stringify(debugData, null, 2)}
-            </pre>
-          </div>
-        )}
-      </StepContent>
-    )
-  }
-
-  const DebugReportStep = ({ data }) => {
-    const generateReport = () => {
-      const report = {
-        timestamp: new Date().toISOString(),
-        debugMode: data.debugMode,
-        logLevel: data.logLevel,
-        systemInfo: {
-          appVersion: '1.0.0',
-          haVersion: '2024.1.0',
-          browser: navigator.userAgent,
-          platform: navigator.platform,
-        },
-      }
-      const blob = new Blob([JSON.stringify(report, null, 2)], { type: 'application/json' })
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
-      a.download = `ogb-debug-report-${new Date().toISOString().split('T')[0]}.json`
-      a.click()
-      URL.revokeObjectURL(url)
-    }
-
-    return (
-      <StepContent>
-        <h3>Generate Debug Report</h3>
-        <p>Create a comprehensive debug report including:</p>
-        <ReportFeatures>
-          <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> System configuration</ReportFeature>
-          <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Recent error logs</ReportFeature>
-          <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Warning messages</ReportFeature>
-          <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Device states</ReportFeature>
-          <ReportFeature><MdCheck style={{ color: 'var(--primary-accent)' }} /> Automation history</ReportFeature>
-        </ReportFeatures>
-        <SubmitButton onClick={generateReport}><MdDownload /> Generate & Download Report</SubmitButton>
-        <p style={{ marginTop: '1rem', fontSize: '0.8rem', opacity: 0.7 }}>
-          This report can be attached to support requests for faster troubleshooting.
-        </p>
-      </StepContent>
-    )
-  }
-
   // Wrap steps to inject connection and currentRoom
   const LogViewerStepWithProps = (props) => <LogViewerStep {...props} connection={connection} currentRoom={currentRoom} />
-  const DebugDataStepWithProps = (props) => <DebugDataStep {...props} connection={connection} currentRoom={currentRoom} />
 
-  return { DebugSettingsStep, LogViewerStep: LogViewerStepWithProps, DebugDataStep: DebugDataStepWithProps, DebugReportStep }
+  return { DebugWelcomeStep, LogViewerStep: LogViewerStepWithProps }
 }
