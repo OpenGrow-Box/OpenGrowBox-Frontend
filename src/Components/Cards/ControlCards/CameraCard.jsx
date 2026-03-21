@@ -53,11 +53,25 @@ const CameraCard = () => {
   const [modal, setModal] = useState({ show: false, title: '', message: '', type: 'info' }); // Modal state
   const [isDeletingAllDaily, setIsDeletingAllDaily] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  const [availableDateRange, setAvailableDateRange] = useState({ oldest: null, newest: null });
+  const [expandedSections, setExpandedSections] = useState({ daily: true, output: true });
   
   // Helper to format date as YYYY-MM-DD
   const formatDateOnly = (date) => {
     const pad = (n) => n.toString().padStart(2, '0');
     return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+
+  const formatDisplayDate = (isoDate) => {
+    if (!isoDate) return null;
+    const date = new Date(isoDate);
+    return date.toLocaleDateString(undefined, {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   };
 
   // Initialize default dates for storage management (previous week to next week)
@@ -69,6 +83,45 @@ const CameraCard = () => {
     startDate: formatDateOnly(previousWeek),
     endDate: formatDateOnly(nextWeek)
   });
+
+  const filterPhotosByDateRange = (photos) => {
+    if (!zipDateRange.startDate && !zipDateRange.endDate) {
+      return photos;
+    }
+
+    return photos.filter(photo => {
+      let photoDate;
+
+      // Daily photos have 'date' field (YYYY-MM-DD format)
+      // Output files have 'mtime' field (timestamp in seconds)
+      if (photo.date) {
+        photoDate = new Date(photo.date);
+        // Daily photo date is YYYY-MM-DD, set time to start of day
+        photoDate.setHours(0, 0, 0, 0);
+      } else if (photo.mtime) {
+        // mtime could be in seconds (backend) or milliseconds (frontend)
+        photoDate = new Date(photo.mtime * (photo.mtime < 10000000000 ? 1000 : 1));
+      } else {
+        // No date field available - include the item anyway (for output files without mtime)
+        return true;
+      }
+
+      const startDate = zipDateRange.startDate ? new Date(zipDateRange.startDate) : null;
+      const endDate = zipDateRange.endDate ? new Date(zipDateRange.endDate) : null;
+
+      // Set dates to start/end of day for inclusive comparison
+      if (startDate) startDate.setHours(0, 0, 0, 0);
+      if (endDate) endDate.setHours(23, 59, 59, 999);
+
+      if (startDate && photoDate < startDate) return false;
+      if (endDate && photoDate > endDate) return false;
+
+      return true;
+    });
+  };
+
+  const filteredDailyPhotos = filterPhotosByDateRange(dailyPhotos);
+  const filteredTimelapseOutputs = filterPhotosByDateRange(timelapseOutputs);
 
   // Countdown state for timelapse next capture and daily snapshot
   const [lastTimelapseCapture, setLastTimelapseCapture] = useState(null); // timestamp of last capture
@@ -668,6 +721,7 @@ const CameraCard = () => {
     setLastTimelapseCapture(null);
     setNextTimelapseCountdown('');
     setNextDailySnapshot(null);
+    setAvailableDateRange({ oldest: null, newest: null });
   }, [selectedCamera, currentRoom]);
 
   // Request timelapse status IMMEDIATELY on mount (for header info display in all tabs)
@@ -768,6 +822,10 @@ const CameraCard = () => {
               setTotalTimelapseCount(data.total_count || 0);
               setTimelapseOutputs(data.output_files || []);
               setTimelapseOutputCounts(data.output_counts || { mp4: 0, zip: 0 });
+              setAvailableDateRange({
+                oldest: data.date_range?.oldest || null,
+                newest: data.date_range?.newest || null
+              });
             }
           },
           'TimelapsePhotosResponse'
@@ -874,17 +932,6 @@ const CameraCard = () => {
               console.log('Timelapse completed:', data);
               setIsRecording(false);
               setRecordingStatus(prev => ({ ...prev, active: false }));
-              
-              // Only show success modal for natural completion (user_initiated === false)
-              // Don't show modal when user manually stops
-              if (data.user_initiated === false) {
-                setModal({
-                  show: true,
-                  title: 'Timelapse Completed',
-                  message: `Recording finished with ${data.total_images} images captured. Duration: ${data.duration?.toFixed(1) || 'N/A'}s`,
-                  type: 'success'
-                });
-              }
             }
           },
           'TimelapseCompleted'
@@ -1416,6 +1463,25 @@ const CameraCard = () => {
         },
       });
       console.log('Delete photo event sent for:', currentPhotoDate);
+    } catch (err) {
+      console.error('Failed to delete photo:', err);
+      setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete photo. Please try again.', type: 'error' });
+    }
+  };
+
+  const handleDeletePhotoDirect = async (photo) => {
+    if (!photo || !selectedCamera || !connection) return;
+
+    try {
+      await connection.sendMessagePromise({
+        type: 'fire_event',
+        event_type: 'opengrowbox_delete_daily_photo',
+        event_data: {
+          camera_entity: selectedCamera,
+          date: photo.date,
+        },
+      });
+      console.log('Delete photo event sent for:', photo.date);
     } catch (err) {
       console.error('Failed to delete photo:', err);
       setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete photo. Please try again.', type: 'error' });
@@ -2131,6 +2197,18 @@ const CameraCard = () => {
               </div>
             </TimelapseSection>
 
+            {/* Available Data Range Info */}
+            {availableDateRange.oldest && availableDateRange.newest && (
+              <AvailableDataInfo>
+                <MdInfo size={16} />
+                <span>
+                  Available data: {formatDisplayDate(availableDateRange.oldest)} 
+                  <span style={{ margin: '0 4px', opacity: 0.5 }}>→</span>
+                  {formatDisplayDate(availableDateRange.newest)}
+                </span>
+              </AvailableDataInfo>
+            )}
+
             {/* Date Range Grid */}
             <TimelapseConfigGrid>
               <TimelapseSection>
@@ -2364,30 +2442,69 @@ Using short intervals (e.g., less than 5 minutes) can result in unnecessarily la
 
               </StorageRow>
 
-              <StorageRow style={{ justifyContent: 'flex-start', fontSize: '12px', opacity: 0.75 }}>
-                <span>Output files: {timelapseOutputCounts.mp4 || 0} MP4, {timelapseOutputCounts.zip || 0} ZIP</span>
-              </StorageRow>
-
               <OutputList>
-                {timelapseOutputs.length === 0 ? (
-                  <OutputEmpty>No generated output files yet.</OutputEmpty>
+                {filteredDailyPhotos.length === 0 && filteredTimelapseOutputs.length === 0 ? (
+                  <OutputEmpty>No files in selected date range.</OutputEmpty>
                 ) : (
-                  timelapseOutputs.map((outputFile) => (
-                    <OutputItem key={outputFile.filename}>
-                      <OutputMeta>
-                        <strong>{outputFile.filename}</strong>
-                        <span>{(outputFile.format || 'file').toUpperCase()} • {formatFileSize(outputFile.size)}</span>
-                      </OutputMeta>
-                      <OutputDownloadButton onClick={() => handleRedownloadOutput(outputFile)}>
-                        <MdDownload />
-                        Re-download
-                      </OutputDownloadButton>
-                    </OutputItem>
-                  ))
+                  <>
+                    {filteredDailyPhotos.length > 0 && (
+                      <>
+                        <StorageSectionTitle onClick={() => setExpandedSections(prev => ({ ...prev, daily: !prev.daily }))}>
+                          <StorageSectionHeader>Daily Photos ({filteredDailyPhotos.length}){expandedSections.daily ? <MdChevronLeft /> : <MdChevronRight />}</StorageSectionHeader>
+                        </StorageSectionTitle>
+                        {expandedSections.daily && (
+                          <>
+                            {filteredDailyPhotos.map((photo) => (
+                              <OutputItem key={photo.filename || photo.date}>
+                                <OutputMeta>
+                                  <strong>{photo.filename || photo.date}</strong>
+                                  <span>{photo.date}</span>
+                                </OutputMeta>
+                                <OutputDownloadButton onClick={() => handleDeletePhotoDirect(photo)}>
+                                  <MdDelete />
+                                </OutputDownloadButton>
+                              </OutputItem>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    )}
+
+                    {filteredTimelapseOutputs.length > 0 && (
+                      <>
+                        <StorageSectionTitle onClick={() => setExpandedSections(prev => ({ ...prev, output: !prev.output }))}>
+                          <StorageSectionHeader>Output Files ({filteredTimelapseOutputs.length}){expandedSections.output ? <MdChevronLeft /> : <MdChevronRight />}</StorageSectionHeader>
+                        </StorageSectionTitle>
+                        {expandedSections.output && (
+                          <>
+                            {filteredTimelapseOutputs.map((outputFile) => (
+                              <OutputItem key={outputFile.filename}>
+                                <OutputMeta>
+                                  <strong>{outputFile.filename}</strong>
+                                  <span>{(outputFile.format || 'file').toUpperCase()} • {formatFileSize(outputFile.size)}</span>
+                                </OutputMeta>
+                                <OutputDownloadButton onClick={() => handleRedownloadOutput(outputFile)}>
+                                  <MdDownload />
+                                  Re-download
+                                </OutputDownloadButton>
+                              </OutputItem>
+                            ))}
+                          </>
+                        )}
+                      </>
+                    )}
+                  </>
                 )}
               </OutputList>
 
               <StorageActions>
+                <StorageButton
+                  onClick={handleDownloadZip}
+                  disabled={isDownloadingZip || dailyPhotos.length === 0}
+                  $variant="download"
+                >
+                  {isDownloadingZip ? <><DeletingSpinner />...</> : <><MdDownload /> Daily ZIP</>}
+                </StorageButton>
                 <StorageButton
                   $variant="delete"
                   onClick={handleDeleteAllDaily}
@@ -3405,6 +3522,35 @@ const OutputEmpty = styled.div`
   padding: 8px 2px;
 `;
 
+const StorageSectionTitle = styled.div`
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--main-text-color);
+  opacity: 0.9;
+  margin: 16px 0 12px 0;
+  padding-bottom: 8px;
+  border-bottom:1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  cursor: pointer;
+  user-select: none;
+  transition: opacity 0.2s;
+
+  &:hover {
+    opacity: 1;
+  }
+`;
+
+const StorageSectionHeader = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+
+  svg {
+    font-size: 16px;
+    transition: transform 0.2s;
+  }
+`;
+
 const StorageButton = styled.button`
   padding: 8px 12px;
   border-radius: 6px;
@@ -3456,6 +3602,31 @@ const NightModeBadge = styled.div`
 
   svg {
     font-size: 16px;
+  }
+`;
+
+const AvailableDataInfo = styled.div`
+  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  font-size: 12px;
+  color: var(--main-text-color);
+  opacity: 0.8;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+
+  span {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  svg {
+    font-size: 16px;
+    flex-shrink: 0;
   }
 `;
 
