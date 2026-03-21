@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback, useMemo } from 'react';
 import styled from 'styled-components';
-import { MdVideocam, MdVideocamOff, MdOutlineErrorOutline, MdChevronLeft, MdChevronRight, MdDelete, MdDownload, MdDeleteSweep, MdWarning, MdSchedule, MdNightlight, MdInfo } from 'react-icons/md';
+import { MdVideocam, MdVideocamOff, MdOutlineErrorOutline, MdChevronLeft, MdChevronRight, MdDelete, MdDownload, MdDeleteSweep, MdWarning, MdSchedule, MdNightlight, MdInfo, MdFolderOpen, MdImage, MdMovie } from 'react-icons/md';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import { useGlobalState } from '../../Context/GlobalContext';
 import Hls from 'hls.js';
@@ -43,14 +43,31 @@ const CameraCard = () => {
     countdown: '',             // Human-readable countdown
   });
   const [dailyPhotos, setDailyPhotos] = useState([]);
+  const [timelapsePhotos, setTimelapsePhotos] = useState([]);
+  const [timelapseOutputs, setTimelapseOutputs] = useState([]);
+  const [timelapseOutputCounts, setTimelapseOutputCounts] = useState({ mp4: 0, zip: 0 });
+  const [totalTimelapseCount, setTotalTimelapseCount] = useState(0); // Total stored timelapse images
   const [currentPhotoDate, setCurrentPhotoDate] = useState(null);
   const [dailyViewLoading, setDailyViewLoading] = useState(false);
   const [currentPhotoUrl, setCurrentPhotoUrl] = useState(null); // Blob URL for current daily photo
+  const [modal, setModal] = useState({ show: false, title: '', message: '', type: 'info' }); // Modal state
   const [isDeletingAllDaily, setIsDeletingAllDaily] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
+  
+  // Helper to format date as YYYY-MM-DD
+  const formatDateOnly = (date) => {
+    const pad = (n) => n.toString().padStart(2, '0');
+    return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+  };
+
+  // Initialize default dates for storage management (previous week to next week)
+  const now = new Date();
+  const previousWeek = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+  const nextWeek = new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000);
+  
   const [zipDateRange, setZipDateRange] = useState({
-    startDate: '',
-    endDate: ''
+    startDate: formatDateOnly(previousWeek),
+    endDate: formatDateOnly(nextWeek)
   });
 
   // Countdown state for timelapse next capture and daily snapshot
@@ -71,28 +88,27 @@ const CameraCard = () => {
     status: 'idle', // 'idle' | 'generating' | 'complete' | 'error'
     error: null
   });
+  const [timelapseConfigHydrated, setTimelapseConfigHydrated] = useState(false);
 
   // Refs to store current values for event handlers (prevents stale closure issues)
   const selectedCameraRef = useRef(selectedCamera);
   const currentPhotoDateRef = useRef(currentPhotoDate);
   const timelapseConfigRef = useRef(timelapseConfig);
   const imageCountRef = useRef(recordingStatus.imageCount);
-  // Update refs when state changes
+  const toggleLockRef = useRef(false); // Prevent multiple toggle calls
+  // Update refs when state changes (combined into single effect)
   useEffect(() => {
     selectedCameraRef.current = selectedCamera;
-  }, [selectedCamera]);
-
-  useEffect(() => {
     currentPhotoDateRef.current = currentPhotoDate;
-  }, [currentPhotoDate]);
-
-  useEffect(() => {
     timelapseConfigRef.current = timelapseConfig;
-  }, [timelapseConfig]);
+    imageCountRef.current = recordingStatus.imageCount;
+  }, [selectedCamera, currentPhotoDate, timelapseConfig, recordingStatus.imageCount]);
 
   useEffect(() => {
-    imageCountRef.current = recordingStatus.imageCount;
-  }, [recordingStatus.imageCount]);
+    const mp4 = timelapseOutputs.filter(file => file.format === 'mp4').length;
+    const zip = timelapseOutputs.filter(file => file.format === 'zip').length;
+    setTimelapseOutputCounts({ mp4, zip });
+  }, [timelapseOutputs]);
 
   // Time format conversion utilities for UTC ISO standardization
   // Convert HTML datetime-local format to UTC ISO string
@@ -123,6 +139,102 @@ const CameraCard = () => {
     } catch (e) {
       console.error('Date conversion from UTC ISO failed:', e);
       return '';
+    }
+  };
+
+  const normalizeCameraId = (id) => {
+    if (!id) return '';
+    const raw = String(id).trim().toLowerCase();
+    return raw.startsWith('camera.') ? raw.slice(7) : raw;
+  };
+
+  const isSameCamera = (a, b) => normalizeCameraId(a) === normalizeCameraId(b);
+
+  const normalizeDownloadUrl = (rawUrl) => {
+    if (!rawUrl) return rawUrl;
+    try {
+      const parsed = new URL(rawUrl, window.location.origin);
+
+      if (
+        window.location.protocol === 'https:' &&
+        parsed.protocol === 'http:' &&
+        parsed.host === window.location.host
+      ) {
+        return `https://${parsed.host}${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+
+      if (parsed.origin === window.location.origin) {
+        return `${parsed.pathname}${parsed.search}${parsed.hash}`;
+      }
+
+      return parsed.toString();
+    } catch {
+      return rawUrl;
+    }
+  };
+
+  const formatFileSize = (bytes) => {
+    if (typeof bytes !== 'number' || Number.isNaN(bytes) || bytes <= 0) return 'Unknown size';
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+  };
+
+  const buildTimelapseDownloadTarget = (data, cameraEntity, roomName) => {
+    if (!data) return null;
+
+    const format = (data.format || '').toLowerCase();
+    const extension = format === 'mp4' ? 'mp4' : 'zip';
+    const filename = data.filename || `timelapse_${cameraEntity}_${Date.now()}.${extension}`;
+
+    if (data.download_url) {
+      return { method: 'url', download_url: data.download_url, filename, format: format || extension };
+    }
+
+    if (data.filename) {
+      return {
+        method: 'url',
+        download_url: `/local/ogb_data/${roomName}_img/timelapse_output/${data.filename}`,
+        filename: data.filename,
+        format: format || extension,
+      };
+    }
+
+    return null;
+  };
+
+  const triggerTimelapseDownload = (downloadTarget) => {
+    if (!downloadTarget) return false;
+
+    if (downloadTarget.method === 'url' && downloadTarget.download_url) {
+      const link = document.createElement('a');
+      link.href = normalizeDownloadUrl(downloadTarget.download_url);
+      link.setAttribute('download', downloadTarget.filename || `timelapse_${Date.now()}`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      return true;
+    }
+
+    return false;
+  };
+
+  const getProgressStatusLabel = (status) => {
+    switch (status) {
+      case 'scanning':
+        return 'Scanning images';
+      case 'preparing':
+        return 'Preparing files';
+      case 'creating_zip':
+        return 'Creating ZIP archive';
+      case 'encoding_video':
+        return 'Encoding MP4 video';
+      case 'complete':
+        return 'Completed';
+      case 'error':
+        return 'Failed';
+      default:
+        return 'Working';
     }
   };
 
@@ -401,10 +513,12 @@ const CameraCard = () => {
   }, [useFallback, selectedCamera]);
 
 
-  // Initialize default dates for timelapse (last 24 hours) - must be before any early returns
+  // Initialize default dates for timelapse (today)
   useEffect(() => {
+    if (timelapseConfigHydrated) return;
+    if (timelapseConfig.startDate || timelapseConfig.endDate) return;
+
     const now = new Date();
-    const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000);
     
     const formatDateTimeLocal = (date) => {
       const pad = (n) => n.toString().padStart(2, '0');
@@ -414,9 +528,9 @@ const CameraCard = () => {
     setTimelapseConfig(prev => ({
       ...prev,
       endDate: formatDateTimeLocal(now),
-      startDate: formatDateTimeLocal(yesterday)
+      startDate: formatDateTimeLocal(now)
     }));
-  }, []);
+  }, [timelapseConfigHydrated, timelapseConfig.startDate, timelapseConfig.endDate]);
 
   // Countdown timer for scheduled timelapses
   useEffect(() => {
@@ -468,7 +582,7 @@ const CameraCard = () => {
     const updateNextCapture = () => {
       const now = Date.now();
       const intervalMs = parseInt(timelapseConfig.interval) * 1000;
-      const nextCapture = lastTimelapseCapture + intervalMs;
+      const nextCapture = lastTimelapseCapture.getTime() + intervalMs;
       const diff = nextCapture - now;
 
       if (diff <= 0) {
@@ -550,298 +664,41 @@ const CameraCard = () => {
 
   // Reset countdown state when camera or room changes
   useEffect(() => {
+    setTimelapseConfigHydrated(false);
     setLastTimelapseCapture(null);
     setNextTimelapseCountdown('');
     setNextDailySnapshot(null);
   }, [selectedCamera, currentRoom]);
 
-  // Subscribe to timelapse events from backend
+  // Request timelapse status IMMEDIATELY on mount (for header info display in all tabs)
   useEffect(() => {
-    if (!connection) return;
+    if (!connection || !selectedCamera) return;
 
-    let unsubscribeConfig = null;
-    let unsubscribeComplete = null;
-    let unsubscribeProgress = null;
-    let unsubscribeRecording = null;
-    let isMounted = true; // Track if component is mounted
-
-    const setupListeners = async () => {
+    const requestTimelapseStatus = async () => {
       try {
-        // Listen for timelapse config response
-        unsubscribeConfig = await connection.subscribeEvents(
-          (event) => {
-            const data = event.data;
-            if (!isMounted) return; // Prevent updates if unmounted
-            if (data.device_name === selectedCamera) {
-              console.log('Received timelapse config:', data);
-              // Update timelapse config state with received data
-              if (data.current_config) {
-                setTimelapseConfig(prev => ({
-                  ...prev,
-                  interval: data.current_config.interval?.toString() || prev.interval,
-                  startDate: fromUtcISO(data.current_config.StartDate) || prev.startDate,
-                  endDate: fromUtcISO(data.current_config.EndDate) || prev.endDate,
-                  format: data.current_config.OutPutFormat || prev.format,
-                  dailySnapshotEnabled: data.current_config.daily_snapshot_enabled ?? prev.dailySnapshotEnabled,
-                  dailySnapshotTime: data.current_config.daily_snapshot_time || prev.dailySnapshotTime,
-                }));
-              }
-              if (data.current_config && data.current_config.capture_at_night !== undefined) {
-                setTimelapseConfig(prev => ({
-                  ...prev,
-                  captureAtNight: data.current_config.capture_at_night
-                }));
-              }
-              // Update recording status
-              if (data.tl_active !== undefined) {
-                setIsRecording(data.tl_active);
-              }
-              // Update image count from config response
-              if (data.tl_image_count !== undefined) {
-                setRecordingStatus(prev => ({
-                  ...prev,
-                  imageCount: data.tl_image_count,
-                }));
-              }
-              // CRITICAL: Update last capture time from backend for accurate countdown timer
-              // This is the primary source of truth on page load/reload
-              if (data.last_capture_time) {
-                const backendCaptureTime = new Date(data.last_capture_time).getTime();
-                // Only update if backend time is valid (not in the future)
-                if (backendCaptureTime <= Date.now()) {
-                  setLastTimelapseCapture(backendCaptureTime);
-                  console.log('[CameraCard] Set lastTimelapseCapture from config response:', new Date(data.last_capture_time));
-                }
-              } else if (data.tl_active && data.tl_start_time) {
-                // Fallback: If timelapse is active but no last_capture_time yet (just started),
-                // use tl_start_time as the initial reference point
-                const startTime = new Date(data.tl_start_time).getTime();
-                if (startTime <= Date.now()) {
-                  setLastTimelapseCapture(startTime);
-                  console.log('[CameraCard] Set lastTimelapseCapture from tl_start_time (fallback):', new Date(data.tl_start_time));
-                }
-              }
-            }
+        await connection.sendMessagePromise({
+          type: 'fire_event',
+          event_type: 'opengrowbox_get_timelapse_status',
+          event_data: {
+            device_name: selectedCamera,
           },
-          'TimelapseConfigResponse'
-        );
-
-        // Listen for timelapse generation progress
-        unsubscribeProgress = await connection.subscribeEvents(
-          (event) => {
-            const data = event.data;
-            if (!isMounted) return; // Prevent updates if unmounted
-            if (data.device_name === selectedCameraRef.current) {
-              setTimelapseProgress({
-                active: true,
-                percent: data.progress,
-                status: 'generating',
-                error: null
-              });
-            }
-          },
-          'TimelapseGenerationProgress'
-        );
-
-        // Listen for timelapse generation complete
-        unsubscribeComplete = await connection.subscribeEvents(
-          (event) => {
-            const data = event.data;
-            if (!isMounted) return; // CRITICAL: Prevent download from orphaned subscription
-            if (data.device_name === selectedCameraRef.current) {
-              if (data.success && data.file_data) {
-                // Show complete message
-                setTimelapseProgress(prev => ({
-                  ...prev,
-                  percent: 100,
-                  status: 'complete',
-                  error: null
-                }));
-
-                // Decode base64 and trigger download
-                try {
-                  // Handle chunked base64 data (array of chunks) or single string
-                  let byteArray;
-
-                  if (Array.isArray(data.file_data)) {
-                    // Chunked data - decode each chunk and concatenate
-                    // First, calculate total size for efficient pre-allocation
-                    let totalSize = 0;
-                    const decodedChunks = [];
-                    for (const chunk of data.file_data) {
-                      const byteCharacters = atob(chunk);
-                      decodedChunks.push(byteCharacters);
-                      totalSize += byteCharacters.length;
-                    }
-
-                    // Pre-allocate and fill in one pass
-                    byteArray = new Uint8Array(totalSize);
-                    let offset = 0;
-                    for (const byteCharacters of decodedChunks) {
-                      for (let i = 0; i < byteCharacters.length; i++) {
-                        byteArray[offset++] = byteCharacters.charCodeAt(i);
-                      }
-                    }
-                  } else {
-                    // Single string data (legacy format)
-                    const byteCharacters = atob(data.file_data);
-                    byteArray = new Uint8Array(byteCharacters.length);
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                      byteArray[i] = byteCharacters.charCodeAt(i);
-                    }
-                  }
-
-                  // Determine MIME type based on format
-                  const mimeType = data.format === 'mp4' ? 'video/mp4' : 'application/zip';
-                  const blob = new Blob([byteArray], { type: mimeType });
-                  const blobUrl = URL.createObjectURL(blob);
-
-                  // Trigger download
-                  const link = document.createElement('a');
-                  link.href = blobUrl;
-                  link.setAttribute('download', data.filename || `timelapse_${selectedCameraRef.current}_${Date.now()}.${data.format || 'zip'}`);
-                  document.body.appendChild(link);
-                  link.click();
-                  document.body.removeChild(link);
-
-                  // Clean up blob URL after a short delay
-                  setTimeout(() => URL.revokeObjectURL(blobUrl), 1000);
-
-                  console.log('Timelapse download started:', data.filename, `(${data.file_size} bytes)`);
-                } catch (err) {
-                  console.error('Failed to decode timelapse data:', err);
-                  setTimelapseProgress(prev => ({
-                    ...prev,
-                    status: 'error',
-                    error: 'Failed to process timelapse file'
-                  }));
-                }
-
-                // Auto-hide progress section after 2 seconds, then reset
-                setTimeout(() => {
-                  if (!isMounted) return;
-                  setIsGeneratingTimelapse(false);
-                  setTimelapseProgress({
-                    active: false,
-                    percent: 0,
-                    status: 'idle',
-                    error: null
-                  });
-                }, 2000);
-              } else {
-                // Show error inline
-                setTimelapseProgress({
-                  active: true,
-                  percent: timelapseProgress.percent,
-                  status: 'error',
-                  error: data.error || 'Unknown error'
-                });
-
-                // Auto-hide error after 5 seconds
-                setTimeout(() => {
-                  if (!isMounted) return;
-                  setIsGeneratingTimelapse(false);
-                  setTimelapseProgress({
-                    active: false,
-                    percent: 0,
-                    status: 'idle',
-                    error: null
-                  });
-                }, 5000);
-              }
-            }
-          },
-          'TimelapseGenerationComplete'
-        );
-
-        // Listen for camera recording status updates
-        unsubscribeRecording = await connection.subscribeEvents(
-          (event) => {
-            const data = event.data;
-            if (!isMounted) return; // Prevent updates if unmounted
-            if (data.room === currentRoom && data.camera_entity === selectedCamera) {
-              console.log('Camera recording status:', data);
-              setIsRecording(data.is_recording);
-
-              // Handle scheduled state
-              if (data.is_scheduled) {
-                setScheduledTimelapse({
-                  isScheduled: true,
-                  scheduledStart: data.scheduled_start,
-                  scheduledEnd: data.scheduled_end,
-                  countdown: ''
-                });
-              } else {
-                setScheduledTimelapse({
-                  isScheduled: false,
-                  scheduledStart: null,
-                  scheduledEnd: null,
-                  countdown: ''
-                });
-              }
-
-              // Handle last capture time from backend for accurate countdown
-              // Use backend's last_capture_time if available, otherwise fall back to current time
-              if (data.last_capture_time) {
-                const backendCaptureTime = new Date(data.last_capture_time).getTime();
-                // Only update if backend time is valid (not in the future)
-                if (backendCaptureTime <= Date.now()) {
-                  setLastTimelapseCapture(backendCaptureTime);
-                }
-              } else if (data.is_recording && !lastTimelapseCapture) {
-                // Fallback: if recording just started and no backend time, use current time
-                setLastTimelapseCapture(Date.now());
-              }
-
-              // Existing image count logic
-              if (data.image_count !== undefined) {
-                // Track last capture time when image count increases (using ref to avoid stale closure)
-                if (data.image_count > imageCountRef.current && !data.last_capture_time) {
-                  setLastTimelapseCapture(Date.now());
-                }
-
-                setRecordingStatus(prev => ({
-                  ...prev,
-                  imageCount: data.image_count,
-                  active: data.is_recording,
-                  startTime: data.start_time,
-                }));
-              }
-
-              // Handle night mode status
-              if (data.is_night_mode !== undefined) {
-                setNightMode(prev => ({ ...prev, isNight: data.is_night_mode }));
-              }
-              if (data.capture_at_night_enabled !== undefined) {
-                setNightMode(prev => ({ ...prev, captureAtNight: data.capture_at_night_enabled }));
-              }
-            }
-          },
-          'CameraRecordingStatus'
-        );
+        });
+        console.log('Requested timelapse status for header info:', selectedCamera);
       } catch (err) {
-        console.error('Error setting up timelapse event listeners:', err);
+        console.error('Failed to request timelapse status:', err);
       }
     };
 
-    setupListeners();
+    requestTimelapseStatus();
+  }, [connection, selectedCamera]);
 
-    return () => {
-      isMounted = false; // Mark as unmounted before cleanup
-      if (unsubscribeConfig) unsubscribeConfig();
-      if (unsubscribeComplete) unsubscribeComplete();
-      if (unsubscribeProgress) unsubscribeProgress();
-      if (unsubscribeRecording) unsubscribeRecording();
-    };
-  }, [connection, selectedCamera, timelapseConfig.format, currentRoom]);
-
-  // Request timelapse config from backend when timelapse tab becomes active
+  // Request timelapse config from backend so header status stays accurate
   useEffect(() => {
-    if (!connection || !selectedCamera || activeTab !== 'timelapse') return;
+    if (!connection || !selectedCamera) return;
 
     const requestTimelapseConfig = async () => {
       try {
-        // Request config (existing)
+        // Request config (needed for daily snapshot header visibility/countdown)
         await connection.sendMessagePromise({
           type: 'fire_event',
           event_type: 'opengrowbox_get_timelapse_config',
@@ -850,27 +707,18 @@ const CameraCard = () => {
           },
         });
 
-        // NEW: Also request current status to restore scheduled state after refresh
-        await connection.sendMessagePromise({
-          type: 'fire_event',
-          event_type: 'opengrowbox_get_timelapse_status',
-          event_data: {
-            device_name: selectedCamera,
-          },
-        });
-
-        console.log('Requested timelapse config and status for:', selectedCamera);
+        console.log('Requested timelapse config for:', selectedCamera);
       } catch (err) {
         console.error('Failed to request timelapse config:', err);
       }
     };
 
     requestTimelapseConfig();
-  }, [connection, selectedCamera, activeTab]);
+  }, [connection, selectedCamera]);
 
-  // Subscribe to daily photo events from backend
+  // Subscribe to daily photo events from backend (ALWAYS load, regardless of active tab)
   useEffect(() => {
-    if (!connection) return;
+    if (!connection || !selectedCamera) return;
 
     const unsubscribeFunctions = [];
     let isMounted = true; // Track if component is mounted
@@ -879,14 +727,16 @@ const CameraCard = () => {
       try {
         // Listen for daily photos list response
         const unsubPhotos = await connection.subscribeEvents(
-          (event) => {
+          async (event) => {
             const data = event.data;
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            const selectedPhotoDate = currentPhotoDateRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               console.log('Received daily photos list:', data.photos);
               setDailyPhotos(data.photos || []);
               setDailyViewLoading(false);
               // Select most recent photo if none selected
-              if (data.photos && data.photos.length > 0 && !currentPhotoDate) {
+              if (data.photos && data.photos.length > 0 && !selectedPhotoDate) {
                 setCurrentPhotoDate(data.photos[0].date);
               }
             }
@@ -894,6 +744,351 @@ const CameraCard = () => {
           'DailyPhotosResponse'
         );
         unsubscribeFunctions.push(unsubPhotos);
+
+        // Request daily photos immediately when component mounts
+        await connection.sendMessagePromise({
+          type: 'fire_event',
+          event_type: 'opengrowbox_get_daily_photos',
+          event_data: {
+            device_name: selectedCamera,
+          },
+        });
+        console.log('Requested daily photos for header info:', selectedCamera);
+
+        // Listen for timelapse photos response FIRST (before sending request)
+        const unsubTimelapsePhotos = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
+              console.log('Received timelapse photos response:', data.total_count, 'photos');
+              // Set timelapse photos list and total count
+              setTimelapsePhotos(data.photos || []);
+              setTotalTimelapseCount(data.total_count || 0);
+              setTimelapseOutputs(data.output_files || []);
+              setTimelapseOutputCounts(data.output_counts || { mp4: 0, zip: 0 });
+            }
+          },
+          'TimelapsePhotosResponse'
+        );
+        unsubscribeFunctions.push(unsubTimelapsePhotos);
+
+        // Request timelapse photos for header info
+        await connection.sendMessagePromise({
+          type: 'fire_event',
+          event_type: 'opengrowbox_get_timelapse_photos',
+          event_data: {
+            device_name: selectedCamera,
+          },
+        });
+        console.log('Requested timelapse photos for header info:', selectedCamera);
+
+        // Listen for CameraRecordingStatus events from backend
+        const unsubRecordingStatus = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            const matchesSelectedCamera = data.camera_entity
+              ? isSameCamera(data.camera_entity, currentSelectedCamera)
+              : data.room === currentRoom;
+
+            if (matchesSelectedCamera) {
+              console.log('Received CameraRecordingStatus:', data);
+              
+              // Only update isRecording if data.is_recording is explicitly set (not undefined/null)
+              // This prevents unconditionally resetting to false when data is incomplete
+              if (data.is_recording !== undefined) {
+                setIsRecording(data.is_recording);
+              }
+              
+              // Always update recordingStatus with latest data
+              setRecordingStatus(prev => ({
+                ...prev,
+                active: data.is_recording !== undefined ? data.is_recording : prev.active,
+                imageCount: data.image_count ?? prev.imageCount,
+                startTime: data.start_time ?? prev.startTime,
+              }));
+
+              if (data.image_count !== undefined && data.image_count !== null) {
+                setTotalTimelapseCount(prev => Math.max(prev, data.image_count));
+              }
+              
+              // Update night mode state
+              setNightMode({
+                isNight: data.is_night_mode || false,
+                captureAtNight: data.capture_at_night_enabled || false,
+              });
+              
+              // Update scheduled state if present
+              if (data.is_scheduled) {
+                setScheduledTimelapse({
+                  isScheduled: true,
+                  scheduledStart: data.scheduled_start,
+                  scheduledEnd: data.scheduled_end,
+                  countdown: '',
+                });
+              } else if (!data.is_recording) {
+                // Clear scheduled state when not recording
+                setScheduledTimelapse(prev => ({
+                  ...prev,
+                  isScheduled: false,
+                }));
+              }
+              
+              // Update last capture time for countdown
+              if (data.last_capture_time) {
+                setLastTimelapseCapture(new Date(data.last_capture_time));
+              }
+            }
+          },
+          'CameraRecordingStatus'
+        );
+        unsubscribeFunctions.push(unsubRecordingStatus);
+
+        // Listen for timelapse errors
+        const unsubTimelapseError = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            console.error('Timelapse error:', data.message);
+            setModal({
+              show: true,
+              title: 'Timelapse Error',
+              message: data.message || 'An unknown error occurred',
+              type: 'error'
+            });
+          },
+          'TimelapseError'
+        );
+        unsubscribeFunctions.push(unsubTimelapseError);
+
+        // Listen for timelapse completed event (natural completion, not user stop)
+        const unsubTimelapseCompleted = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.device_name, currentSelectedCamera) || isSameCamera(data.device, currentSelectedCamera)) {
+              console.log('Timelapse completed:', data);
+              setIsRecording(false);
+              setRecordingStatus(prev => ({ ...prev, active: false }));
+              
+              // Only show success modal for natural completion (user_initiated === false)
+              // Don't show modal when user manually stops
+              if (data.user_initiated === false) {
+                setModal({
+                  show: true,
+                  title: 'Timelapse Completed',
+                  message: `Recording finished with ${data.total_images} images captured. Duration: ${data.duration?.toFixed(1) || 'N/A'}s`,
+                  type: 'success'
+                });
+              }
+            }
+          },
+          'TimelapseCompleted'
+        );
+        unsubscribeFunctions.push(unsubTimelapseCompleted);
+
+        // Listen for timelapse config response from backend
+        const unsubConfig = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.device_name, currentSelectedCamera) || isSameCamera(data.camera_entity, currentSelectedCamera)) {
+              console.log('Received timelapse config response:', data.current_config);
+              const cfg = data.current_config || {};
+              setTimelapseConfigHydrated(true);
+              
+              // Smart UX: Auto-fill dates if not set
+              const now = new Date();
+              const oneMonthLater = new Date(now.getTime() + (30 * 24 * 60 * 60 * 1000)); // Now + 1 month
+              
+              const receivedStartDate = cfg.StartDate || cfg.startDate || '';
+              const receivedEndDate = cfg.EndDate || cfg.endDate || '';
+              
+              // If dates are empty, provide sensible defaults (now to now + 1 month)
+              if (!receivedStartDate || receivedStartDate === '') {
+                const startDateLocal = fromUtcISO(now.toISOString());
+                const endDateLocal = fromUtcISO(oneMonthLater.toISOString());
+
+                console.log('Auto-filling dates:', { startDate: startDateLocal, endDate: endDateLocal });
+
+                setTimelapseConfig(prev => ({
+                  ...prev,
+                  startDate: prev.startDate || startDateLocal,
+                  endDate: prev.endDate || endDateLocal,
+                  interval: String(cfg.interval ?? cfg.TimeLapseIntervall ?? prev.interval ?? '900'),
+                  format: cfg.OutPutFormat || cfg.format || prev.format || 'mp4',
+                  dailySnapshotEnabled: cfg.daily_snapshot_enabled ?? prev.dailySnapshotEnabled,
+                  dailySnapshotTime: cfg.daily_snapshot_time || prev.dailySnapshotTime || '09:00',
+                  captureAtNight: cfg.capture_at_night ?? prev.captureAtNight,
+                }));
+              } else {
+                // Use backend dates if provided
+                setTimelapseConfig(prev => ({
+                  ...prev,
+                  startDate: fromUtcISO(receivedStartDate),
+                  endDate: fromUtcISO(receivedEndDate),
+                  interval: String(cfg.interval ?? cfg.TimeLapseIntervall ?? prev.interval ?? '900'),
+                  format: cfg.OutPutFormat || cfg.format || prev.format || 'mp4',
+                  dailySnapshotEnabled: cfg.daily_snapshot_enabled ?? prev.dailySnapshotEnabled,
+                  dailySnapshotTime: cfg.daily_snapshot_time || prev.dailySnapshotTime || '09:00',
+                  captureAtNight: cfg.capture_at_night ?? prev.captureAtNight,
+                }));
+              }
+            }
+          },
+          'TimelapseConfigResponse'
+        );
+        unsubscribeFunctions.push(unsubConfig);
+
+        // Request config again AFTER listeners are active (prevents missed initial response race)
+        await connection.sendMessagePromise({
+          type: 'fire_event',
+          event_type: 'opengrowbox_get_timelapse_config',
+          event_data: {
+            device_name: selectedCameraRef.current,
+          },
+        });
+
+        // Listen for timelapse generation started event
+        const unsubGenerationStarted = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.device_name, currentSelectedCamera)) {
+              console.log('Timelapse generation started:', data);
+              setIsGeneratingTimelapse(true);
+              setTimelapseProgress({
+                active: true,
+                percent: 0,
+                status: 'generating',
+                error: null,
+                fileCount: data.frame_count || 0,
+                estimatedTime: null,
+                estimatedSpace: null
+              });
+            }
+          },
+          'TimelapseGenerationStarted'
+        );
+        unsubscribeFunctions.push(unsubGenerationStarted);
+
+        // Listen for timelapse generation progress event
+        const unsubGenerationProgress = await connection.subscribeEvents(
+          (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.device_name, currentSelectedCamera)) {
+              console.log('Timelapse generation progress:', data.progress);
+              setTimelapseProgress(prev => ({
+                active: true,
+                percent: Math.max(prev.percent || 0, data.progress || 0),
+                status: data.status || prev.status || 'encoding_video',
+                error: null,
+                fileCount: data.file_count ?? prev.fileCount ?? 0,
+                estimatedTime: data.estimated_time || prev.estimatedTime || null,
+                estimatedSpace: data.estimated_space || prev.estimatedSpace || null
+              }));
+            }
+          },
+          'TimelapseGenerationProgress'
+        );
+        unsubscribeFunctions.push(unsubGenerationProgress);
+
+        // Listen for timelapse generation complete event
+        const unsubGenerationComplete = await connection.subscribeEvents(
+          async (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.device_name, currentSelectedCamera)) {
+              console.log('Timelapse generation complete:', data);
+              setIsGeneratingTimelapse(false);
+
+              if (!data.success) {
+                setTimelapseProgress({
+                  active: false,
+                  percent: 0,
+                  status: 'error',
+                  error: data.error || 'Unknown error',
+                  fileCount: 0,
+                  estimatedTime: null,
+                  estimatedSpace: null
+                });
+                setModal({
+                  show: true,
+                  title: 'Timelapse Generation Failed',
+                  message: data.error || 'Unknown error',
+                  type: 'error'
+                });
+                return;
+              }
+
+              setTimelapseProgress({
+                active: true,
+                percent: 100,
+                status: 'complete',
+                error: null,
+                fileCount: data.frame_count || 0,
+                estimatedTime: null,
+                estimatedSpace: null
+              });
+
+              const downloadTarget = buildTimelapseDownloadTarget(data, currentSelectedCamera, currentRoom);
+              if (downloadTarget) {
+                const started = triggerTimelapseDownload(downloadTarget);
+                if (!started) {
+                  console.warn('Auto-download could not be started; use output list to re-download');
+                }
+              }
+
+              const fileSizeMb = typeof data.file_size === 'number'
+                ? `${(data.file_size / (1024 * 1024)).toFixed(2)} MB`
+                : 'Unknown size';
+
+              console.log('Timelapse generated successfully:', {
+                format: (data.format || 'zip').toUpperCase(),
+                frames: data.frame_count || 0,
+                size: fileSizeMb,
+              });
+
+              if (data.success && data.filename) {
+                const resolvedFormat = (data.format || data.filename.split('.').pop() || '').toLowerCase();
+                const resolvedUrl = data.download_url || `/local/ogb_data/${currentRoom}_img/timelapse_output/${data.filename}`;
+
+                setTimelapseOutputs(prev => {
+                  const withoutExisting = prev.filter(file => file.filename !== data.filename);
+                  return [{
+                    filename: data.filename,
+                    format: resolvedFormat,
+                    size: data.file_size || 0,
+                    download_url: resolvedUrl,
+                  }, ...withoutExisting];
+                });
+              }
+
+              try {
+                await connection.sendMessagePromise({
+                  type: 'fire_event',
+                  event_type: 'opengrowbox_get_timelapse_photos',
+                  event_data: {
+                    device_name: currentSelectedCamera,
+                  },
+                });
+              } catch (err) {
+                console.error('Failed to refresh timelapse storage after generation:', err);
+              }
+            }
+          },
+          'TimelapseGenerationComplete'
+        );
+        unsubscribeFunctions.push(unsubGenerationComplete);
 
         // Listen for individual daily photo response
         const unsubPhoto = await connection.subscribeEvents(
@@ -903,7 +1098,7 @@ const CameraCard = () => {
             const currentSelectedCamera = selectedCameraRef.current;
             const currentPhotoDate = currentPhotoDateRef.current;
 
-            if (data.camera_entity === currentSelectedCamera && data.date === currentPhotoDate) {
+            if (isSameCamera(data.camera_entity, currentSelectedCamera) && data.date === currentPhotoDate) {
               if (data.success && data.image_data) {
                 // Convert base64 to blob URL
                 const byteCharacters = atob(data.image_data);
@@ -928,12 +1123,14 @@ const CameraCard = () => {
         const unsubDeleted = await connection.subscribeEvents(
           (event) => {
             const data = event.data;
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            const selectedPhotoDate = currentPhotoDateRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               console.log('Photo deleted:', data.date);
               // Remove deleted photo from list
               setDailyPhotos(prev => prev.filter(p => p.date !== data.date));
               // If current photo was deleted, select another
-              if (currentPhotoDate === data.date) {
+              if (selectedPhotoDate === data.date) {
                 setDailyPhotos(prev => {
                   if (prev.length > 0) {
                     setCurrentPhotoDate(prev[0].date);
@@ -954,74 +1151,75 @@ const CameraCard = () => {
         const unsubAllDeleted = await connection.subscribeEvents(
           (event) => {
             const data = event.data;
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               console.log('All daily photos deleted:', data.deleted_count);
               setIsDeletingAllDaily(false);
               // Clear all state
               setDailyPhotos([]);
               setCurrentPhotoDate(null);
               setCurrentPhotoUrl(null);
-              // Show success message
-              alert(`Successfully deleted ${data.deleted_count} daily photos.`);
+              setModal({
+                show: true,
+                title: 'Daily Photos Deleted',
+                message: `Successfully deleted ${data.deleted_count} daily photos.`,
+                type: 'success'
+              });
             }
           },
           'ogb_camera_all_daily_deleted'
         );
         unsubscribeFunctions.push(unsubAllDeleted);
 
+        // Listen for newly captured daily snapshots and refresh list immediately
+        const unsubDailyCaptured = await connection.subscribeEvents(
+          async (event) => {
+            const data = event.data;
+            if (!isMounted) return;
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
+              try {
+                await connection.sendMessagePromise({
+                  type: 'fire_event',
+                  event_type: 'opengrowbox_get_daily_photos',
+                  event_data: {
+                    device_name: currentSelectedCamera,
+                  },
+                });
+              } catch (err) {
+                console.error('Failed to refresh daily photos after capture:', err);
+              }
+            }
+          },
+          'ogb_camera_daily_photo_captured'
+        );
+        unsubscribeFunctions.push(unsubDailyCaptured);
+
         // Listen for ZIP download response
         const unsubZipDownload = await connection.subscribeEvents(
           (event) => {
             const data = event.data;
             if (!isMounted) return; // CRITICAL: Prevent download from orphaned subscription
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               setIsDownloadingZip(false);
-              if (data.success && data.zip_data) {
-                // Handle chunked base64 data (array of chunks) or single string
-                let byteArray;
 
-                if (Array.isArray(data.zip_data)) {
-                  // Chunked data - decode each chunk and concatenate
-                  // First, calculate total size for efficient pre-allocation
-                  let totalSize = 0;
-                  const decodedChunks = [];
-                  for (const chunk of data.zip_data) {
-                    const byteCharacters = atob(chunk);
-                    decodedChunks.push(byteCharacters);
-                    totalSize += byteCharacters.length;
-                  }
-
-                  // Pre-allocate and fill in one pass
-                  byteArray = new Uint8Array(totalSize);
-                  let offset = 0;
-                  for (const byteCharacters of decodedChunks) {
-                    for (let i = 0; i < byteCharacters.length; i++) {
-                      byteArray[offset++] = byteCharacters.charCodeAt(i);
-                    }
-                  }
-                } else {
-                  // Single string data (legacy format)
-                  const byteCharacters = atob(data.zip_data);
-                  byteArray = new Uint8Array(byteCharacters.length);
-                  for (let i = 0; i < byteCharacters.length; i++) {
-                    byteArray[i] = byteCharacters.charCodeAt(i);
-                  }
-                }
-
-                const blob = new Blob([byteArray], { type: 'application/zip' });
-                const blobUrl = URL.createObjectURL(blob);
-
+              if (data.download_url) {
                 const link = document.createElement('a');
-                link.href = blobUrl;
-                link.setAttribute('download', `daily_photos_${selectedCamera}_${Date.now()}.zip`);
+                link.href = normalizeDownloadUrl(data.download_url);
+                link.setAttribute('download', `daily_photos_${currentSelectedCamera}_${Date.now()}.zip`);
                 document.body.appendChild(link);
                 link.click();
                 document.body.removeChild(link);
-                URL.revokeObjectURL(blobUrl);
 
-                console.log('ZIP download started for', data.photo_count, 'photos');
+                console.log('ZIP download started via URL:', data.download_url, `(${data.total_size} bytes)`);
               } else {
-                alert('Failed to download ZIP: ' + (data.error || 'Unknown error'));
+                setModal({
+                  show: true,
+                  title: 'ZIP Download Failed',
+                  message: 'Failed to download ZIP: ' + (data.error || 'Unknown error'),
+                  type: 'error'
+                });
               }
             }
           },
@@ -1034,7 +1232,8 @@ const CameraCard = () => {
           (event) => {
             const data = event.data;
             if (!isMounted) return; // Prevent updates if unmounted
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               console.error('Capture failed:', data.error);
               // Show notification to user with retry option
               setCaptureFailure({
@@ -1053,10 +1252,18 @@ const CameraCard = () => {
           (event) => {
             const data = event.data;
             if (!isMounted) return; // Prevent updates if unmounted
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               console.log('All timelapse photos deleted:', data.deleted_count);
               setIsDeletingAllTimelapse(false);
-              alert(`Successfully deleted ${data.deleted_count} timelapse photos.`);
+              setTotalTimelapseCount(0);
+              setTimelapsePhotos([]);
+              setModal({
+                show: true,
+                title: 'Timelapse Photos Deleted',
+                message: `Successfully deleted ${data.deleted_count} timelapse photos.`,
+                type: 'success'
+              });
             }
           },
           'ogb_camera_all_timelapse_deleted'
@@ -1068,15 +1275,32 @@ const CameraCard = () => {
           (event) => {
             const data = event.data;
             if (!isMounted) return; // Prevent updates if unmounted
-            if (data.camera_entity === selectedCamera) {
+            const currentSelectedCamera = selectedCameraRef.current;
+            if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
               console.log('All timelapse output deleted:', data.deleted_count);
               setIsDeletingTimelapseOutput(false);
-              alert(`Successfully deleted ${data.deleted_count} timelapse output files.`);
+              setTimelapseOutputs([]);
+              setTimelapseOutputCounts({ mp4: 0, zip: 0 });
+              setModal({
+                show: true,
+                title: 'Timelapse Output Deleted',
+                message: `Successfully deleted ${data.deleted_count} timelapse output files.`,
+                type: 'success'
+              });
             }
           },
           'ogb_camera_all_timelapse_output_deleted'
         );
         unsubscribeFunctions.push(unsubTimelapseOutputDeleted);
+
+        // Re-request status after subscriptions are active to avoid race on page refresh
+        await connection.sendMessagePromise({
+          type: 'fire_event',
+          event_type: 'opengrowbox_get_timelapse_status',
+          event_data: {
+            device_name: selectedCameraRef.current,
+          },
+        });
       } catch (err) {
         console.error('Error setting up daily photo event listeners:', err);
       }
@@ -1091,31 +1315,36 @@ const CameraCard = () => {
         if (unsub) unsub();
       });
     };
-  }, [connection, selectedCamera, currentPhotoDate]);
+  }, [connection, selectedCamera, currentRoom]);
 
-  // Request daily photos list when daily or timelapse tab becomes active
+  // Fallback: re-request timelapse photos if count is 0 after mount
   useEffect(() => {
-    if (!connection || !selectedCamera || (activeTab !== 'daily' && activeTab !== 'timelapse')) return;
-
-    const requestDailyPhotos = async () => {
-      try {
-        setDailyViewLoading(true);
-        await connection.sendMessagePromise({
-          type: 'fire_event',
-          event_type: 'opengrowbox_get_daily_photos',
-          event_data: {
-            device_name: selectedCamera,  // Backend expects 'device_name' not 'camera_entity'
-          },
-        });
-        console.log('Requested daily photos for:', selectedCamera);
-      } catch (err) {
-        console.error('Failed to request daily photos:', err);
-        setDailyViewLoading(false);
+    if (!connection || !selectedCamera) return;
+    let isMounted = true;
+    
+    // If timelapse count is still 0 after 2 seconds, retry request
+    const timeout = setTimeout(async () => {
+      if (totalTimelapseCount === 0 && isMounted) {
+        console.log('Timelapse count still 0, retrying request...');
+        try {
+          await connection.sendMessagePromise({
+            type: 'fire_event',
+            event_type: 'opengrowbox_get_timelapse_photos',
+            event_data: {
+              device_name: selectedCamera,
+            },
+          });
+        } catch (err) {
+          console.error('Failed to retry timelapse photos request:', err);
+        }
       }
-    };
+    }, 2000);
 
-    requestDailyPhotos();
-  }, [connection, selectedCamera, activeTab]);
+    return () => {
+      isMounted = false;
+      clearTimeout(timeout);
+    };
+  }, [connection, selectedCamera, totalTimelapseCount]);
 
   // Load individual photo when currentPhotoDate changes
   useEffect(() => {
@@ -1140,6 +1369,9 @@ const CameraCard = () => {
   }, [connection, selectedCamera, currentPhotoDate, activeTab]);
 
   const currentFriendlyName = cameras.find(c => c.entityId === selectedCamera)?.friendlyName || selectedCamera;
+  const displayedTimelapseCount = isRecording
+    ? Math.max(totalTimelapseCount, recordingStatus.imageCount || 0)
+    : totalTimelapseCount;
 
   // Handle camera selection
   const handleCameraChange = (e) => {
@@ -1155,7 +1387,7 @@ const CameraCard = () => {
       const newPhoto = dailyPhotos[currentIndex - 1];
       setCurrentPhotoDate(newPhoto.date);
     } else {
-      alert('No older photos available');
+      setModal({ show: true, title: 'No Older Photos', message: 'No older photos available.', type: 'info' });
     }
   };
 
@@ -1166,7 +1398,7 @@ const CameraCard = () => {
       const newPhoto = dailyPhotos[currentIndex + 1];
       setCurrentPhotoDate(newPhoto.date);
     } else {
-      alert('No newer photos available');
+      setModal({ show: true, title: 'No Newer Photos', message: 'No newer photos available.', type: 'info' });
     }
   };
 
@@ -1186,7 +1418,7 @@ const CameraCard = () => {
       console.log('Delete photo event sent for:', currentPhotoDate);
     } catch (err) {
       console.error('Failed to delete photo:', err);
-      alert('Failed to delete photo. Please try again.');
+      setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete photo. Please try again.', type: 'error' });
     }
   };
 
@@ -1196,7 +1428,7 @@ const CameraCard = () => {
 
     const photoCount = dailyPhotos.length;
     if (photoCount === 0) {
-      alert('No daily photos to delete.');
+      setModal({ show: true, title: 'No Photos', message: 'No daily photos to delete.', type: 'info' });
       return;
     }
 
@@ -1217,7 +1449,7 @@ const CameraCard = () => {
     } catch (err) {
       console.error('Failed to delete all daily photos:', err);
       setIsDeletingAllDaily(false);
-      alert('Failed to delete all daily photos. Please try again.');
+      setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete all daily photos. Please try again.', type: 'error' });
     }
   };
 
@@ -1242,7 +1474,7 @@ const CameraCard = () => {
     });
 
     if (filteredPhotos.length === 0) {
-      alert('No daily photos found in the selected date range.');
+      setModal({ show: true, title: 'No Photos Found', message: 'No daily photos found in the selected date range.', type: 'info' });
       return;
     }
 
@@ -1261,7 +1493,7 @@ const CameraCard = () => {
     } catch (err) {
       console.error('Failed to download ZIP:', err);
       setIsDownloadingZip(false);
-      alert('Failed to download ZIP. Please try again.');
+      setModal({ show: true, title: 'Download Failed', message: 'Failed to download ZIP. Please try again.', type: 'error' });
     }
   };
 
@@ -1286,7 +1518,7 @@ const CameraCard = () => {
     } catch (err) {
       console.error('Failed to delete all timelapse photos:', err);
       setIsDeletingAllTimelapse(false);
-      alert('Failed to delete all timelapse photos. Please try again.');
+      setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete all timelapse photos. Please try again.', type: 'error' });
     }
   };
 
@@ -1311,8 +1543,27 @@ const CameraCard = () => {
     } catch (err) {
       console.error('Failed to delete all timelapse output:', err);
       setIsDeletingTimelapseOutput(false);
-      alert('Failed to delete all timelapse output files. Please try again.');
+      setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete all timelapse output files. Please try again.', type: 'error' });
     }
+  };
+
+  const handleRedownloadOutput = (outputFile) => {
+    if (!outputFile || !outputFile.download_url) {
+      setModal({
+        show: true,
+        title: 'Download Unavailable',
+        message: 'This output file is missing a download URL.',
+        type: 'error'
+      });
+      return;
+    }
+
+    const link = document.createElement('a');
+    link.href = normalizeDownloadUrl(outputFile.download_url);
+    link.setAttribute('download', outputFile.filename || `timelapse_output_${Date.now()}`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   // Handle retry capture after failure
@@ -1334,7 +1585,7 @@ const CameraCard = () => {
     } catch (err) {
       console.error('Failed to send retry capture event:', err);
       setCaptureFailure(prev => ({ ...prev, isRetrying: false }));
-      alert('Failed to trigger retry. Please try again.');
+      setModal({ show: true, title: 'Retry Failed', message: 'Failed to trigger retry. Please try again.', type: 'error' });
     }
   };
 
@@ -1368,26 +1619,34 @@ const CameraCard = () => {
     };
     setTimelapseConfig(newConfig);
     
-    // Save to backend
-    if (selectedCamera && connection) {
+    // Save changed field only to backend (prevents stale defaults overwriting persisted state)
+    const activeCamera = selectedCameraRef.current;
+    if (activeCamera && connection) {
       try {
         console.log('[CameraCard] Sending timelapse config change:', field, value);
-        console.log('[CameraCard] Selected camera:', selectedCamera);
+        console.log('[CameraCard] Selected camera:', activeCamera);
+
+        const fieldToPayload = {
+          interval: { interval: String(newConfig.interval) },
+          startDate: { startDate: toUtcISO(newConfig.startDate) },
+          endDate: { endDate: toUtcISO(newConfig.endDate) },
+          format: { format: newConfig.format },
+          dailySnapshotEnabled: { daily_snapshot_enabled: newConfig.dailySnapshotEnabled },
+          dailySnapshotTime: { daily_snapshot_time: newConfig.dailySnapshotTime },
+          captureAtNight: { capture_at_night: newConfig.captureAtNight },
+        };
+
+        const configPayload = fieldToPayload[field] || {};
+        if (Object.keys(configPayload).length === 0) {
+          return;
+        }
         
         const response = await connection.sendMessagePromise({
           type: 'fire_event',
           event_type: 'opengrowbox_save_timelapse_config',
           event_data: {
-            device_name: selectedCamera,
-            config: {
-              interval: newConfig.interval,
-              startDate: toUtcISO(newConfig.startDate),
-              endDate: toUtcISO(newConfig.endDate),
-              format: newConfig.format,
-              daily_snapshot_enabled: newConfig.dailySnapshotEnabled,
-              daily_snapshot_time: newConfig.dailySnapshotTime,
-              capture_at_night: newConfig.captureAtNight,
-            },
+            device_name: activeCamera,
+            config: configPayload,
           },
         });
         console.log('[CameraCard] Timelapse config saved to backend, response:', response);
@@ -1402,7 +1661,7 @@ const CameraCard = () => {
   // Handle timelapse download - sends HA event to backend
   const handleTimelapseDownload = async () => {
     if (!selectedCamera || !timelapseConfig.startDate || !timelapseConfig.endDate) {
-      alert('Please select start and end dates for the timelapse');
+      setModal({ show: true, title: 'Missing Dates', message: 'Please select start and end dates for the timelapse.', type: 'info' });
       return;
     }
 
@@ -1456,16 +1715,21 @@ const CameraCard = () => {
 
   // Start/Stop timelapse recording
   const toggleRecording = async () => {
+    // Prevent multiple simultaneous toggle calls
+    if (toggleLockRef.current) {
+      console.log('Toggle already in progress, ignoring');
+      return;
+    }
+    
     if (!selectedCamera) return;
 
     try {
+      toggleLockRef.current = true;
+      
       if (isRecording || scheduledTimelapse.isScheduled) {
-        const action = isRecording ? 'stop recording' : 'cancel schedule';
-
-        if (!window.confirm(`Are you sure you want to ${action}?`)) {
-          return;
-        }
-
+        // Stop timelapse immediately without confirmation
+        // User can restart if needed
+        
         await connection.sendMessagePromise({
           type: 'fire_event',
           event_type: 'opengrowbox_stop_timelapse',
@@ -1483,9 +1747,26 @@ const CameraCard = () => {
           countdown: ''
         });
 
-        console.log(`Timelapse ${action} successful`);
+        console.log('Timelapse stop command sent successfully');
       } else {
-        // Start recording
+        // Start recording: first persist current UI config so backend startTL reads valid ISO dates
+        await connection.sendMessagePromise({
+          type: 'fire_event',
+          event_type: 'opengrowbox_save_timelapse_config',
+          event_data: {
+            device_name: selectedCamera,
+            config: {
+              interval: timelapseConfig.interval,
+              startDate: toUtcISO(timelapseConfig.startDate),
+              endDate: toUtcISO(timelapseConfig.endDate),
+              format: timelapseConfig.format,
+              daily_snapshot_enabled: timelapseConfig.dailySnapshotEnabled,
+              daily_snapshot_time: timelapseConfig.dailySnapshotTime,
+              capture_at_night: timelapseConfig.captureAtNight,
+            },
+          },
+        });
+
         await connection.sendMessagePromise({
           type: 'fire_event',
           event_type: 'opengrowbox_start_timelapse',
@@ -1498,12 +1779,41 @@ const CameraCard = () => {
       }
     } catch (err) {
       console.error('Failed to toggle recording:', err);
-      alert('Failed to ' + (isRecording ? 'stop' : 'start') + ' recording');
+      setModal({
+        show: true,
+        title: 'Recording Error',
+        message: 'Failed to ' + (isRecording ? 'stop' : 'start') + ' recording.',
+        type: 'error'
+      });
+    } finally {
+      // Release lock after a short delay to prevent rapid re-clicks
+      setTimeout(() => {
+        toggleLockRef.current = false;
+      }, 1000);
     }
   };
 
   return (
     <CameraContainer>
+      {/* Modal for timelapse events */}
+      {modal.show && (
+        <ModalOverlay onClick={() => setModal({ ...modal, show: false })}>
+          <ModalContent 
+            onClick={(e) => e.stopPropagation()}
+            type={modal.type}
+          >
+            <ModalHeader type={modal.type}>
+              {modal.type === 'error' ? '⚠️' : modal.type === 'success' ? '✓' : 'ℹ️'}
+            </ModalHeader>
+            <ModalTitle>{modal.title}</ModalTitle>
+            <ModalMessage>{modal.message}</ModalMessage>
+            <ModalButton onClick={() => setModal({ ...modal, show: false })}>
+              OK
+            </ModalButton>
+          </ModalContent>
+        </ModalOverlay>
+      )}
+
       {captureFailure && (
         <CaptureFailureNotification>
           <NotificationContent>
@@ -1534,6 +1844,40 @@ const CameraCard = () => {
           </NotificationContent>
         </CaptureFailureNotification>
       )}
+
+      {/* Camera Info Top Header */}
+      <CameraTopHeader>
+        <InfoBadge type="daily">
+          <span>Daily</span>
+          <Count>{dailyPhotos.length}</Count>
+        </InfoBadge>
+        <InfoBadge type="timelapse">
+          <span>Timelapse</span>
+          <Count>{displayedTimelapseCount}</Count>
+          {isRecording && <RecordingDot />}
+        </InfoBadge>
+        {timelapseConfig.dailySnapshotEnabled && (
+          <InfoBadge type="countdown">
+            <span>Daily Next:</span>
+            <CountdownText>{nextDailySnapshot || '--'}</CountdownText>
+          </InfoBadge>
+        )}
+        {isRecording && (
+          <InfoBadge type="countdown">
+            <span>Next:</span>
+            <CountdownText>{nextTimelapseCountdown || '--'}</CountdownText>
+          </InfoBadge>
+        )}
+        {timelapseProgress.active && (
+          <InfoBadge type="download">
+            <span>Download</span>
+            <DownloadText>
+              {timelapseProgress.percent}%
+            </DownloadText>
+          </InfoBadge>
+        )}
+      </CameraTopHeader>
+
       <CameraHeader>
         <HeaderTitle>
           <MdVideocam />
@@ -1551,7 +1895,7 @@ const CameraCard = () => {
               Timelapse & Config
             </TabButton>
           </CameraMenu>
-          
+
           {activeTab === 'stream' && (
             <>
               <StatusContainer status={status}>
@@ -1711,19 +2055,19 @@ const CameraCard = () => {
             {/* Scheduled Timelapse Section */}
             {scheduledTimelapse.isScheduled && (
               <TimelapseSection style={{
-                background: 'rgba(255, 193, 7, 0.1)',
+                background: 'rgba(var(--warning-color-rgb, 245, 158, 11), 0.1)',
                 padding: '16px',
                 borderRadius: '8px',
-                border: '1px solid #FFC107',
+                border: '1px solid var(--warning-color, #f59e0b)',
                 marginBottom: '16px'
               }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                     <SpinnerIcon style={{ animation: 'spin 1s linear infinite' }}>
-                      <MdSchedule style={{ fontSize: '24px', color: '#FFC107' }} />
+                      <MdSchedule style={{ fontSize: '24px', color: 'var(--warning-color, #f59e0b)' }} />
                     </SpinnerIcon>
                     <div>
-                      <TimelapseLabel style={{ marginBottom: '4px', color: '#FFC107' }}>
+                      <TimelapseLabel style={{ marginBottom: '4px', color: 'var(--warning-color, #f59e0b)' }}>
                         Scheduled - Starts in {scheduledTimelapse.countdown}
                       </TimelapseLabel>
                       <div style={{ fontSize: '12px', opacity: 0.7 }}>
@@ -1741,10 +2085,10 @@ const CameraCard = () => {
 
             {/* Recording Status */}
             <TimelapseSection style={{
-              background: isRecording ? 'rgba(76, 175, 80, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+              background: isRecording ? 'var(--success-bg-color, rgba(76, 175, 80, 0.1))' : 'var(--glass-bg-secondary, rgba(255, 255, 255, 0.05))',
               padding: '16px',
               borderRadius: '8px',
-              border: isRecording ? '1px solid #4CAF50' : '1px solid rgba(255, 255, 255, 0.1)',
+              border: isRecording ? '1px solid var(--chart-success-color, #22c55e)' : '1px solid var(--glass-border, rgba(255, 255, 255, 0.1))',
               marginBottom: '16px',
               opacity: scheduledTimelapse.isScheduled ? 0.5 : 1
             }}>
@@ -1755,7 +2099,7 @@ const CameraCard = () => {
                   </TimelapseLabel>
                   <div style={{ fontSize: '12px', opacity: 0.7 }}>
                     {isRecording
-                      ? `Capturing every ${timelapseConfig.interval}s • Images: ${recordingStatus.imageCount}`
+                      ? `Capturing every ${timelapseConfig.interval}s • Images: ${displayedTimelapseCount}`
                       : scheduledTimelapse.isScheduled
                         ? 'Schedule is active - use Cancel above to stop'
                       : 'Click Start to begin capturing images'
@@ -1795,6 +2139,7 @@ const CameraCard = () => {
                   type="datetime-local"
                   value={timelapseConfig.startDate}
                   onChange={(e) => handleTimelapseChange('startDate', e.target.value)}
+                  title="When generating a timelapse or downloading images, only captures within this date range will be included. This allows you to create timelapses from specific time periods."
                 />
               </TimelapseSection>
 
@@ -1804,19 +2149,11 @@ const CameraCard = () => {
                   type="datetime-local"
                   value={timelapseConfig.endDate}
                   onChange={(e) => handleTimelapseChange('endDate', e.target.value)}
+                  title="When generating a timelapse or downloading images, only captures within this date range will be included. This allows you to create timelapses from specific time periods."
                 />
               </TimelapseSection>
             </TimelapseConfigGrid>
 
-            {/* Date Filter Info */}
-            <TimelapseFilterNote>
-              <NoteIcon><MdInfo style={{ fontSize: '16px' }} /></NoteIcon>
-              <span>
-                <strong>Date Filter:</strong> When generating a timelapse or downloading images,
-                only captures within this date range will be included. This allows you to create
-                timelapses from specific time periods.
-              </span>
-            </TimelapseFilterNote>
 
             {/* Capture Interval */}
             <TimelapseSection>
@@ -1845,8 +2182,8 @@ const CameraCard = () => {
                 value={timelapseConfig.format}
                 onChange={(e) => handleTimelapseChange('format', e.target.value)}
               >
-                <option value="mp4">MP4 Video (experimental)</option>
-                <option value="zip">ZIP of Images (recommended)</option>
+                <option value="mp4">MP4 Video</option>
+                <option value="zip">ZIP of Images</option>
               </TimelapseSelect>
             </TimelapseSection>
 
@@ -1868,21 +2205,13 @@ const CameraCard = () => {
               </ToggleLabel>
             </CaptureAtNightBox>
 
-            {/* Performance Warning Banner */}
-            <TimelapsePerformanceWarning>
-              <WarningIcon>
-                <MdWarning />
-              </WarningIcon>
-              <WarningContent>
-                <WarningTitle>Performance & Storage Advisory</WarningTitle>
-                <WarningMessage>
-                  Generating MP4 videos on the device can be <WarningHighlight>very slow</WarningHighlight> depending on your hardware. For faster downloads, consider using <WarningHighlight>ZIP format</WarningHighlight> instead, which packages raw images without processing.
-                </WarningMessage>
-                <WarningMessage>
-                  Using <WarningHighlight>short intervals</WarningHighlight> (e.g., less than 5 minutes) can result in <WarningHighlight>unnecessarily large storage requirements</WarningHighlight>. Consider using intervals of 10-30 minutes for a good balance between detail and storage.
-                </WarningMessage>
-              </WarningContent>
-            </TimelapsePerformanceWarning>
+            {/* Performance & Storage Advisory */}
+            <AdvisoryHint title="Generating MP4 videos on device can be very slow depending on your hardware. For faster downloads, consider using ZIP format instead, which packages raw images without processing.
+
+Using short intervals (e.g., less than 5 minutes) can result in unnecessarily large storage requirements. Consider using intervals of 10-30 minutes for a good balance between detail and storage.">
+              <MdInfo />
+              <span>Performance & Storage Advisory</span>
+            </AdvisoryHint>
 
             {/* Download Button */}
             <DownloadButton
@@ -1909,19 +2238,16 @@ const CameraCard = () => {
                     </ErrorMessage>
                   </>
                 ) : timelapseProgress.status === 'complete' ? (
-                  <>
+                    <>
                     <ProgressHeader>
-                      <CompleteIcon>✓</CompleteIcon>
-                      <ProgressTitle>Complete!</ProgressTitle>
+                      <CompleteIcon><MdMovie /></CompleteIcon>
+                      <ProgressTitle>Completed</ProgressTitle>
                     </ProgressHeader>
-                    <CompleteMessage>
-                      Timelapse downloaded successfully
-                    </CompleteMessage>
                   </>
                 ) : (
                   <>
                     <ProgressHeader>
-                      <VideoIcon>📹</VideoIcon>
+                      <VideoIcon><MdVideocam /></VideoIcon>
                       <ProgressTitle>Generating Timelapse</ProgressTitle>
                     </ProgressHeader>
                     <ProgressBarContainer>
@@ -1931,7 +2257,23 @@ const CameraCard = () => {
                       <ProgressPercent>{timelapseProgress.percent}%</ProgressPercent>
                     </ProgressBarContainer>
                     <ProgressMeta>
+                      <span>Status: {getProgressStatusLabel(timelapseProgress.status)}</span>
                       <span>Format: {timelapseConfig.format.toUpperCase()}</span>
+                      {timelapseProgress.fileCount > 0 && (
+                        <span style={{ marginLeft: '12px' }}>
+                          {timelapseProgress.fileCount} frames
+                        </span>
+                      )}
+                      {timelapseProgress.estimatedTime && (
+                        <span style={{ marginLeft: '12px' }}>
+                          ~{timelapseProgress.estimatedTime} video
+                        </span>
+                      )}
+                      {timelapseProgress.estimatedSpace && (
+                        <span style={{ marginLeft: '12px' }}>
+                          {timelapseProgress.estimatedSpace} estimated
+                        </span>
+                      )}
                     </ProgressMeta>
                   </>
                 )}
@@ -1978,129 +2320,98 @@ const CameraCard = () => {
             </DailySnapshotControls>
           </DailySnapshotSection>
 
-          {/* Storage Management - unchanged */}
-          <StorageManagementSection>
-            <StorageManagementHeader>
-              <StorageManagementTitle>Storage Management</StorageManagementTitle>
-              <StorageManagementDescription>
-                Manage your daily photo storage - download photos as a ZIP archive or delete all daily photos
-              </StorageManagementDescription>
-            </StorageManagementHeader>
+          {/* Storage Management - Compact */}
+          <StorageSection>
+            <StorageHeader>
+              <StorageTitle>
+                <MdFolderOpen />
+                <span>Storage</span>
+              </StorageTitle>
+              <StorageCounters>
+                <StorageCounter>
+                  <MdImage />
+                  <span>{dailyPhotos.length}</span>
+                  <span>daily</span>
+                </StorageCounter>
+                <StorageCounter>
+                  <MdMovie />
+                  <span>{timelapsePhotos.length}</span>
+                  <span>timelapse</span>
+                </StorageCounter>
+                <StorageCounter title={`${timelapseOutputCounts.mp4 || 0} MP4, ${timelapseOutputCounts.zip || 0} ZIP`}>
+                  <MdDownload />
+                  <span>{timelapseOutputs.length}</span>
+                  <span>output</span>
+                </StorageCounter>
+              </StorageCounters>
+            </StorageHeader>
 
-            {/* Date Range Filter */}
-            <DateRangeFilter>
-              <DateRangeLabel>Filter by Date Range (Optional)</DateRangeLabel>
-              <DateRangeInputs>
-                <DateInputWrapper>
-                  <DateInputLabel>From Date</DateInputLabel>
-                  <DateInput
-                    type="date"
-                    value={zipDateRange.startDate}
-                    onChange={(e) => setZipDateRange(prev => ({ ...prev, startDate: e.target.value }))}
-                  />
-                </DateInputWrapper>
-                <DateInputWrapper>
-                  <DateInputLabel>To Date</DateInputLabel>
-                  <DateInput
-                    type="date"
-                    value={zipDateRange.endDate}
-                    onChange={(e) => setZipDateRange(prev => ({ ...prev, endDate: e.target.value }))}
-                  />
-                </DateInputWrapper>
-              </DateRangeInputs>
-              <DateRangeHint>
-                {(() => {
-                  const filteredCount = dailyPhotos.filter(photo => {
-                    if (!zipDateRange.startDate && !zipDateRange.endDate) return true;
-                    const photoDate = new Date(photo.date);
-                    const startDate = zipDateRange.startDate ? new Date(zipDateRange.startDate) : null;
-                    const endDate = zipDateRange.endDate ? new Date(zipDateRange.endDate) : null;
-                    if (startDate && photoDate < startDate) return false;
-                    if (endDate && photoDate > endDate) return false;
-                    return true;
-                  }).length;
-                  const hasFilter = zipDateRange.startDate || zipDateRange.endDate;
-                  return hasFilter
-                    ? `${filteredCount} of ${dailyPhotos.length} photos selected`
-                    : `All ${dailyPhotos.length} photos will be downloaded`;
-                })()}
-              </DateRangeHint>
-            </DateRangeFilter>
+            <StorageBody>
+              <StorageRow>
+                <DateInput
+                  type="date"
+                  value={zipDateRange.startDate}
+                  onChange={(e) => setZipDateRange(prev => ({ ...prev, startDate: e.target.value }))}
+                  title="When generating a timelapse or downloading images, only captures within this date range will be included. This allows you to create timelapses from specific time periods."
+                />
+                <span style={{ color: 'var(--main-text-color)', opacity: 0.5 }}>→</span>
+                <DateInput
+                  type="date"
+                  value={zipDateRange.endDate}
+                  onChange={(e) => setZipDateRange(prev => ({ ...prev, endDate: e.target.value }))}
+                  title="When generating a timelapse or downloading images, only captures within this date range will be included. This allows you to create timelapses from specific time periods."
+                />
 
-            <StorageManagementControls>
-              <StorageButton
-                $variant="download"
-                onClick={handleDownloadZip}
-                disabled={isDownloadingZip || dailyPhotos.length === 0}
-              >
-                {isDownloadingZip ? (
-                  <>
-                    <DownloadingSpinner />
-                    Generating ZIP...
-                  </>
+              </StorageRow>
+
+              <StorageRow style={{ justifyContent: 'flex-start', fontSize: '12px', opacity: 0.75 }}>
+                <span>Output files: {timelapseOutputCounts.mp4 || 0} MP4, {timelapseOutputCounts.zip || 0} ZIP</span>
+              </StorageRow>
+
+              <OutputList>
+                {timelapseOutputs.length === 0 ? (
+                  <OutputEmpty>No generated output files yet.</OutputEmpty>
                 ) : (
-                  <>
-                    <MdDownload />
-                    Download Daily as ZIP
-                  </>
+                  timelapseOutputs.map((outputFile) => (
+                    <OutputItem key={outputFile.filename}>
+                      <OutputMeta>
+                        <strong>{outputFile.filename}</strong>
+                        <span>{(outputFile.format || 'file').toUpperCase()} • {formatFileSize(outputFile.size)}</span>
+                      </OutputMeta>
+                      <OutputDownloadButton onClick={() => handleRedownloadOutput(outputFile)}>
+                        <MdDownload />
+                        Re-download
+                      </OutputDownloadButton>
+                    </OutputItem>
+                  ))
                 )}
-              </StorageButton>
-              <StorageButton
-                $variant="delete"
-                onClick={handleDeleteAllDaily}
-                disabled={isDeletingAllDaily || dailyPhotos.length === 0}
-              >
-                {isDeletingAllDaily ? (
-                  <>
-                    <DeletingSpinner />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <MdDeleteSweep />
-                    Delete All Daily Photos
-                  </>
-                )}
-              </StorageButton>
-              <StorageButton
-                $variant="delete"
-                onClick={handleDeleteAllTimelapse}
-                disabled={isDeletingAllTimelapse}
-              >
-                {isDeletingAllTimelapse ? (
-                  <>
-                    <DeletingSpinner />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <MdDeleteSweep />
-                    Delete All Timelapse Photos
-                  </>
-                )}
-              </StorageButton>
-              <StorageButton
-                $variant="delete"
-                onClick={handleDeleteTimelapseOutput}
-                disabled={isDeletingTimelapseOutput}
-              >
-                {isDeletingTimelapseOutput ? (
-                  <>
-                    <DeletingSpinner />
-                    Deleting...
-                  </>
-                ) : (
-                  <>
-                    <MdDeleteSweep />
-                    Delete All Timelapse Output
-                  </>
-                )}
-              </StorageButton>
-            </StorageManagementControls>
-            <StorageInfo>
-              <span>{dailyPhotos.length} daily photos stored</span>
-            </StorageInfo>
-          </StorageManagementSection>
+              </OutputList>
+
+              <StorageActions>
+                <StorageButton
+                  $variant="delete"
+                  onClick={handleDeleteAllDaily}
+                  disabled={isDeletingAllDaily || dailyPhotos.length === 0}
+                >
+                  {isDeletingAllDaily ? <><DeletingSpinner />...</> : <><MdDelete /> Daily</>}
+                </StorageButton>
+                <StorageButton
+                  $variant="delete"
+                  onClick={handleDeleteAllTimelapse}
+                  disabled={isDeletingAllTimelapse}
+                >
+                  {isDeletingAllTimelapse ? <><DeletingSpinner />...</> : <><MdDelete /> Timelapse</>}
+                </StorageButton>
+                <StorageButton
+                  $variant="delete"
+                  onClick={handleDeleteTimelapseOutput}
+                  disabled={isDeletingTimelapseOutput}
+                >
+                  {isDeletingTimelapseOutput ? <><DeletingSpinner />...</> : <><MdDelete /> Output</>}
+                </StorageButton>
+              </StorageActions>
+            </StorageBody>
+          </StorageSection>
         </TimelapseContainer>
       )}
     </CameraContainer>
@@ -2109,6 +2420,82 @@ const CameraCard = () => {
 
 export default CameraCard;
 
+
+// Modal styles
+const ModalOverlay = styled.div`
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+`;
+
+const ModalContent = styled.div`
+  background: var(--main-bg-card-color, #1a1a2e);
+  border-radius: 16px;
+  padding: 24px;
+  max-width: 400px;
+  width: 90%;
+  text-align: center;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.5);
+  border: 1px solid ${props => props.type === 'error' ? 'rgba(255, 107, 107, 0.3)' : props.type === 'success' ? 'rgba(0, 255, 136, 0.3)' : 'rgba(255, 255, 255, 0.1)'};
+  
+  ${props => props.type === 'error' && `
+    border-color: rgba(255, 107, 107, 0.5);
+  `}
+  ${props => props.type === 'success' && `
+    border-color: rgba(0, 255, 136, 0.5);
+  `}
+`;
+
+const ModalHeader = styled.div`
+  font-size: 48px;
+  margin-bottom: 16px;
+  ${props => props.type === 'error' && `color: #ff6b6b;`}
+  ${props => props.type === 'success' && `color: #00ff88;`}
+  ${props => props.type === 'info' && `color: #6c9fff;`}
+`;
+
+const ModalTitle = styled.h2`
+  color: var(--main-text-color, #ffffff);
+  font-size: 20px;
+  font-weight: 600;
+  margin-bottom: 12px;
+`;
+
+const ModalMessage = styled.p`
+  color: var(--secondary-text-color, #a0a0a0);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+`;
+
+const ModalButton = styled.button`
+  background: var(--primary-color, #6c5ce7);
+  color: white;
+  border: none;
+  padding: 12px 32px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    background: var(--primary-color-hover, #5b4cdb);
+    transform: translateY(-1px);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+`;
 
 const CameraContainer = styled.div`
   background: var(--main-bg-card-color);
@@ -2155,7 +2542,7 @@ const TabButton = styled.button`
   border-radius: 6px;
   border: none;
   background: ${props => props.active ? 'var(--primary-accent)' : 'transparent'};
-  color: ${props => props.active ? 'white' : 'var(--main-text-color)'};
+  color: ${props => props.active ? 'var(--main-text-color)' : 'var(--main-text-color)'};
   font-size: 13px;
   font-weight: 500;
   cursor: pointer;
@@ -2237,7 +2624,7 @@ const DownloadButton = styled.button`
   border-radius: 8px;
   border: none;
   background: var(--primary-accent);
-  color: #fff;
+  color: var(--main-text-color);
   font-size: 14px;
   font-weight: 600;
   cursor: pointer;
@@ -2268,8 +2655,8 @@ const RecordButton = styled.button`
   padding: 10px 20px;
   border-radius: 6px;
   border: none;
-  background: ${props => props.$isRecording ? 'var(--chart-error-color)' : 'var(--chart-success-color)'};
-  color: white;
+  background: ${props => props.$isRecording ? 'var(--chart-error-color, #ef4444)' : 'var(--chart-success-color, #22c55e)'};
+  color: var(--main-text-color);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
@@ -2299,15 +2686,15 @@ const CancelButton = styled.button`
   padding: 10px 20px;
   border-radius: 6px;
   border: none;
-  background: var(--chart-warning-color);
-  color: black;
+  background: var(--warning-color, #f59e0b);
+  color: var(--main-bg-color);
   font-size: 13px;
   font-weight: 600;
   cursor: pointer;
   transition: all 0.2s;
 
   &:hover {
-    background: var(--chart-warning-color);
+    background: var(--warning-accent-color, #fb923c);
     transform: translateY(-1px);
   }
 
@@ -2338,27 +2725,6 @@ const TimelapseConfigDescription = styled.p`
   font-size: 12px;
   opacity: 0.6;
   line-height: 1.4;
-`;
-
-const TimelapseFilterNote = styled.div`
-  background: rgba(33, 150, 243, 0.08);
-  border: 1px solid rgba(33, 150, 243, 0.25);
-  border-radius: 6px;
-  padding: 10px 12px;
-  margin-top: 12px;
-  font-size: 13px;
-  line-height: 1.4;
-  color: rgba(100, 181, 246, 0.95);
-  display: flex;
-  align-items: flex-start;
-  gap: 8px;
-`;
-
-const NoteIcon = styled.span`
-  flex-shrink: 0;
-  margin-top: 1px;
-  display: flex;
-  align-items: center;
 `;
 
 const CaptureAtNightBox = styled(TimelapseSection)`
@@ -2396,10 +2762,10 @@ const StatusContainer = styled.div`
   font-size: 13px;
   color: ${props => {
     switch(props.status) {
-      case 'streaming': return 'var(--chart-success-color)';
-      case 'connecting': return 'var(--chart-warning-color)';
-      case 'still': return 'var(--chart-primary-color)';
-      case 'error': return 'var(--chart-error-color)';
+      case 'streaming': return 'var(--chart-success-color, #22c55e)';
+      case 'connecting': return 'var(--warning-color, #f59e0b)';
+      case 'still': return 'var(--chart-primary-color, #60a5fa)';
+      case 'error': return 'var(--chart-error-color, #ef4444)';
       default: return 'var(--placeholder-text-color)';
     }
   }};
@@ -2411,11 +2777,11 @@ const StatusDot = styled.div`
   border-radius: 50%;
   background: ${props => {
     switch(props.status) {
-      case 'streaming': return 'var(--chart-success-color)';
-      case 'connecting': return 'var(--chart-warning-color)';
-      case 'still': return 'var(--chart-primary-color)';
-      case 'error': return 'var(--chart-error-color)';
-      default: return 'var(--chart-neutral-color)';
+      case 'streaming': return 'var(--chart-success-color, #22c55e)';
+      case 'connecting': return 'var(--warning-color, #f59e0b)';
+      case 'still': return 'var(--chart-primary-color, #60a5fa)';
+      case 'error': return 'var(--chart-error-color, #ef4444)';
+      default: return 'var(--placeholder-text-color)';
     }
   }};
   animation: ${props => props.status === 'streaming' ? 'pulse 2s ease-in-out infinite' : 'none'};
@@ -2570,14 +2936,14 @@ const PhotoOverlay = styled.div`
 `;
 
 const PhotoDate = styled.span`
-  color: #fff;
+  color: var(--main-text-color);
   font-size: 18px;
   font-weight: 500;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.5);
 `;
 
 const DeleteButton = styled.button`
-  background: rgba(244, 67, 54, 0.7);
+  background: var(--chart-error-color, rgba(239, 68, 68, 0.7));
   border: none;
   border-radius: 50%;
   width: 40px;
@@ -2587,10 +2953,10 @@ const DeleteButton = styled.button`
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
-  color: #fff;
+  color: var(--main-text-color);
 
   &:hover {
-    background: rgba(244, 67, 54, 1);
+    background: var(--chart-error-color, #ef4444);
     transform: scale(1.1);
   }
 
@@ -2830,23 +3196,23 @@ const CountdownBadge = styled.div`
   gap: 4px;
   padding: 4px 8px;
   background: ${props => props.$disabled
-    ? 'rgba(255, 255, 255, 0.05)'
-    : 'color-mix(in srgb, var(--chart-primary-color) 10%, transparent)'};
+    ? 'var(--disabled-bg-color)'
+    : 'var(--chart-primary-bg-color, rgba(33, 150, 243, 0.1))'};
   border: 1px solid ${props => props.$disabled
-    ? 'rgba(255, 255, 255, 0.1)'
-    : 'color-mix(in srgb, var(--chart-primary-color) 30%, transparent)'};
+    ? 'var(--border-color)'
+    : 'var(--chart-primary-border-color, rgba(33, 150, 243, 0.3))'};
   border-radius: 4px;
   font-size: 14px;
   color: ${props => props.$disabled
     ? 'var(--placeholder-text-color)'
-    : 'var(--chart-primary-color)'};
+    : 'var(--chart-primary-color, #60a5fa)'};
   margin-left: 8px;
   white-space: nowrap;
 `;
 
 const NextCaptureInfo = styled.div`
   font-size: 11px;
-  color: var(--chart-primary-color);
+  color: var(--chart-primary-color, #60a5fa);
   margin-top: 4px;
   opacity: 0.8;
   font-size: 14px;
@@ -2879,58 +3245,200 @@ const NextCaptureInfo = styled.div`
   }
 `;
 
-const StorageManagementSection = styled.div`
-  background: --primary-accent;
+const StorageSection = styled.div`
+  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
   box-shadow: var(--main-shadow-art);
   border-radius: 8px;
-  padding: 16px;
-  border: 1px solid --primary-accent;
+  padding: 12px 16px;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
 `;
 
-const StorageManagementHeader = styled.div`
-  margin-bottom: 16px;
-`;
-
-const StorageManagementTitle = styled.div`
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--main-text-color);
-  margin-bottom: 4px;
-`;
-
-const StorageManagementDescription = styled.div`
-  font-size: 12px;
-  color: var(--main-text-color);
-  opacity: 0.6;
-  line-height: 1.4;
-`;
-
-const StorageManagementControls = styled.div`
+const StorageHeader = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
-  flex-wrap: wrap;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding-bottom: 10px;
+  border-bottom: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
+`;
 
-  @media (max-width: 600px) {
-    flex-direction: column;
-    width: 100%;
+const StorageTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--main-text-color);
+  
+  svg {
+    font-size: 18px;
+    color: var(--primary-accent);
   }
 `;
 
+const StorageCounters = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 16px;
+`;
+
+const StorageCounter = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  background: var(--glass-bg-primary, rgba(255, 255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: 16px;
+  font-size: 12px;
+  
+  svg {
+    font-size: 14px;
+    color: var(--primary-accent);
+  }
+  
+  span:first-of-type {
+    font-weight: 600;
+    color: var(--primary-accent);
+  }
+  
+  span:last-of-type {
+    color: var(--second-text-color);
+  }
+`;
+
+const StorageBody = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+`;
+
+const StorageRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+`;
+
+const FilterHint = styled.span`
+  font-size: 11px;
+  color: var(--primary-accent);
+  font-weight: 500;
+  margin-left: auto;
+  padding: 2px 8px;
+  background: var(--primary-accent);
+  border-radius: 10px;
+  color: var(--main-bg-color);
+`;
+
+const StorageActions = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+
+  @media (max-width: 500px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+`;
+
+const OutputList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  max-height: 180px;
+  overflow-y: auto;
+  padding-right: 2px;
+`;
+
+const OutputItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  background: var(--glass-bg-primary, rgba(255, 255, 255, 0.03));
+  border-radius: 8px;
+  padding: 8px 10px;
+`;
+
+const OutputMeta = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+
+  strong {
+    font-size: 12px;
+    color: var(--main-text-color);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 260px;
+  }
+
+  span {
+    font-size: 11px;
+    color: var(--second-text-color);
+  }
+`;
+
+const OutputDownloadButton = styled.button`
+  padding: 6px 10px;
+  border-radius: 6px;
+  border: 1px solid var(--chart-primary-color, rgba(33, 150, 243, 0.3));
+  background: var(--glass-bg-primary, rgba(33, 150, 243, 0.15));
+  color: var(--main-text-color);
+  font-size: 11px;
+  cursor: pointer;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+
+  &:hover {
+    background: var(--chart-primary-color, rgba(33, 150, 243, 0.25));
+  }
+`;
+
+const OutputEmpty = styled.div`
+  font-size: 12px;
+  color: var(--second-text-color);
+  opacity: 0.8;
+  padding: 8px 2px;
+`;
+
 const StorageButton = styled.button`
-  padding: 10px 20px;
+  padding: 8px 12px;
   border-radius: 6px;
   border: none;
-  background: ${props => props.$variant === 'delete' ? 'rgba(244, 67, 54, 0.8)' : 'rgba(33, 150, 243, 0.8)'};
-  color: #fff;
-  font-size: 13px;
+  background: ${props => props.$variant === 'delete' 
+    ? 'var(--glass-bg-primary, rgba(239, 68, 68, 0.15))' 
+    : 'var(--glass-bg-primary, rgba(33, 150, 243, 0.15))'};
+  border: 1px solid ${props => props.$variant === 'delete' 
+    ? 'var(--chart-error-color, rgba(239, 68, 68, 0.3))' 
+    : 'var(--chart-primary-color, rgba(33, 150, 243, 0.3))'};
+  color: var(--main-text-color);
+  font-size: 12px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
   display: flex;
   align-items: center;
+  justify-content: center;
+  gap: 6px;
+  
   svg {
-    font-size: 18px;
+    font-size: 14px;
+  }
+  
+  &:hover:not(:disabled) {
+    background: ${props => props.$variant === 'delete' 
+      ? 'var(--chart-error-color, rgba(239, 68, 68, 0.25))' 
+      : 'var(--chart-primary-color, rgba(33, 150, 243, 0.25))'};
+    transform: translateY(-1px);
+  }
+  
+  &:disabled {
+    opacity: 0.4;
+    cursor: not-allowed;
   }
 `;
 
@@ -2939,11 +3447,11 @@ const NightModeBadge = styled.div`
   align-items: center;
   gap: 6px;
   padding: 6px 12px;
-  background: color-mix(in srgb, var(--secondary-accent) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--secondary-accent) 30%, transparent);
+  background: var(--sensor-co2-bg-color, rgba(139, 92, 246, 0.15));
+  border: 1px solid var(--sensor-co2-border-color, rgba(139, 92, 246, 0.3));
   border-radius: 16px;
   font-size: 13px;
-  color: var(--secondary-accent);
+  color: var(--sensor-co2-color, #8b5cf6);
   margin-top: 8px;
 
   svg {
@@ -2954,8 +3462,8 @@ const NightModeBadge = styled.div`
 const DeletingSpinner = styled.div`
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border: 2px solid var(--glass-border, rgba(255, 255, 255, 0.3));
+  border-top-color: var(--main-text-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 
@@ -2967,8 +3475,8 @@ const DeletingSpinner = styled.div`
 const DownloadingSpinner = styled.div`
   width: 14px;
   height: 14px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: #fff;
+  border: 2px solid var(--glass-border, rgba(255, 255, 255, 0.3));
+  border-top-color: var(--main-text-color);
   border-radius: 50%;
   animation: spin 0.8s linear infinite;
 
@@ -2977,86 +3485,29 @@ const DownloadingSpinner = styled.div`
   }
 `;
 
-const StorageInfo = styled.div`
-  margin-top: 12px;
-  padding-top: 12px;
-  border-top: 1px solid rgba(255, 255, 255, 0.1);
-  font-size: 12px;
-  color: var(--main-text-color);
-  opacity: 0.6;
-`;
-
-const DateRangeFilter = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-  padding: 12px;
-  background: rgba(0, 0, 0, 0.2);
-  border-radius: 6px;
-  margin-bottom: 12px;
-`;
-
-const DateRangeLabel = styled.div`
-  font-size: 13px;
-  font-weight: 500;
-  color: var(--main-text-color);
-  opacity: 0.8;
-`;
-
-const DateRangeInputs = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 12px;
-
-  @media (max-width: 600px) {
-    grid-template-columns: 1fr;
-  }
-`;
-
-const DateInputWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 6px;
-`;
-
-const DateInputLabel = styled.label`
-  font-size: 12px;
-  color: var(--main-text-color);
-  opacity: 0.7;
-  font-weight: 500;
-`;
-
 const DateInput = styled.input`
-  padding: 8px 12px;
+  padding: 6px 10px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--input-border-color);
+  background: var(--input-bg-color);
   color: var(--main-text-color);
-  font-size: 14px;
+  font-size: 12px;
   outline: none;
   transition: all 0.2s;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--border-hover-color);
   }
 
   &:focus {
-    border-color: var(--primary-accent);
+    border-color: var(--input-focus-border-color);
   }
 
-  /* For Webkit browsers like Chrome, Safari */
   &::-webkit-calendar-picker-indicator {
     filter: brightness(0) invert(1);
-    opacity: 1;
+    opacity: 0.7;
     cursor: pointer;
   }
-`;
-
-const DateRangeHint = styled.div`
-  font-size: 12px;
-  color: var(--main-text-color);
-  opacity: 0.7;
-  font-style: italic;
 `;
 
 const CaptureFailureNotification = styled.div`
@@ -3086,12 +3537,12 @@ const CaptureFailureNotification = styled.div`
 `;
 
 const NotificationContent = styled.div`
-  background: linear-gradient(135deg, rgba(244, 67, 54, 0.15) 0%, rgba(198, 40, 40, 0.15) 100%);
-  border: 1px solid rgba(244, 67, 54, 0.4);
+  background: var(--error-bg-gradient, linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(198, 40, 40, 0.15) 100%));
+  border: 1px solid var(--chart-error-color, rgba(239, 68, 68, 0.4));
   border-radius: 12px;
   padding: 16px;
   backdrop-filter: blur(10px);
-  box-shadow: 0 4px 20px rgba(244, 67, 54, 0.2);
+  box-shadow: 0 4px 20px rgba(239, 68, 68, 0.2);
   position: relative;
 `;
 
@@ -3102,11 +3553,11 @@ const NotificationIcon = styled.div`
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--chart-error-color) 20%, transparent);
+  background: rgba(239, 68, 68, 0.2);
   display: flex;
   align-items: center;
   justify-content: center;
-  color: var(--chart-error-color);
+  color: var(--chart-error-color, #ef4444);
   font-size: 20px;
 
   svg {
@@ -3122,7 +3573,7 @@ const NotificationMessage = styled.div`
 const NotificationTitle = styled.div`
   font-size: 14px;
   font-weight: 600;
-  color: color-mix(in srgb, var(--chart-error-color) 30%, white);
+  color: var(--error-light-text, #fecaca);
   margin-bottom: 4px;
 `;
 
@@ -3135,7 +3586,8 @@ const NotificationError = styled.div`
 
 const NotificationRetryCount = styled.div`
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--main-text-color);
+  opacity: 0.6;
 `;
 
 const NotificationActions = styled.div`
@@ -3149,8 +3601,8 @@ const RetryButton = styled.button`
   padding: 6px 16px;
   border-radius: 6px;
   border: none;
-  background: rgba(244, 67, 54, 0.8);
-  color: #fff;
+  background: var(--chart-error-color, rgba(239, 68, 68, 0.8));
+  color: var(--main-text-color);
   font-size: 12px;
   font-weight: 600;
   cursor: pointer;
@@ -3160,7 +3612,7 @@ const RetryButton = styled.button`
   justify-content: center;
 
   &:hover:not(:disabled) {
-    background: rgba(244, 67, 54, 1);
+    background: var(--chart-error-color, #ef4444);
     transform: translateY(-1px);
   }
 
@@ -3214,65 +3666,36 @@ const DismissIconButton = styled.button`
   }
 `;
 
-const TimelapsePerformanceWarning = styled.div`
-  display: flex;
-  align-items: flex-start;
-  gap: 12px;
-  padding: 14px 16px;
-  margin-top: 12px;
-  background: linear-gradient(135deg, rgba(255, 193, 7, 0.12) 0%, rgba(255, 152, 0, 0.12) 100%);
-  border: 1px solid rgba(255, 193, 7, 0.4);
-  border-radius: 8px;
-  backdrop-filter: blur(10px);
-  box-shadow: 0 2px 12px rgba(255, 193, 7, 0.15);
-`;
-
-const WarningIcon = styled.div`
-  flex-shrink: 0;
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: color-mix(in srgb, var(--chart-warning-color) 20%, transparent);
+const AdvisoryHint = styled.div`
   display: flex;
   align-items: center;
-  justify-content: center;
-  color: var(--chart-warning-color);
-  font-size: 18px;
-
-  svg {
-    font-size: 18px;
-  }
-`;
-
-const WarningContent = styled.div`
-  flex: 1;
-  min-width: 0;
-`;
-
-const WarningTitle = styled.div`
-  font-size: 13px;
-  font-weight: 600;
-  color: color-mix(in srgb, var(--chart-warning-color) 30%, white);
-  margin-bottom: 4px;
-`;
-
-const WarningMessage = styled.div`
+  gap: 8px;
+  padding: 8px 12px;
+  margin-top: 12px;
+  background: var(--glass-bg-secondary, rgba(255,255, 255, 0.05));
+  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
+  border-radius: 6px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.85);
-  line-height: 1.5;
-`;
-
-const WarningHighlight = styled.span`
-  color: var(--chart-warning-color);
-  font-weight: 500;
+  color: var(--second-text-color);
+  cursor: help;
+  
+  svg {
+    font-size: 14px;
+    color: var(--warning-color, #f59e0b);
+  }
+  
+  &:hover {
+    background: var(--glass-bg-primary, rgba(255,255, 255, 0.08));
+    border-color: var(--warning-color, #f59e0b);
+  }
 `;
 
 const ProgressSection = styled.div`
   margin-top: 16px;
   padding: 16px;
-  background: linear-gradient(135deg, rgba(99, 102, 241, 0.1) 0%, rgba(168, 85, 247, 0.1) 100%);
+  background: var(--primary-bg-gradient, linear-gradient(135deg, rgba(20, 184, 166, 0.1) 0%, rgba(96, 165, 250, 0.1) 100%));
   border-radius: 8px;
-  border: 1px solid rgba(99, 102, 241, 0.3);
+  border: 1px solid var(--primary-accent-border, rgba(20, 184, 166, 0.3));
   animation: slideIn 0.3s ease-out;
 
   @keyframes slideIn {
@@ -3299,8 +3722,8 @@ const CompleteIcon = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--chart-success-color) 30%, transparent);
-  color: var(--chart-success-color);
+  background: var(--success-bg-color, rgba(34, 197, 94, 0.3));
+  color: var(--chart-success-color, #22c55e);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3312,8 +3735,8 @@ const ErrorIcon = styled.div`
   width: 24px;
   height: 24px;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--chart-error-color) 30%, transparent);
-  color: var(--chart-error-color);
+  background: var(--error-bg-color, rgba(239, 68, 68, 0.3));
+  color: var(--chart-error-color, #ef4444);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3337,8 +3760,8 @@ const ProgressBarContainer = styled.div`
 
 const ProgressBarFill = styled.div`
   height: 100%;
-  width: ${props => props.percent}%;
-  background: linear-gradient(90deg, var(--chart-primary-color) 0%, var(--secondary-accent) 50%, var(--chart-error-color) 100%);
+  width: ${props => Math.max(props.percent || 0, 2)}%;
+  background: var(--primary-gradient, linear-gradient(90deg, var(--primary-accent) 0%, var(--secondary-accent) 100%));
   border-radius: 12px;
   transition: width 0.3s ease-out;
   position: relative;
@@ -3380,7 +3803,7 @@ const ProgressPercent = styled.div`
   text-align: center;
   font-size: 12px;
   font-weight: 600;
-  color: #fff;
+  color: var(--main-text-color);
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
   z-index: 1;
   line-height: 24px;
@@ -3391,26 +3814,112 @@ const ProgressMeta = styled.div`
   align-items: center;
   gap: 8px;
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.7);
+  color: var(--main-text-color);
+  opacity: 0.7;
+`;
+
+// Camera Info Header Components
+const CameraTopHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+  padding: 8px 12px;
+  margin-bottom: 12px;
+  background: var(--glass-bg-secondary, rgba(255,255,255,0.05));
+  border-radius: 8px;
+  border: 1px solid var(--glass-border, rgba(255,255,255,0.08));
+  width: 100%;
+  
+  @media (max-width: 768px) {
+    gap: 6px;
+    padding: 6px 8px;
+    justify-content: center;
+  }
+`;
+
+const InfoBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 12px;
+  font-weight: 500;
+  ${props => props.type === 'daily' && `
+    background: rgba(99, 102, 241, 0.15);
+    color: #818cf8;
+    border: 1px solid rgba(99, 102, 241, 0.3);
+  `}
+  ${props => props.type === 'timelapse' && `
+    background: rgba(34, 197, 94, 0.15);
+    color: #22c55e;
+    border: 1px solid rgba(34, 197, 94, 0.3);
+  `}
+  ${props => props.type === 'countdown' && `
+    background: rgba(245, 158, 11, 0.15);
+    color: #f59e0b;
+    border: 1px solid rgba(245, 158, 11, 0.3);
+  `}
+  ${props => props.type === 'download' && `
+    background: rgba(168, 85, 247, 0.15);
+    color: #a855f7;
+    border: 1px solid rgba(168, 85, 247, 0.3);
+    animation: pulse 2s ease-in-out infinite;
+  `}
+  
+  @keyframes pulse {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.7; }
+  }
+`;
+
+const Count = styled.span`
+  font-weight: 600;
+  font-size: 14px;
+`;
+
+const CountdownText = styled.span`
+  font-family: monospace;
+  font-size: 12px;
+  min-width: 80px;
+`;
+
+const DownloadText = styled.span`
+  font-weight: 600;
+  min-width: 40px;
+`;
+
+const RecordingDot = styled.div`
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #ef4444;
+  animation: blink 1s ease-in-out infinite;
+  
+  @keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0.3; }
+  }
 `;
 
 const ErrorMessage = styled.div`
   padding: 12px;
-  background: color-mix(in srgb, var(--chart-error-color) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--chart-error-color) 40%, transparent);
+  background: var(--error-bg-color, rgba(239, 68, 68, 0.15));
+  border: 1px solid var(--chart-error-color, rgba(239, 68, 68, 0.4));
   border-radius: 6px;
-  color: color-mix(in srgb, var(--chart-error-color) 30%, white);
+  color: var(--error-light-text, #fecaca);
   font-size: 13px;
   line-height: 1.4;
 `;
 
 const CompleteMessage = styled.div`
   padding: 12px;
-  background: color-mix(in srgb, var(--chart-success-color) 15%, transparent);
-  border: 1px solid color-mix(in srgb, var(--chart-success-color) 40%, transparent);
+  background: var(--success-bg-color, rgba(34, 197, 94, 0.15));
+  border: 1px solid var(--chart-success-color, rgba(34, 197, 94, 0.4));
   border-radius: 6px;
-  color: color-mix(in srgb, var(--chart-success-color) 30%, white);
+  color: var(--success-light-text, #bbf7d0);
   font-size: 13px;
   line-height: 1.4;
 `;
-
