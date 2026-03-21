@@ -854,13 +854,13 @@ const CameraCard = () => {
 
             if (matchesSelectedCamera) {
               console.log('Received CameraRecordingStatus:', data);
-              
+
               // Only update isRecording if data.is_recording is explicitly set (not undefined/null)
               // This prevents unconditionally resetting to false when data is incomplete
               if (data.is_recording !== undefined) {
                 setIsRecording(data.is_recording);
               }
-              
+
               // Always update recordingStatus with latest data
               setRecordingStatus(prev => ({
                 ...prev,
@@ -869,8 +869,9 @@ const CameraCard = () => {
                 startTime: data.start_time ?? prev.startTime,
               }));
 
+              // Update total count immediately for live updates
               if (data.image_count !== undefined && data.image_count !== null) {
-                setTotalTimelapseCount(prev => Math.max(prev, data.image_count));
+                setTotalTimelapseCount(data.image_count);
               }
               
               // Update night mode state
