@@ -78,7 +78,7 @@ const dynamicFilters = {
     conditions: {
       'NO': {
         includeKeywords: ["light"],
-        excludeKeywords: ["vpd","min","max","sun","Time"],
+        excludeKeywords: ["vpd","min","max","sun","Time","Enabled"],
         additionalTooltips: {}
       },
       'YES': {
@@ -341,8 +341,8 @@ const dynamicFilters = {
         }
       },
       'Plant-Watering': {
-        includeKeywords: ['hydro', 'pump', 'duration', 'intervall',  'Retrive'],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','cycle','medium'],
+        includeKeywords: ['soil'],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','cycle','medium','retrive'],
         additionalTooltips: {
           'ogb_waterpump_device_select_': 'Select water pump for simple watering'
         }
@@ -502,7 +502,7 @@ const groupMappings = {
   },
   'Targets': {
     includeKeywords: ['weight', 'min', 'max'],
-    excludeKeywords: ['co2', 'Light', 'crop'],
+    excludeKeywords: ['co2', 'Light', 'crop',"moisture","soil"],
   },
   'Drying': {
     includeKeywords: ['drying'],

@@ -35,6 +35,53 @@ export const OGBPremiumProvider = ({ children }) => {
   const responseListenerRef = useRef(null);
   const isInitializedRef = useRef(false);
   const isLoadingProfileRef = useRef(false);
+  const lastGoodLimitsRef = useRef(null);
+  const lastGoodFeaturesRef = useRef(null);
+
+  const hasValidLimits = (limits, planName) => {
+    if (!limits || typeof limits !== 'object') return false;
+    if (planName === 'free') return true;
+
+    return (
+      Number(limits.maxRooms) > 0 &&
+      Number(limits.maxGrowPlans) > 0 &&
+      Number(limits.maxApiCallsPerMonth) > 0 &&
+      Number(limits.storageLimitGB) > 0 &&
+      Number(limits.maxConcurrentConnections) > 0
+    );
+  };
+
+  const resolveLimits = (incomingLimits, prevLimits, planName) => {
+    if (hasValidLimits(incomingLimits, planName)) {
+      lastGoodLimitsRef.current = incomingLimits;
+      return incomingLimits;
+    }
+    return prevLimits || lastGoodLimitsRef.current || incomingLimits;
+  };
+
+  const hasValidFeatures = (features) => {
+    if (!features || typeof features !== 'object') return false;
+    return Object.keys(features).length > 0;
+  };
+
+  const resolveFeatures = (incomingFeatures, prevFeatures) => {
+    if (hasValidFeatures(incomingFeatures)) {
+      lastGoodFeaturesRef.current = incomingFeatures;
+      return incomingFeatures;
+    }
+    return prevFeatures || lastGoodFeaturesRef.current || incomingFeatures;
+  };
+
+  const normalizeUsageCounts = (usage = {}) => {
+    const activeConnections = Number(usage?.activeConnections ?? 0) || 0;
+    const roomsFromArray = Array.isArray(usage?.activeRooms) ? usage.activeRooms.length : 0;
+    const roomsUsed = Number(usage?.roomsUsed ?? 0) || 0;
+
+    return {
+      ...usage,
+      roomsUsed: Math.max(roomsUsed, roomsFromArray, activeConnections),
+    };
+  };
 
   const [growPlans,setGrowPlans] = useState([])
   const [publicGrowPlans, setPublicGrowPlans] = useState([]);
@@ -99,14 +146,8 @@ export const OGBPremiumProvider = ({ children }) => {
       
       const roomToUse = getActualRoom();
               
-      // Direkte Event-Sendung ohne Callback-Erwartung
-      await connection.sendMessagePromise({
-        type: 'fire_event',
-        event_type: 'ogb_premium_get_profile',
-        event_data: {
-          room: roomToUse, // Use actual room from entities or context
-          atTime: new Date().toISOString(),
-        },
+      await sendAuthEventWithCallback('ogb_premium_get_profile', {
+        room: roomToUse,
       });
 
     } catch (error) {
@@ -170,7 +211,20 @@ export const OGBPremiumProvider = ({ children }) => {
           // API returns 'plan', not 'currentPlan'
           setCurrentPlan(data?.currentPlan || data?.plan || data?.subscription_data?.plan_name || "free");
           setIsPremium(data?.is_premium);
-          setSubscription(data?.subscription_data);
+          setSubscription((prev) => {
+            const incoming = data?.subscription_data || {};
+            const planName = incoming?.plan_name || prev?.plan_name || 'free';
+            return {
+              ...(prev || {}),
+              ...incoming,
+              features: resolveFeatures(incoming?.features, prev?.features),
+              limits: resolveLimits(incoming?.limits, prev?.limits, planName),
+              usage: normalizeUsageCounts({
+                ...(prev?.usage || {}),
+                ...(incoming?.usage || {})
+              })
+            };
+          });
           setUserProfile(data.user);
           setIsSubActive(data.subscription_data?.status === 'active' || false);
           setOGBSessions(data?.ogb_sessions || 0);
@@ -231,7 +285,21 @@ export const OGBPremiumProvider = ({ children }) => {
             }
             
             setUserProfile(data.user);
-            setSubscription(data.subscription_data);
+            setSubscription((prev) => {
+              const incoming = data.subscription_data || {};
+              const planName = incoming?.plan_name || prev?.plan_name || 'free';
+              return {
+                ...(prev || {}),
+                ...incoming,
+                features: resolveFeatures(incoming?.features, prev?.features),
+                limits: resolveLimits(incoming?.limits, prev?.limits, planName),
+                usage: normalizeUsageCounts({
+                  ...(prev?.usage || {}),
+                  ...(incoming?.usage || {})
+                })
+              };
+            });
+            setCurrentPlan(data?.currentPlan || data?.subscription_data?.plan_name || 'free');
             setIsPremium(data.is_premium || false);
             setIsSubActive(data.subscription_data?.active || false);
             setOGBSessions(data?.ogb_sessions || 0);
@@ -256,7 +324,20 @@ export const OGBPremiumProvider = ({ children }) => {
           
           // Update all premium state without triggering auto-switch (backend already has correct mainControl)
           setIsPremium(data.is_premium || false);
-          setSubscription(data.subscription_data || null);
+          setSubscription((prev) => {
+            const incoming = data.subscription_data || {};
+            const planName = incoming?.plan_name || prev?.plan_name || 'free';
+            return {
+              ...(prev || {}),
+              ...incoming,
+              features: resolveFeatures(incoming?.features, prev?.features),
+              limits: resolveLimits(incoming?.limits, prev?.limits, planName),
+              usage: normalizeUsageCounts({
+                ...(prev?.usage || {}),
+                ...(incoming?.usage || {})
+              })
+            };
+          });
           setCurrentPlan(data.currentPlan || 'free');
           setUserProfile({
             currentPlan: data.currentPlan,
@@ -306,12 +387,12 @@ export const OGBPremiumProvider = ({ children }) => {
           setOgbMaxConnections(data?.ogb_max_sessions);
           setSubscription((prev) => prev ? ({
             ...prev,
-            usage: {
+            usage: normalizeUsageCounts({
               ...(prev.usage || {}),
               activeConnections: data?.active_connections ?? (typeof data?.ogb_sessions === 'object' ? data.ogb_sessions?.active : data?.ogb_sessions),
               activeRooms: data?.active_rooms ?? prev?.usage?.activeRooms ?? [],
               roomsUsed: Array.isArray(data?.active_rooms) ? data.active_rooms.length : prev?.usage?.roomsUsed,
-            },
+            }),
           }) : prev);
           break;
 
@@ -320,12 +401,12 @@ export const OGBPremiumProvider = ({ children }) => {
           setOgbMaxConnections(data?.ogb_max_sessions);
           setSubscription((prev) => prev ? ({
             ...prev,
-            usage: {
+            usage: normalizeUsageCounts({
               ...(prev.usage || {}),
               activeConnections: data?.active_connections ?? (typeof data?.ogb_sessions === 'object' ? data.ogb_sessions?.active : data?.ogb_sessions),
               activeRooms: data?.active_rooms ?? prev?.usage?.activeRooms ?? [],
               roomsUsed: Array.isArray(data?.active_rooms) ? data.active_rooms.length : prev?.usage?.roomsUsed,
-            },
+            }),
           }) : prev);
           break;
 
@@ -470,27 +551,27 @@ export const OGBPremiumProvider = ({ children }) => {
             
             // Update subscription with full structure (plan, features, limits, usage)
             setSubscription(prev => {
-              if (!prev) return prev;
-              
+              const baseSubscription = prev || {};
+              const nextPlan = plan || baseSubscription.plan_name || 'free';
               const newSubscription = {
-                ...prev,
-                usage: {
-                  ...(prev.usage || {}),
+                ...baseSubscription,
+                usage: normalizeUsageCounts({
+                  ...(baseSubscription.usage || {}),
                   ...usage,
-                  activeRooms: Array.isArray(usage.activeRooms) ? usage.activeRooms : (prev.usage?.activeRooms || []),
-                  roomsUsed: Array.isArray(usage.activeRooms) ? usage.activeRooms.length : (usage.roomsUsed ?? prev.usage?.roomsUsed ?? 0),
-                }
+                  activeRooms: Array.isArray(usage?.activeRooms) ? usage.activeRooms : (baseSubscription.usage?.activeRooms || []),
+                  roomsUsed: Array.isArray(usage?.activeRooms) ? usage.activeRooms.length : (usage?.roomsUsed ?? baseSubscription.usage?.roomsUsed ?? 0),
+                })
               };
               
               // Update plan, features, limits if provided
               if (plan) {
                 newSubscription.plan_name = plan;
               }
-              if (features) {
-                newSubscription.features = features;
-              }
+              newSubscription.features = resolveFeatures(features, baseSubscription.features);
               if (limits) {
-                newSubscription.limits = limits;
+                newSubscription.limits = resolveLimits(limits, baseSubscription.limits, nextPlan);
+              } else {
+                newSubscription.limits = resolveLimits(null, baseSubscription.limits, nextPlan);
               }
               
               return newSubscription;
@@ -499,6 +580,9 @@ export const OGBPremiumProvider = ({ children }) => {
             // Also update ogbSessions if activeConnections is provided
             if (usage?.activeConnections !== undefined) {
               setOGBSessions(usage.activeConnections);
+            }
+            if (limits?.maxConcurrentConnections !== undefined) {
+              setOgbMaxConnections(limits.maxConcurrentConnections);
             }
             
             // Update currentPlan if plan changed
@@ -533,6 +617,64 @@ export const OGBPremiumProvider = ({ children }) => {
     };
   }, [connection]);
 
+  useEffect(() => {
+    if (!connection) return;
+
+    let unsubscribePlanChanged = null;
+
+    const subscribeToPlanChanges = async () => {
+      try {
+        unsubscribePlanChanged = await connection.subscribeEvents(
+          (event) => {
+            const { new_plan, features, limits } = event.data || {};
+            console.log('🔄 Received ogb_premium_subscription_changed:', event.data);
+
+            if (new_plan) {
+              setCurrentPlan(new_plan);
+              setIsPremium(new_plan !== 'free' && new_plan !== 'trial');
+            }
+
+            setSubscription((prev) => {
+              const base = prev || {};
+              const nextPlan = new_plan || base.plan_name || 'free';
+              return {
+                ...base,
+                ...(new_plan ? { plan_name: new_plan } : {}),
+                features: resolveFeatures(features, base.features),
+                limits: resolveLimits(limits, base.limits, nextPlan),
+                usage: {
+                  ...(base.usage || {}),
+                },
+              };
+            });
+
+            if (limits?.maxConcurrentConnections !== undefined) {
+              setOgbMaxConnections(limits.maxConcurrentConnections);
+            }
+          },
+          'ogb_premium_subscription_changed'
+        );
+        console.log('Successfully subscribed to ogb_premium_subscription_changed events');
+      } catch (e) {
+        console.error('Subscription to ogb_premium_subscription_changed failed:', e);
+      }
+    };
+
+    subscribeToPlanChanges();
+
+    return () => {
+      if (unsubscribePlanChanged) {
+        try {
+          unsubscribePlanChanged();
+        } catch (e) {
+          if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
+            console.warn('Error unsubscribing from ogb_premium_subscription_changed events:', e);
+          }
+        }
+      }
+    };
+  }, [connection]);
+
   // Subscribe to real-time session count updates
   useEffect(() => {
     if (!connection) return;
@@ -557,14 +699,14 @@ export const OGBPremiumProvider = ({ children }) => {
               if (!prev) return prev;
               return {
                 ...prev,
-                usage: {
+                usage: normalizeUsageCounts({
                   ...(prev.usage || {}),
                   activeConnections: active_sessions ?? prev.usage?.activeConnections ?? 0,
                   activeRooms: Array.isArray(active_rooms) ? active_rooms : (prev.usage?.activeRooms || []),
                   roomsUsed: Array.isArray(active_rooms)
                     ? active_rooms.length
                     : (roomsUsed ?? prev.usage?.roomsUsed ?? 0),
-                },
+                }),
               };
             });
             console.log('✅ Session count updated in real-time:', { active_sessions, max_sessions, active_rooms, roomsUsed });
@@ -619,8 +761,15 @@ export const OGBPremiumProvider = ({ children }) => {
               setAuthStatus('authenticated');
               setIsPremium(data.is_premium || false);
               setSubscription(prev => {
-                const nextSubscription = data.subscription_data || prev || null;
-                if (!nextSubscription) return nextSubscription;
+                const incoming = data.subscription_data || {};
+                const base = prev || {};
+                const nextPlan = incoming?.plan_name || base?.plan_name || 'free';
+                const nextSubscription = {
+                  ...base,
+                  ...incoming,
+                  features: resolveFeatures(incoming?.features, base?.features),
+                  limits: resolveLimits(incoming?.limits, base?.limits, nextPlan),
+                };
 
                 const activeConnections = typeof data.ogb_sessions === 'object'
                   ? (data.ogb_sessions?.active ?? data.ogb_sessions?.total ?? 0)
@@ -628,14 +777,14 @@ export const OGBPremiumProvider = ({ children }) => {
 
                 return {
                   ...nextSubscription,
-                  usage: {
+                  usage: normalizeUsageCounts({
                     ...(nextSubscription.usage || {}),
                     activeConnections,
                     activeRooms: Array.isArray(nextSubscription?.usage?.activeRooms) ? nextSubscription.usage.activeRooms : [],
                     roomsUsed: Array.isArray(nextSubscription?.usage?.activeRooms)
                       ? nextSubscription.usage.activeRooms.length
                       : (nextSubscription?.usage?.roomsUsed ?? 0),
-                  },
+                  }),
                 };
               });
               setCurrentPlan(data.subscription_data?.plan_name || 'free');

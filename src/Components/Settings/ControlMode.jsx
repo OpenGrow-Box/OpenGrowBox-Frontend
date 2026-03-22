@@ -43,14 +43,21 @@ const capitalize = (str) => {
 
 const isUnlimitedLimit = (limit) => limit == null || limit === -1;
 
+const isValidSubscription = (subscription) => {
+  if (!subscription) return false;
+  if (subscription.plan_name === 'free') return true;
+  if (!subscription.limits) return false;
+  if (subscription.limits.maxRooms === 0) return false;
+  return true;
+};
 
 const formatUsageDisplay = (used, limit, suffix = '') => {
   if (isUnlimitedLimit(limit)) {
-    return `${used}${suffix} / ∞${suffix}`;
+    return 'Not included';
   }
 
   if (limit <= 0) {
-    return used > 0 ? `${used}${suffix} / 0${suffix}` : 'Not included';
+    return 'Loading...';
   }
 
   return `${used}${suffix} / ${limit}${suffix}`;
@@ -168,8 +175,9 @@ const ControlMode = ({ onSelectChange }) => {
   const activeRoomsCount = Array.isArray(subscription?.usage?.activeRooms)
     ? subscription.usage.activeRooms.length
     : null;
-  const activeConnections = activeSessionCount ?? subscription?.usage?.activeConnections ?? ogbSessions ?? 0;
-  const roomsUsed = subscription?.usage?.roomsUsed ?? activeConnections ?? 0;
+  const activeConnections = subscription?.usage?.activeConnections ?? activeSessionCount ?? ogbSessions ?? 0;
+  const roomsUsedRaw = subscription?.usage?.roomsUsed ?? activeRoomsCount ?? activeConnections ?? 0;
+  const roomsUsed = Math.max(roomsUsedRaw || 0, activeRoomsCount || 0, activeConnections || 0);
   const maxRooms = subscription?.limits?.maxRooms;
   const growPlansUsed = subscription?.usage?.growPlansUsed ?? 0;
   const maxGrowPlans = subscription?.limits?.maxGrowPlans;
@@ -592,7 +600,7 @@ const ControlMode = ({ onSelectChange }) => {
             </InfoCard>
 
             {/* Show plan limits with usage - API uses camelCase */}
-            {subscription?.limits && (
+            {isValidSubscription(subscription) && (
               <>
 
                 <UsageCard>
