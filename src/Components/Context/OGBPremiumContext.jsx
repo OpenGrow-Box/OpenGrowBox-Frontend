@@ -40,7 +40,18 @@ export const OGBPremiumProvider = ({ children }) => {
 
   const hasValidLimits = (limits, planName) => {
     if (!limits || typeof limits !== 'object') return false;
-    if (planName === 'free') return true;
+    if (planName === 'free') {
+      // Free can have maxGrowPlans=0, but we still require a real limits payload
+      // so partial/empty updates don't wipe previously valid limits.
+      return (
+        limits.maxRooms !== undefined ||
+        limits.maxGrowPlans !== undefined ||
+        limits.maxApiCallsPerMonth !== undefined ||
+        limits.storageLimitGB !== undefined ||
+        limits.maxConcurrentConnections !== undefined ||
+        limits.maxDataRetentionDays !== undefined
+      );
+    }
 
     return (
       Number(limits.maxRooms) > 0 &&

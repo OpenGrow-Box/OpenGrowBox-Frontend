@@ -181,6 +181,7 @@ const ControlMode = ({ onSelectChange }) => {
   const maxRooms = subscription?.limits?.maxRooms;
   const growPlansUsed = subscription?.usage?.growPlansUsed ?? 0;
   const maxGrowPlans = subscription?.limits?.maxGrowPlans;
+  const growPlansLimitForDisplay = maxGrowPlans === 0 ? null : maxGrowPlans;
   const apiCallsUsed = subscription?.usage?.apiCallsThisMonth ?? 0;
   const maxApiCallsPerMonth = subscription?.limits?.maxApiCallsPerMonth;
   const storageUsedGB = subscription?.usage?.storageUsedGB ?? 0;
@@ -624,15 +625,15 @@ const ControlMode = ({ onSelectChange }) => {
                   <UsageHeader>
                     <InfoLabel>Grow Plans</InfoLabel>
                     <UsageMeta>
-                      <UsageText>
-                        {formatUsageDisplay(growPlansUsed, maxGrowPlans)}
+                        <UsageText>
+                        {formatUsageDisplay(growPlansUsed, growPlansLimitForDisplay)}
                       </UsageText>
-                      {isLimitReached(growPlansUsed, maxGrowPlans) && <LimitTag>Max reached</LimitTag>}
+                      {isLimitReached(growPlansUsed, growPlansLimitForDisplay) && <LimitTag>Max reached</LimitTag>}
                     </UsageMeta>
                   </UsageHeader>
                   <UsageBar>
                     <UsageProgress 
-                      percent={getUsagePercent(growPlansUsed, maxGrowPlans)} 
+                      percent={getUsagePercent(growPlansUsed, growPlansLimitForDisplay)} 
                     />
                   </UsageBar>
                 </UsageCard>
