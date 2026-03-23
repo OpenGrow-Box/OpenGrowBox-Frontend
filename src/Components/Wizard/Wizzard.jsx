@@ -26,6 +26,11 @@ import { createSupportStepComponents } from './steps/supportSteps'
 import { createDebugStepComponents } from './steps/debugSteps'
 import { createSetupStepComponents } from './steps/setupSteps'
 
+const capitalize = (str) => {
+  if (typeof str !== 'string') return ''
+  return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
+}
+
 const Wizzard = ({ onComplete }) => {
   const { currentPlan, subscription, isLoggedIn, userEmail, userId } = usePremium()
   const { connection, currentRoom } = useHomeAssistant()
@@ -232,7 +237,7 @@ const Wizzard = ({ onComplete }) => {
   } = setupStepsFactory
 
   const normalizedPlan = String(currentPlan || subscription?.plan_name || 'free').toLowerCase()
-  const hasPrivateSupport = isLoggedIn && normalizedPlan !== 'free'
+  const hasPrivateSupport = false // TODO: Re-enable when private support feature is ready
   const supportCategories = useMemo(
     () => allSupportCategories.map((category) => ({
       ...category,
@@ -845,6 +850,7 @@ const Wizzard = ({ onComplete }) => {
           currentRoom={currentRoom}
           userEmail={userEmail}
           userId={userId}
+          capitalize={capitalize}
         />
       </WizardContent>
 

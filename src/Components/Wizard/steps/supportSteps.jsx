@@ -59,8 +59,8 @@ export const createSupportStepComponents = ({ icons, helpers, styles, supportCon
           <SupportPlanBadge>{hasPrivateSupport ? capitalize(currentPlan) : 'Free'}</SupportPlanBadge>
           <SupportPlanText>
             {hasPrivateSupport
-              ? 'Your plan includes private OpenGrowBox support for account, technical, and other requests. Bug reports and feature ideas still open publicly on GitHub. Premium support is currently handled via email until the new system is ready.'
-              : 'Free users can use GitHub for bugs and feature ideas. Private support starts with the Basic plan.'}
+              ? 'Your plan includes private OpenGrowBox support for account, technical, and other requests. Bug reports and feature ideas still open publicly on GitHub.'
+              : 'Private support is coming soon. Premium users: email support@opengrowbox.net for assistance. Free users can use GitHub for bugs and feature ideas.'}
           </SupportPlanText>
         </SupportPlanNotice>
 
