@@ -44,23 +44,23 @@ const getLogType = (data) => {
   // Wenn data ein Array ist → erstes Element nehmen
   const entry = Array.isArray(data) ? data[0] : data;
 
-  // msg sicher extrahieren
-  const msg = entry?.message?.toLowerCase() || '';
+  // msg sicher extrahieren (unterstützt Message + message)
+  const msg = (entry?.Message || entry?.message || '').toLowerCase();
 
   if (data.rotation_success === true) return 'rotation-success';
   
-  if (data.Type === "INVALID PUMPS") return 'missing-pumps';
-  if (data.Mode === "Hydro") return 'hydro-mode';
-  if (data.Type === "CSLOG") return 'cs-log';
+  if (entry?.Type === "INVALID PUMPS") return 'missing-pumps';
+  if (entry?.Mode === "Hydro") return 'hydro-mode';
+  if (entry?.Type === "CSLOG") return 'cs-log';
+  if (entry?.Mode === 'Plant-Watering') return 'hydro-mode';
+  if (entry?.Mode === 'Crop-Steering') return 'hydro-mode';
+  if (entry?.vpdTarget !== undefined || entry?.vpdTargetMin !== undefined || entry?.vpdTargetMax !== undefined) return 'vpd';
 
   if (entry.action) return 'action';
-  if (entry.controllerType === "PID") return 'pid-controller';
+  if (["PID", "MPC", "AI"].includes((entry.controllerType || '').toUpperCase())) return 'pid-controller';
   if (entry.controllerType === "MPC") return 'pid-controller';
   if (entry.medium === true) return 'medium-stats';
   if (entry.NightVPDHold !== undefined) return 'night-vpd';
-
-  if (msg.Mode === "Plant-Watering") return 'hydro-mode';
-  if (msg.Mode === "Crop-Steering") return 'hydro-mode';
 
   if (msg.includes('vpd')) return 'vpd';
   if (msg.includes('humidity')) return 'humidity';
@@ -561,7 +561,13 @@ const LogItem = ({ room, date, info }) => {
   // Format action data - handle both single actions and arrays of actions
   const formatActionData = (data) => {
     // Handle new PID controller structure with actionData array
-   
+    const adaptiveTime = data?.pidStates?.vpd?.adaptiveHistory?.[0]?.time;
+    const uptimeSeconds = typeof adaptiveTime === 'number'
+      ? calculateUptimeFromTimestamp(adaptiveTime)
+      : null;
+    const statusText = data?.status || 'processed';
+    const messageText = data?.message || 'Controller response received';
+
     if (data?.controlCommands && Array.isArray(data?.controlCommands)) {
       
       return (
@@ -571,15 +577,15 @@ const LogItem = ({ room, date, info }) => {
               <PIDIcon><MdTune size={24} /></PIDIcon>
               <PIDInfo>
                 <PIDControllerType>{data.controllerType} Controller</PIDControllerType>
-                <PIDStatus status={data.status}>
-                  <StatusDot status={data.status} />
-                  {data.status} - {data.message}
+                <PIDStatus status={statusText}>
+                  <StatusDot status={statusText} />
+                  {statusText} - {messageText}
                 </PIDStatus>
               </PIDInfo>
             </PIDTitle>
             <PIDMetadata>
             <PIDUptime>
-              Uptime: {calculateUptimeFromTimestamp(data.pidStates.vpd.adaptiveHistory[0].time)}s
+              Uptime: {uptimeSeconds !== null ? `${uptimeSeconds}s` : 'n/a'}
             </PIDUptime>
               <PIDActionCount>{data.controlCommands.length} Actions</PIDActionCount>
             </PIDMetadata>
@@ -664,6 +670,14 @@ const LogItem = ({ room, date, info }) => {
       const tempDeviation = data.tempDeviation;
       const humDeviation = data.humDeviation;
 
+      const formatDeviationValue = (value, unit) => {
+        const num = parseFloat(value);
+        if (Number.isNaN(num)) return 'n/a';
+        const rounded = Math.round(num * 100) / 100;
+        const sign = rounded > 0 ? '+' : '';
+        return `${sign}${rounded}${unit}`;
+      };
+
       const getDeviationStatus = (deviation) => {
         const absValue = Math.abs(parseFloat(deviation) || 0);
         if (absValue <= 1) return 'optimal';
@@ -686,7 +700,7 @@ const LogItem = ({ room, date, info }) => {
                 <DeviationInfo>
                   <DeviationLabel>Temperature</DeviationLabel>
                   <DeviationValue status={getDeviationStatus(tempDeviation)}>
-                    {tempDeviation > 0 ? '+' : ''}{tempDeviation}°C
+                    {formatDeviationValue(tempDeviation, '°C')}
                   </DeviationValue>
                   <div className="DeviationStatus" data-status={getDeviationStatus(tempDeviation)}>
                     {getStatusText(getDeviationStatus(tempDeviation))}
@@ -705,7 +719,7 @@ const LogItem = ({ room, date, info }) => {
                 <DeviationInfo>
                   <DeviationLabel>Humidity</DeviationLabel>
                   <DeviationValue status={getDeviationStatus(humDeviation)}>
-                    {humDeviation > 0 ? '+' : ''}{humDeviation}%
+                    {formatDeviationValue(humDeviation, '%')}
                   </DeviationValue>
                   <div className="DeviationStatus" data-status={getDeviationStatus(humDeviation)}>
                     {getStatusText(getDeviationStatus(humDeviation))}
@@ -833,9 +847,115 @@ const LogItem = ({ room, date, info }) => {
     );
   };
 
+  const formatVPDTargetData = (data) => {
+    const hasTargetData =
+      data?.vpdTarget !== undefined ||
+      data?.vpdTargetMin !== undefined ||
+      data?.vpdTargetMax !== undefined ||
+      data?.vpdCurrent !== undefined;
+
+    if (!hasTargetData) return null;
+
+    const messageText = (data?.Message || data?.message || '').toLowerCase();
+    const title = messageText.includes('perfection') ? 'VPD Perfection' : 'VPD Target';
+
+    const safeValue = (value, suffix = '') =>
+      value === undefined || value === null || value === '' ? 'n/a' : `${value}${suffix}`;
+
+    return (
+      <DeviationContainer>
+        <DeviationHeader>
+          <DeviationIcon><FaBullseye size={20} /></DeviationIcon>
+          <DeviationTitle>{title}</DeviationTitle>
+        </DeviationHeader>
+        <DeviationGrid>
+          <DeviationCard status="optimal">
+            <DeviationInfo>
+              <DeviationLabel>Current</DeviationLabel>
+              <DeviationValue status="optimal">{safeValue(data?.vpdCurrent, ' kPa')}</DeviationValue>
+            </DeviationInfo>
+          </DeviationCard>
+          <DeviationCard status="warning">
+            <DeviationInfo>
+              <DeviationLabel>Target</DeviationLabel>
+              <DeviationValue status="warning">{safeValue(data?.vpdTarget, ' kPa')}</DeviationValue>
+            </DeviationInfo>
+          </DeviationCard>
+          <DeviationCard status="warning">
+            <DeviationInfo>
+              <DeviationLabel>Range</DeviationLabel>
+              <DeviationValue status="warning">
+                {safeValue(data?.vpdTargetMin)} - {safeValue(data?.vpdTargetMax)} kPa
+              </DeviationValue>
+            </DeviationInfo>
+          </DeviationCard>
+          <DeviationCard status="optimal">
+            <DeviationInfo>
+              <DeviationLabel>Actions</DeviationLabel>
+              <DeviationValue status="optimal">
+                {safeValue(data?.filteredActions ?? data?.incomingActions ?? data?.resolvedActions)}
+              </DeviationValue>
+            </DeviationInfo>
+          </DeviationCard>
+        </DeviationGrid>
+      </DeviationContainer>
+    );
+  };
+
+  const formatPlantWateringData = (data) => {
+    if (data?.Mode !== 'Plant-Watering') return null;
+
+    const devices = Array.isArray(data?.Devices) ? data.Devices : [];
+    const actions = Array.isArray(data?.actions) ? data.actions : [];
+
+    return (
+      <HydroContainer>
+        <HydroHeader>
+          <HydroIcon><MdOutlineWaterDrop size={24} /></HydroIcon>
+          <HydroInfo>
+            <HydroTitle>Plant Watering</HydroTitle>
+            <HydroMode>{data?.Message || 'Watering cycle update'}</HydroMode>
+          </HydroInfo>
+          <HydroStatus active={true}>
+            <StatusIndicatorIcon status="optimal" size={16} />
+            Active
+          </HydroStatus>
+        </HydroHeader>
+        <HydroControls>
+          {actions.length > 0 && (
+            <ControlGrid>
+              {actions.map((item, idx) => (
+                <ControlItem key={`pw-action-${idx}`}>
+                  <ControlIcon><FaClock size={18} /></ControlIcon>
+                  <ControlInfo>
+                    <ControlLabel>Action</ControlLabel>
+                    <ControlStatus active={true}>{item}</ControlStatus>
+                  </ControlInfo>
+                </ControlItem>
+              ))}
+            </ControlGrid>
+          )}
+          {devices.length > 0 && (
+            <DeviceVisualization>
+              <DeviceLabel>Devices</DeviceLabel>
+              <DeviceGrid>
+                {devices.map((device, index) => (
+                  <DeviceBadge key={`pw-device-${index}`} active={true}>
+                    {getDeviceIcon(device)} {device}
+                  </DeviceBadge>
+                ))}
+              </DeviceGrid>
+            </DeviceVisualization>
+          )}
+        </HydroControls>
+      </HydroContainer>
+    );
+  };
+
 
   const formatCastData = (data) => {
     if (!data.Mode) return null;
+    if (data.Mode === 'Plant-Watering') return null;
 
     const activeDevices = data.Devices?.count || 0;
     const totalDevices = data.Devices?.devEntities?.length || 0;
@@ -1267,6 +1387,8 @@ const LogItem = ({ room, date, info }) => {
   const nightVPDData = formatNightVPDData(parsedInfo);
   const mediumData = formatMediumData(parsedInfo);
   const castData = formatCastData(parsedInfo);
+  const plantWateringData = formatPlantWateringData(parsedInfo);
+  const vpdTargetData = formatVPDTargetData(parsedInfo);
   const rotationData = formatRotationData(parsedInfo);
   const csData = formatCSData(parsedInfo);
   const deviceCDData = formatDeviceCDData(parsedInfo);
@@ -1291,11 +1413,13 @@ const LogItem = ({ room, date, info }) => {
         {deviationData && deviationData}
         {mediumData && mediumData}
         {castData && castData}
+        {plantWateringData && plantWateringData}
+        {vpdTargetData && vpdTargetData}
         {rotationData && rotationData}
         {csData && csData}
         {deviceCDData && deviceCDData}
         {missingPumpsData && missingPumpsData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !rotationData && !csData && !deviceCDData && !missingPumpsData && (
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !rotationData && !csData && !deviceCDData && !missingPumpsData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -1353,8 +1477,17 @@ const GrowLogs = () => {
     }
 
     const handleNewEvent = (event) => {
+      const payload = event?.data || {};
+
+      // Suppress noisy per-device PID micro-logs. The consolidated PID controller
+      // card already contains all actions for the cycle.
+      const messageText = (payload?.Message || payload?.message || '').toString();
+      if (/^(PID|MPC|AI) action:/i.test(messageText)) {
+        return;
+      }
+
       // Skip MediumPlantsUpdate events - these are for MediumContext only, not GrowLogs
-      if (event.data && event.data.plants && Array.isArray(event.data.plants)) {
+      if (payload && payload.plants && Array.isArray(payload.plants)) {
         return;
       }
       
@@ -1409,7 +1542,7 @@ const GrowLogs = () => {
         return searchInStructure(data) || 'Missing Devices for Action';
       };
 
-      const roomName = findRoomName(event.data);
+      const roomName = findRoomName(payload);
       
       // Enhanced debug logging
       if (roomName === 'Unkown Data or Missing Devices') {
@@ -1421,13 +1554,31 @@ const GrowLogs = () => {
         });
       }
       
+      const serializedInfo = JSON.stringify(payload);
+      const createdAt = Date.now();
+
       const newLog = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Stable unique ID
         room: roomName,
         date: formatDateTime(event.time_fired),
-        info: JSON.stringify(event.data)
+        info: serializedInfo,
+        createdAt,
       };
-      setLogs((prevLogs) => [newLog, ...prevLogs.slice(0, 50)]); // Keep only last 200 logs for performance
+      setLogs((prevLogs) => {
+        // Drop immediate duplicates from double event delivery (legacy+v1 or reconnect bursts)
+        const previous = prevLogs[0];
+        if (
+          previous &&
+          previous.room === newLog.room &&
+          previous.info === newLog.info &&
+          typeof previous.createdAt === 'number' &&
+          createdAt - previous.createdAt < 3000
+        ) {
+          return prevLogs;
+        }
+
+        return [newLog, ...prevLogs.slice(0, 50)];
+      }); // Keep only last 50 logs for performance
     };
 
     const subscribe = async () => {
