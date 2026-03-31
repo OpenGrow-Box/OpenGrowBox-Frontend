@@ -1,6 +1,5 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import styled from 'styled-components'
-import SecureTokenStorage from '../../../utils/secureTokenStorage'
 
 // Styled Components
 const ToolsGrid = styled.div`
@@ -341,6 +340,31 @@ const LabelStatCard = styled.div`
   border: 1px solid var(--glass-border);
 `
 
+const ListModeSwitch = styled.div`
+  display: inline-flex;
+  gap: 0.35rem;
+  margin-bottom: 1rem;
+  padding: 0.25rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  background: var(--glass-bg-secondary);
+`
+
+const ListModeButton = styled.button`
+  border: none;
+  border-radius: 8px;
+  padding: 0.45rem 0.8rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+  background: ${(props) => (props.$active ? 'var(--primary-accent)' : 'transparent')};
+  cursor: pointer;
+
+  &:hover {
+    background: ${(props) => (props.$active ? 'var(--primary-accent)' : 'var(--glass-bg-primary)')};
+  }
+`
+
 const SuggestionsTable = styled.div`
   background: var(--glass-bg-secondary);
   border-radius: 8px;
@@ -351,7 +375,7 @@ const SuggestionsTable = styled.div`
 
 const TableHeader = styled.div`
   display: grid;
-  grid-template-columns: 0.5fr 1.5fr 1.5fr 0.8fr 0.5fr;
+  grid-template-columns: 0.5fr 1.2fr 1.2fr 1.2fr 0.9fr 0.4fr;
   gap: 1rem;
   padding: 1rem;
   background: rgba(42, 157, 143, 0.1);
@@ -361,7 +385,7 @@ const TableHeader = styled.div`
 
 const TableRow = styled.div`
   display: grid;
-  grid-template-columns: 0.5fr 1.5fr 1.5fr 0.8fr 0.5fr;
+  grid-template-columns: 0.5fr 1.2fr 1.2fr 1.2fr 0.9fr 0.4fr;
   gap: 1rem;
   padding: 0.75rem 1rem;
   border-top: 1px solid var(--glass-border);
@@ -422,119 +446,293 @@ const AutoActionsBar = styled.div`
   flex-wrap: wrap;
 `
 
+const AutoHeroCard = styled.div`
+  padding: 1rem;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: linear-gradient(135deg, rgba(42, 157, 143, 0.16), rgba(15, 72, 104, 0.14));
+  margin-bottom: 1rem;
+`
+
+const AutoHint = styled.div`
+  font-size: 0.85rem;
+  opacity: 0.88;
+  margin-top: 0.35rem;
+`
+
+const AutoStatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+`
+
+const AutoStatCard = styled.div`
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-secondary);
+`
+
+const AutoStatValue = styled.div`
+  font-weight: 700;
+  font-size: 1.05rem;
+`
+
+const AutoStatLabel = styled.div`
+  font-size: 0.75rem;
+  opacity: 0.7;
+`
+
+const AutoFilters = styled.div`
+  display: grid;
+  grid-template-columns: 1.5fr 0.9fr 0.9fr 0.9fr;
+  gap: 0.6rem;
+  margin-bottom: 1rem;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`
+
+const AutoSelect = styled.select`
+  padding: 0.65rem 0.75rem;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-secondary);
+  color: var(--main-text-color);
+
+  &:focus {
+    outline: none;
+    border-color: var(--primary-accent);
+  }
+`
+
+const SuggestionCard = styled.div`
+  padding: 0.85rem;
+  border-radius: 10px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-secondary);
+  margin-bottom: 0.6rem;
+`
+
+const SuggestionTop = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 0.75rem;
+  align-items: flex-start;
+  margin-bottom: 0.55rem;
+`
+
+const SuggestionTitle = styled.div`
+  font-weight: 600;
+  font-size: 0.95rem;
+`
+
+const SuggestionSub = styled.div`
+  font-size: 0.78rem;
+  opacity: 0.7;
+  margin-top: 0.2rem;
+`
+
+const SuggestionBadges = styled.div`
+  display: inline-flex;
+  gap: 0.35rem;
+  flex-wrap: wrap;
+`
+
+const TinyBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  border-radius: 999px;
+  padding: 0.2rem 0.45rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  background: ${(props) => props.$bg || 'var(--glass-bg-primary)'};
+  color: ${(props) => props.$color || 'var(--main-text-color)'};
+`
+
+const SuggestionRow = styled.div`
+  display: grid;
+  grid-template-columns: 0.9fr 1.1fr 0.5fr;
+  gap: 0.6rem;
+  align-items: center;
+
+  @media (max-width: 900px) {
+    grid-template-columns: 1fr;
+  }
+`
+
+const LabelLine = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+`
+
+const SafePreviewCard = styled.div`
+  padding: 0.9rem;
+  border-radius: 10px;
+  border: 1px solid rgba(39, 174, 96, 0.4);
+  background: rgba(39, 174, 96, 0.1);
+  margin-bottom: 1rem;
+`
+
+const SafePreviewHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  margin-bottom: 0.6rem;
+`
+
+const SafePreviewTitle = styled.div`
+  font-size: 0.95rem;
+  font-weight: 700;
+`
+
+const SafePreviewList = styled.div`
+  max-height: 220px;
+  overflow-y: auto;
+  border-radius: 8px;
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-secondary);
+  margin-bottom: 0.75rem;
+`
+
+const SafePreviewRow = styled.div`
+  padding: 0.55rem 0.7rem;
+  border-top: 1px solid var(--glass-border);
+  font-size: 0.82rem;
+
+  &:first-child {
+    border-top: none;
+  }
+`
+
 // Main Factory Function
-export const createSetupStepComponents = ({ icons, styles, connection, currentRoom }) => {
-  const { 
-    MdDevices, 
-    MdLabel, 
-    MdEdit, 
-    MdSave, 
-    MdSearch, 
+export const createSetupStepComponents = ({ icons, styles, connection, currentRoom, haToken, haBaseUrl, haApiBaseUrl }) => {
+  const {
+    MdDevices,
+    MdLabel,
+    MdEdit,
+    MdSave,
+    MdSearch,
     MdClose,
     MdAutoAwesome,
     MdList,
     MdOutlineLabel,
     MdThermostat,
     MdLightMode,
-    MdWindPower
+    MdWindPower,
+    MdRefresh
   } = icons
   const { StepContent } = styles
 
-  const getBaseUrl = () => {
-    if (import.meta.env.PROD) {
-      return window.location.origin
-    }
-    return localStorage.getItem('devServerUrl') || import.meta.env.VITE_HA_HOST || ''
-  }
-
-  const getToken = () => {
-    const token = SecureTokenStorage.getToken()
-    console.log('[Setup] Token:', token ? 'Found' : 'Not found')
-    return token
-  }
-
+  // Helper functions using WebSocket API
   const updateDeviceName = async (deviceId, newName) => {
-    const baseUrl = getBaseUrl()
-    const token = getToken()
-    
-    if (!token) {
-      throw new Error('No authentication token available')
+    if (!connection) {
+      throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating device:', deviceId, 'to:', newName)
+    console.log('[Setup] Updating device:', deviceId, 'to:', newName, 'via WebSocket')
 
-    const response = await fetch(`${baseUrl}/api/config/device_registry/device/${deviceId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name_by_user: newName })
-    })
+    // Try WebSocket device registry update first
+    try {
+      const response = await connection.sendMessagePromise({
+        type: 'config/device_registry/update',
+        device_id: deviceId,
+        name_by_user: newName
+      })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[Setup] Device update failed:', response.status, errorText)
-      throw new Error(`Failed to update device: ${response.status}`)
+      console.log('[Setup] Device updated via WebSocket:', response)
+      return response
+    } catch (wsErr) {
+      console.log('[Setup] WebSocket update failed:', wsErr.message)
+
+      // Fallback: Update the device's entities' friendly_name
+      const HASS = document.querySelector('home-assistant')?.hass
+      const device = HASS?.devices?.[deviceId]
+
+      if (!device) {
+        throw new Error(`Device not found in Home Assistant: ${deviceId}`)
+      }
+
+      // Find all entities belonging to this device
+      const deviceEntities = Object.entries(HASS.entities || {})
+        .filter(([_, entity]) => entity.device_id === deviceId)
+
+      if (deviceEntities.length === 0) {
+        throw new Error('No entities found for this device')
+      }
+
+      console.log('[Setup] Updating', deviceEntities.length, 'entities as fallback')
+
+      // Update entity names with the new device name
+      for (const [entityId] of deviceEntities) {
+        try {
+          await connection.sendMessagePromise({
+            type: 'config/entity_registry/update',
+            entity_id: entityId,
+            name: newName
+          })
+        } catch (entityErr) {
+          console.log('[Setup] Entity update failed:', entityId, entityErr.message)
+        }
+      }
+
+      return { success: true, message: 'Updated entity names as fallback' }
     }
-
-    return await response.json()
   }
 
   const updateEntityName = async (entityId, newName) => {
-    const baseUrl = getBaseUrl()
-    const token = getToken()
-    
-    if (!token) {
-      throw new Error('No authentication token available')
+    if (!connection) {
+      throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating entity:', entityId, 'to:', newName)
+    console.log('[Setup] Updating entity:', entityId, 'to:', newName, 'via WebSocket')
 
-    const response = await fetch(`${baseUrl}/api/config/entity_registry/${entityId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ name: newName })
+    const response = await connection.sendMessagePromise({
+      type: 'config/entity_registry/update',
+      entity_id: entityId,
+      name: newName
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[Setup] Entity update failed:', response.status, errorText)
-      throw new Error(`Failed to update entity: ${response.status}`)
-    }
-
-    return await response.json()
+    console.log('[Setup] Entity updated:', response)
+    return response
   }
 
   const updateEntityLabels = async (entityId, labels) => {
-    const baseUrl = getBaseUrl()
-    const token = getToken()
-    
-    if (!token) {
-      throw new Error('No authentication token available')
+    if (!connection) {
+      throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating labels for:', entityId, 'labels:', labels)
+    console.log('[Setup] Updating labels for:', entityId, 'labels:', labels, 'via WebSocket')
 
-    const response = await fetch(`${baseUrl}/api/config/entity_registry/${entityId}`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json'
-      },
-      body: JSON.stringify({ labels })
+    const response = await connection.sendMessagePromise({
+      type: 'config/entity_registry/update',
+      entity_id: entityId,
+      labels: labels
     })
 
-    if (!response.ok) {
-      const errorText = await response.text()
-      console.error('[Setup] Labels update failed:', response.status, errorText)
-      throw new Error(`Failed to update labels: ${response.status}`)
+    console.log('[Setup] Labels updated:', response)
+    return response
+  }
+
+  const updateDeviceLabels = async (deviceId, labels) => {
+    if (!connection) {
+      throw new Error('No Home Assistant connection available')
     }
 
-    return await response.json()
+    console.log('[Setup] Updating device labels for:', deviceId, 'labels:', labels, 'via WebSocket')
+
+    const response = await connection.sendMessagePromise({
+      type: 'config/device_registry/update',
+      device_id: deviceId,
+      labels: labels
+    })
+
+    console.log('[Setup] Device labels updated:', response)
+    return response
   }
 
   const generateSuggestedName = (entity) => {
@@ -575,15 +773,15 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
   const getDevicesByRoom = (room, includeOGB = false) => {
     const HASS = document.querySelector('home-assistant')?.hass
     if (!HASS?.devices) return []
-    
+
     console.log('[Setup] Room:', room, 'Total devices:', Object.keys(HASS.devices).length)
-    
+
     const filtered = Object.entries(HASS.devices)
       .filter(([_, device]) => {
         const manufacturer = (device.manufacturer || '').toLowerCase()
         const inRoom = device.area_id === room.toLowerCase()
         const isOGB = manufacturer === 'opengrowbox'
-        
+
         if (!inRoom) return false
         if (!includeOGB && isOGB) {
           console.log('[Setup] Filtered (OpenGrowBox):', device.name_by_user || device.name)
@@ -591,8 +789,11 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
         }
         return true
       })
-      .map(([id, device]) => ({ id, ...device }))
-    
+      .map(([id, device]) => {
+        console.log('[Setup] Device found:', id, device.name_by_user || device.name, 'ID type:', typeof id)
+        return { id, ...device }
+      })
+
     console.log('[Setup] Found devices:', filtered.length)
     return filtered
   }
@@ -600,22 +801,34 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
   const getEntitiesByRoom = (room, includeOGB = false) => {
     const HASS = document.querySelector('home-assistant')?.hass
     if (!HASS?.devices || !HASS?.entities) return []
-    
+
+    console.log('[Setup] Getting entities for room:', room)
+
     const roomDeviceIds = Object.entries(HASS.devices)
       .filter(([_, device]) => {
         const manufacturer = (device.manufacturer || '').toLowerCase()
         const inRoom = device.area_id === room.toLowerCase()
         const isOGB = manufacturer === 'opengrowbox'
-        
+
         if (!inRoom) return false
         if (!includeOGB && isOGB) return false
         return true
       })
       .map(([id]) => id)
-    
-    return Object.entries(HASS.entities)
+
+    console.log('[Setup] Room device IDs:', roomDeviceIds.length)
+
+    const entities = Object.entries(HASS.entities)
       .filter(([_, entity]) => roomDeviceIds.includes(entity.device_id))
-      .map(([id, entity]) => ({ id, ...entity }))
+      .map(([id, entity]) => {
+        const sourceDevice = HASS.devices[entity.device_id]
+        const deviceName = sourceDevice?.name_by_user || sourceDevice?.name || entity.device_id || 'Unknown device'
+        console.log('[Setup] Entity found:', id, entity.attributes?.friendly_name || entity.entity_id, 'device_id:', entity.device_id, 'device_name:', deviceName)
+        return { id, ...entity, device_name: deviceName }
+      })
+
+    console.log('[Setup] Found entities:', entities.length)
+    return entities
   }
 
   const getAllLabels = () => {
@@ -704,23 +917,40 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
+    const [refreshKey, setRefreshKey] = useState(0)
+    const [isLoading, setIsLoading] = useState(false)
+    const isEditingRef = useRef(false)  // Track if user is currently editing
+    const editValueRef = useRef('')  // Persist edit value during reloads
 
     const loadDevices = () => {
+      setIsLoading(true)
+      
       const roomDevices = getDevicesByRoom(currentRoom)
       const allRoomDevices = getDevicesByRoom(currentRoom, true)
       setDevices(roomDevices)
       setAllDevices(allRoomDevices)
+      
+      setIsLoading(false)
     }
 
+    const handleRefresh = () => {
+      isEditingRef.current = false
+      setEditingDevice(null)
+      editValueRef.current = ''
+      setRefreshKey(prev => prev + 1)
+      loadDevices()
+    }
+
+    // Load devices on mount and after save/refresh
     useEffect(() => {
       loadDevices()
-      const interval = setInterval(loadDevices, 5000)
-      return () => clearInterval(interval)
-    }, [currentRoom])
+    }, [])
 
     const handleEdit = (device) => {
+      isEditingRef.current = true
       setEditingDevice(device.id)
-      setEditValue(device.name_by_user || device.name || '')
+      editValueRef.current = device.name_by_user || device.name || ''
+      setEditValue(editValueRef.current)
     }
 
     const handleSave = async (deviceId) => {
@@ -729,10 +959,13 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       setSuccess(null)
       
       try {
-        await updateDeviceName(deviceId, editValue)
+        await updateDeviceName(deviceId, editValueRef.current)
         setSuccess('Device name updated successfully')
+        isEditingRef.current = false
+        editValueRef.current = ''
         loadDevices()
         setEditingDevice(null)
+        setEditValue('')
       } catch (e) {
         setError(e.message)
       }
@@ -745,6 +978,8 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     }
 
     const handleCancel = () => {
+      isEditingRef.current = false
+      editValueRef.current = ''
       setEditingDevice(null)
       setEditValue('')
     }
@@ -772,6 +1007,11 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
           <StatItem>
             <StatValue>{allDevices.length}</StatValue>
             <StatLabel>Total (incl. OGB)</StatLabel>
+          </StatItem>
+          <StatItem>
+            <IconButton onClick={handleRefresh} title="Refresh devices">
+              <MdRefresh />
+            </IconButton>
           </StatItem>
         </StatBanner>
 
@@ -803,7 +1043,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
                         <EditInput
                           type="text"
                           value={editValue}
-                          onChange={(e) => setEditValue(e.target.value)}
+                          onChange={(e) => { editValueRef.current = e.target.value; setEditValue(e.target.value) }}
                           onKeyPress={(e) => e.key === 'Enter' && handleSave(device.id)}
                         />
                         <IconButton onClick={() => handleSave(device.id)} disabled={saving}>
@@ -860,23 +1100,40 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
+    const [refreshKey, setRefreshKey] = useState(0)
+    const [isLoading, setIsLoading] = useState(false)
+    const isEditingRef = useRef(false)  // Track if user is currently editing
+    const editValueRef = useRef('')  // Persist edit value during reloads
 
     const loadEntities = () => {
+      setIsLoading(true)
+      
       const roomEntities = getEntitiesByRoom(currentRoom)
       const allRoomEntities = getEntitiesByRoom(currentRoom, true)
       setEntities(roomEntities)
       setAllEntities(allRoomEntities)
+      
+      setIsLoading(false)
     }
 
+    const handleRefresh = () => {
+      isEditingRef.current = false
+      setEditingEntity(null)
+      editValueRef.current = ''
+      setRefreshKey(prev => prev + 1)
+      loadEntities()
+    }
+
+    // Load entities on mount and after save/refresh
     useEffect(() => {
       loadEntities()
-      const interval = setInterval(loadEntities, 5000)
-      return () => clearInterval(interval)
-    }, [currentRoom])
+    }, [])
 
     const handleEdit = (entity) => {
+      isEditingRef.current = true
       setEditingEntity(entity.entity_id)
-      setEditValue(entity.attributes?.friendly_name || entity.entity_id)
+      editValueRef.current = entity.attributes?.friendly_name || entity.entity_id
+      setEditValue(editValueRef.current)
     }
 
     const handleSave = async (entityId) => {
@@ -885,10 +1142,13 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       setSuccess(null)
       
       try {
-        await updateEntityName(entityId, editValue)
+        await updateEntityName(entityId, editValueRef.current)
         setSuccess('Entity name updated successfully')
+        isEditingRef.current = false
+        editValueRef.current = ''
         loadEntities()
         setEditingEntity(null)
+        setEditValue('')
       } catch (e) {
         setError(e.message)
       }
@@ -901,11 +1161,13 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     }
 
     const handleCancel = () => {
+      isEditingRef.current = false
+      editValueRef.current = ''
       setEditingEntity(null)
       setEditValue('')
     }
 
-    const domains = ['all', ...new Set(allEntities.map(e => e.entity_id.split('.')[0]))]
+    const domains = ['all', ...new Set(allEntities.map((entity) => entity.entity_id.split('.')[0]))]
 
     const filteredEntities = entities.filter(entity => {
       const domain = entity.entity_id.split('.')[0]
@@ -914,7 +1176,8 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       const searchLower = filterText.toLowerCase()
       const name = (entity.attributes?.friendly_name || '').toLowerCase()
       const entityId = entity.entity_id.toLowerCase()
-      return name.includes(searchLower) || entityId.includes(searchLower)
+      const deviceName = (entity.device_name || '').toLowerCase()
+      return name.includes(searchLower) || entityId.includes(searchLower) || deviceName.includes(searchLower)
     })
 
     return (
@@ -933,6 +1196,11 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
           <StatItem>
             <StatValue>{allEntities.length}</StatValue>
             <StatLabel>Total (incl. OGB)</StatLabel>
+          </StatItem>
+          <StatItem>
+            <IconButton onClick={handleRefresh} title="Refresh entities">
+              <MdRefresh />
+            </IconButton>
           </StatItem>
         </StatBanner>
 
@@ -978,7 +1246,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
                           <EditInput
                             type="text"
                             value={editValue}
-                            onChange={(e) => setEditValue(e.target.value)}
+                            onChange={(e) => { editValueRef.current = e.target.value; setEditValue(e.target.value) }}
                             onKeyPress={(e) => e.key === 'Enter' && handleSave(entity.entity_id)}
                           />
                           <IconButton onClick={() => handleSave(entity.entity_id)} disabled={saving}>
@@ -1000,6 +1268,10 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
                   </CardHeader>
 
                   <CardBody>
+                    <DetailRow>
+                      <DetailLabel>Device:</DetailLabel>
+                      <DetailValue>{entity.device_name || entity.device_id || 'N/A'}</DetailValue>
+                    </DetailRow>
                     <DetailRow>
                       <DetailLabel>Entity ID:</DetailLabel>
                       <DetailValue>{entity.entity_id}</DetailValue>
@@ -1033,64 +1305,171 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
   const LabelManagerStep = ({ data, updateData }) => {
     const [labels, setLabels] = useState({})
     const [entities, setEntities] = useState([])
+    const [devices, setDevices] = useState([])
     const [filterText, setFilterText] = useState('')
-    const [editingLabels, setEditingLabels] = useState(null)
+    const [editingTarget, setEditingTarget] = useState(null)
     const [newLabel, setNewLabel] = useState('')
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
+    const [listMode, setListMode] = useState('entities')
+    const [isLoading, setIsLoading] = useState(false)
+    const [labelNamesById, setLabelNamesById] = useState({})
+    const [labelIdsByName, setLabelIdsByName] = useState({})
+    const newLabelRef = useRef('')
+    const labelNamesByIdRef = useRef({})
+    const labelIdsByNameRef = useRef({})
 
-    const loadData = () => {
-      const allLabels = getAllLabels()
-      const roomEntities = getEntitiesByRoom(currentRoom, true)
-      setLabels(allLabels)
-      setEntities(roomEntities)
+    const normalizeLabels = (value) => (Array.isArray(value) ? value : [])
+
+    const displayLabelName = (labelId) => labelNamesByIdRef.current[labelId] || labelId
+
+    const getItemLabels = (item) => normalizeLabels(item.labels || item.label_ids || item.attributes?.labels || item.attributes?.label_ids)
+
+    const computeLabelCounts = (entityItems, deviceItems) => {
+      const counts = {}
+      ;[...entityItems, ...deviceItems].forEach((item) => {
+        getItemLabels(item).forEach((labelId) => {
+          const labelName = displayLabelName(labelId)
+          counts[labelName] = (counts[labelName] || 0) + 1
+        })
+      })
+      return counts
+    }
+
+    const loadData = async () => {
+      setIsLoading(true)
+      try {
+        const HASS = document.querySelector('home-assistant')?.hass
+        const room = (currentRoom || '').toLowerCase()
+
+        const [labelRegistry, entityRegistry, deviceRegistry] = await Promise.all([
+          connection?.sendMessagePromise({ type: 'config/label_registry/list' }).catch(() => []),
+          connection?.sendMessagePromise({ type: 'config/entity_registry/list' }).catch(() => []),
+          connection?.sendMessagePromise({ type: 'config/device_registry/list' }).catch(() => []),
+        ])
+
+        const nextLabelNamesById = {}
+        const nextLabelIdsByName = {}
+        ;(labelRegistry || []).forEach((label) => {
+          const id = label.label_id || label.id
+          const name = label.name || id
+          if (!id) return
+          nextLabelNamesById[id] = name
+          nextLabelIdsByName[name.toLowerCase()] = id
+        })
+        labelNamesByIdRef.current = nextLabelNamesById
+        labelIdsByNameRef.current = nextLabelIdsByName
+        setLabelNamesById(nextLabelNamesById)
+        setLabelIdsByName(nextLabelIdsByName)
+
+        const roomDevicesFromRegistry = (deviceRegistry || []).filter((device) => {
+          if (device.area_id !== room) return false
+          const manufacturer = (device.manufacturer || '').toLowerCase()
+          return manufacturer !== 'opengrowbox'
+        })
+        const roomDeviceIds = new Set(roomDevicesFromRegistry.map((device) => device.id || device.device_id))
+
+        const mergedDevices = roomDevicesFromRegistry.map((device) => {
+          const hassDevice = HASS?.devices?.[device.id] || {}
+          return {
+            id: device.id,
+            ...hassDevice,
+            labels: normalizeLabels(device.labels || device.label_ids),
+          }
+        })
+
+        const mergedEntities = (entityRegistry || [])
+          .filter((entity) => roomDeviceIds.has(entity.device_id))
+          .map((entity) => {
+            const hassEntity = HASS?.entities?.[entity.entity_id] || {}
+            const sourceDevice = roomDevicesFromRegistry.find((device) => (device.id || device.device_id) === entity.device_id) || HASS?.devices?.[entity.device_id] || {}
+            return {
+              ...hassEntity,
+              entity_id: entity.entity_id,
+              device_id: entity.device_id,
+              labels: normalizeLabels(entity.labels || entity.label_ids),
+              device_name: sourceDevice.name_by_user || sourceDevice.name || entity.device_id,
+            }
+          })
+
+        const fallbackDevices = mergedDevices.length > 0 ? mergedDevices : getDevicesByRoom(currentRoom)
+        const fallbackEntities = mergedEntities.length > 0 ? mergedEntities : getEntitiesByRoom(currentRoom)
+
+        setDevices(fallbackDevices)
+        setEntities(fallbackEntities)
+        setLabels(computeLabelCounts(fallbackEntities, fallbackDevices))
+      } catch (loadError) {
+        console.error('[Setup] Label manager load failed:', loadError)
+        setError(loadError.message)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    const ensureLabelId = async (labelName) => {
+      const normalizedName = labelName.trim().toLowerCase()
+      if (!normalizedName) return null
+      if (labelIdsByNameRef.current[normalizedName]) {
+        return labelIdsByNameRef.current[normalizedName]
+      }
+
+      if (!connection) {
+        throw new Error('No Home Assistant connection available')
+      }
+
+      const created = await connection.sendMessagePromise({
+        type: 'config/label_registry/create',
+        name: labelName.trim(),
+      })
+
+      const id = created?.label_id || created?.id
+      if (!id) {
+        throw new Error('Label was created but no label ID was returned')
+      }
+
+      const nextNames = { ...labelNamesByIdRef.current, [id]: labelName.trim() }
+      const nextIds = { ...labelIdsByNameRef.current, [normalizedName]: id }
+      labelNamesByIdRef.current = nextNames
+      labelIdsByNameRef.current = nextIds
+      setLabelNamesById(nextNames)
+      setLabelIdsByName(nextIds)
+
+      return id
     }
 
     useEffect(() => {
       loadData()
-      const interval = setInterval(loadData, 5000)
-      return () => clearInterval(interval)
-    }, [currentRoom])
+    }, [])
 
-    const handleEditLabels = (entity) => {
-      setEditingLabels(entity.entity_id)
+    const handleRefresh = () => {
+      setEditingTarget(null)
+      newLabelRef.current = ''
+      setNewLabel('')
+      loadData()
     }
 
-    const handleAddLabel = () => {
-      if (!newLabel.trim()) return
-      const entity = entities.find(e => e.entity_id === editingLabels)
-      if (entity) {
-        const currentLabels = entity.attributes?.labels || []
-        if (!currentLabels.includes(newLabel.trim())) {
-          const updatedLabels = [...currentLabels, newLabel.trim()]
-          handleUpdateLabels(entity.entity_id, updatedLabels)
-          setNewLabel('')
-        }
-      }
+    const handleEditLabels = (targetType, targetId) => {
+      setEditingTarget(`${targetType}:${targetId}`)
     }
 
-    const handleRemoveLabel = (entityId, labelToRemove) => {
-      const entity = entities.find(e => e.entity_id === entityId)
-      if (entity) {
-        const updatedLabels = (entity.attributes?.labels || []).filter(l => l !== labelToRemove)
-        handleUpdateLabels(entityId, updatedLabels)
-      }
-    }
-
-    const handleUpdateLabels = async (entityId, updatedLabels) => {
+    const handleUpdateLabels = async (targetType, targetId, updatedLabelIds) => {
       setSaving(true)
       setError(null)
       setSuccess(null)
-      
+
       try {
-        await updateEntityLabels(entityId, updatedLabels)
+        if (targetType === 'entity') {
+          await updateEntityLabels(targetId, updatedLabelIds)
+        } else {
+          await updateDeviceLabels(targetId, updatedLabelIds)
+        }
         setSuccess('Labels updated successfully')
-        loadData()
-      } catch (e) {
-        setError(e.message)
+        await loadData()
+      } catch (updateError) {
+        setError(updateError.message)
       }
-      
+
       setSaving(false)
       setTimeout(() => {
         setError(null)
@@ -1098,24 +1477,66 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       }, 3000)
     }
 
+    const handleAddLabel = async () => {
+      if (!editingTarget) return
+      const [targetType, targetId] = editingTarget.split(':')
+      const labelValue = (newLabelRef.current || newLabel).trim()
+      if (!labelValue) return
+
+      const sourceItems = targetType === 'entity' ? entities : devices
+      const sourceItem = sourceItems.find((item) => (targetType === 'entity' ? item.entity_id : item.id) === targetId)
+      if (!sourceItem) return
+
+      try {
+        const labelId = await ensureLabelId(labelValue)
+        const existingLabelIds = getItemLabels(sourceItem)
+        if (!existingLabelIds.includes(labelId)) {
+          await handleUpdateLabels(targetType, targetId, [...existingLabelIds, labelId])
+        }
+        newLabelRef.current = ''
+        setNewLabel('')
+      } catch (addError) {
+        setError(addError.message)
+      }
+    }
+
+    const handleRemoveLabel = async (targetType, targetId, labelIdToRemove) => {
+      const sourceItems = targetType === 'entity' ? entities : devices
+      const sourceItem = sourceItems.find((item) => (targetType === 'entity' ? item.entity_id : item.id) === targetId)
+      if (!sourceItem) return
+      const updatedLabelIds = getItemLabels(sourceItem).filter((labelId) => labelId !== labelIdToRemove)
+      await handleUpdateLabels(targetType, targetId, updatedLabelIds)
+    }
+
     const handleCancel = () => {
-      setEditingLabels(null)
+      setEditingTarget(null)
+      newLabelRef.current = ''
       setNewLabel('')
     }
 
     const sortedLabels = Object.entries(labels).sort((a, b) => b[1] - a[1])
+    const searchLower = filterText.toLowerCase()
 
-    const filteredEntities = entities.filter(entity => {
-      const searchLower = filterText.toLowerCase()
-      const name = (entity.attributes?.friendly_name || '').toLowerCase()
-      const entityId = entity.entity_id.toLowerCase()
-      return name.includes(searchLower) || entityId.includes(searchLower)
+    const filteredEntities = entities.filter((entity) => {
+      const friendlyName = (entity.attributes?.friendly_name || '').toLowerCase()
+      const entityId = (entity.entity_id || '').toLowerCase()
+      const deviceName = (entity.device_name || '').toLowerCase()
+      return friendlyName.includes(searchLower) || entityId.includes(searchLower) || deviceName.includes(searchLower)
     })
+
+    const filteredDevices = devices.filter((device) => {
+      const displayName = (device.name_by_user || device.name || '').toLowerCase()
+      const deviceId = (device.id || '').toLowerCase()
+      return displayName.includes(searchLower) || deviceId.includes(searchLower)
+    })
+
+    const visibleEntities = listMode === 'entities' ? filteredEntities : []
+    const visibleDevices = listMode === 'devices' ? filteredDevices : []
 
     return (
       <StepContent>
         <h3>Label Manager</h3>
-        <p>Manage labels for entities in room: <strong>{currentRoom}</strong></p>
+        <p>Manage labels for entities and devices in room: <strong>{currentRoom}</strong></p>
 
         {error && <ErrorBanner>{error}</ErrorBanner>}
         {success && <SuccessBanner>{success}</SuccessBanner>}
@@ -1128,6 +1549,11 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
           <StatItem>
             <StatValue>{Object.values(labels).reduce((a, b) => a + b, 0)}</StatValue>
             <StatLabel>Total Uses</StatLabel>
+          </StatItem>
+          <StatItem>
+            <IconButton onClick={handleRefresh} title="Refresh labels">
+              <MdRefresh />
+            </IconButton>
           </StatItem>
         </StatBanner>
 
@@ -1151,35 +1577,48 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
           <MdSearch />
           <SearchInput
             type="text"
-            placeholder="Search entities..."
+            placeholder="Search entities and devices..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
           />
         </SearchBar>
 
+        <ListModeSwitch>
+          <ListModeButton type="button" $active={listMode === 'entities'} onClick={() => setListMode('entities')}>
+            Entities ({filteredEntities.length})
+          </ListModeButton>
+          <ListModeButton type="button" $active={listMode === 'devices'} onClick={() => setListMode('devices')}>
+            Devices ({filteredDevices.length})
+          </ListModeButton>
+        </ListModeSwitch>
+
+        {listMode === 'entities' && <LabelsGridTitle>Entities</LabelsGridTitle>}
+        {listMode === 'entities' && (
         <EntityList>
-          {filteredEntities.map(entity => {
+          {visibleEntities.map((entity) => {
+            const targetKey = `entity:${entity.entity_id}`
             const domain = entity.entity_id.split('.')[0]
+            const entityLabels = getItemLabels(entity)
             return (
               <EntityCard key={entity.entity_id}>
                 <CardHeader>
                   <EntityDomainIcon>{getIconForDomain(domain)}</EntityDomainIcon>
                   <EntityTitle>
                     {entity.attributes?.friendly_name || entity.entity_id}
-                    <IconButton onClick={() => handleEditLabels(entity)}>
+                    <IconButton onClick={() => handleEditLabels('entity', entity.entity_id)}>
                       <MdEdit />
                     </IconButton>
                   </EntityTitle>
                 </CardHeader>
 
-                {editingLabels === entity.entity_id ? (
+                {editingTarget === targetKey ? (
                   <CardBody>
                     <LabelEditor>
                       <LabelInput
                         type="text"
                         placeholder="New label..."
                         value={newLabel}
-                        onChange={(e) => setNewLabel(e.target.value)}
+                        onChange={(e) => { newLabelRef.current = e.target.value; setNewLabel(e.target.value) }}
                         onKeyPress={(e) => e.key === 'Enter' && handleAddLabel()}
                       />
                       <IconButton onClick={handleAddLabel} disabled={saving}>
@@ -1191,13 +1630,13 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
                     </LabelEditor>
 
                     <LabelsContainer>
-                      {(entity.attributes?.labels || []).length === 0 ? (
+                      {entityLabels.length === 0 ? (
                         <NoLabels>No labels yet</NoLabels>
                       ) : (
-                        (entity.attributes?.labels || []).map(label => (
-                          <LabelChip key={label}>
-                            {label}
-                            <LabelRemove onClick={() => handleRemoveLabel(entity.entity_id, label)}>
+                        entityLabels.map((labelId) => (
+                          <LabelChip key={labelId}>
+                            {displayLabelName(labelId)}
+                            <LabelRemove onClick={() => handleRemoveLabel('entity', entity.entity_id, labelId)}>
                               <MdClose />
                             </LabelRemove>
                           </LabelChip>
@@ -1208,15 +1647,19 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
                 ) : (
                   <CardBody>
                     <DetailRow>
+                      <DetailLabel>Device:</DetailLabel>
+                      <DetailValue>{entity.device_name || entity.device_id || 'Unknown device'}</DetailValue>
+                    </DetailRow>
+                    <DetailRow>
                       <DetailLabel>Entity ID:</DetailLabel>
                       <DetailValue>{entity.entity_id}</DetailValue>
                     </DetailRow>
                     <LabelsContainer>
-                      {(entity.attributes?.labels || []).length === 0 ? (
-                        <NoLabels>None</NoLabels>
+                      {entityLabels.length === 0 ? (
+                        <NoLabels>No labels</NoLabels>
                       ) : (
-                        (entity.attributes?.labels || []).map(label => (
-                          <LabelChip key={label}>{label}</LabelChip>
+                        entityLabels.map((labelId) => (
+                          <LabelChip key={labelId}>{displayLabelName(labelId)}</LabelChip>
                         ))
                       )}
                     </LabelsContainer>
@@ -1226,6 +1669,81 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
             )
           })}
         </EntityList>
+        )}
+
+        {listMode === 'devices' && <LabelsGridTitle>Devices</LabelsGridTitle>}
+        {listMode === 'devices' && (
+        <EntityList>
+          {visibleDevices.map((device) => {
+            const targetKey = `device:${device.id}`
+            const deviceLabels = getItemLabels(device)
+            return (
+              <EntityCard key={device.id}>
+                <CardHeader>
+                  <EntityDomainIcon><MdDevices /></EntityDomainIcon>
+                  <EntityTitle>
+                    {device.name_by_user || device.name || device.id}
+                    <IconButton onClick={() => handleEditLabels('device', device.id)}>
+                      <MdEdit />
+                    </IconButton>
+                  </EntityTitle>
+                </CardHeader>
+
+                {editingTarget === targetKey ? (
+                  <CardBody>
+                    <LabelEditor>
+                      <LabelInput
+                        type="text"
+                        placeholder="New label..."
+                        value={newLabel}
+                        onChange={(e) => { newLabelRef.current = e.target.value; setNewLabel(e.target.value) }}
+                        onKeyPress={(e) => e.key === 'Enter' && handleAddLabel()}
+                      />
+                      <IconButton onClick={handleAddLabel} disabled={saving}>
+                        <MdSave />
+                      </IconButton>
+                      <IconButton onClick={handleCancel}>
+                        <MdClose />
+                      </IconButton>
+                    </LabelEditor>
+
+                    <LabelsContainer>
+                      {deviceLabels.length === 0 ? (
+                        <NoLabels>No labels yet</NoLabels>
+                      ) : (
+                        deviceLabels.map((labelId) => (
+                          <LabelChip key={labelId}>
+                            {displayLabelName(labelId)}
+                            <LabelRemove onClick={() => handleRemoveLabel('device', device.id, labelId)}>
+                              <MdClose />
+                            </LabelRemove>
+                          </LabelChip>
+                        ))
+                      )}
+                    </LabelsContainer>
+                  </CardBody>
+                ) : (
+                  <CardBody>
+                    <DetailRow>
+                      <DetailLabel>Device ID:</DetailLabel>
+                      <DetailValue>{device.id}</DetailValue>
+                    </DetailRow>
+                    <LabelsContainer>
+                      {deviceLabels.length === 0 ? (
+                        <NoLabels>No labels</NoLabels>
+                      ) : (
+                        deviceLabels.map((labelId) => (
+                          <LabelChip key={labelId}>{displayLabelName(labelId)}</LabelChip>
+                        ))
+                      )}
+                    </LabelsContainer>
+                  </CardBody>
+                )}
+              </EntityCard>
+            )
+          })}
+        </EntityList>
+        )}
       </StepContent>
     )
   }
@@ -1235,113 +1753,611 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const [selectedItems, setSelectedItems] = useState(new Set())
     const [applying, setApplying] = useState(false)
     const [success, setSuccess] = useState(null)
+    const [error, setError] = useState(null)
+    const [isLoading, setIsLoading] = useState(false)
+    const [searchText, setSearchText] = useState('')
+    const [targetFilter, setTargetFilter] = useState('all')
+    const [confidenceFilter, setConfidenceFilter] = useState('all')
+    const [strictMode, setStrictMode] = useState(true)
+    const [showSelectedOnly, setShowSelectedOnly] = useState(false)
+    const [showSafePreview, setShowSafePreview] = useState(false)
+    const [safePreviewItems, setSafePreviewItems] = useState([])
+    const selectedItemsRef = useRef(new Set())
+    const pendingSafeApplyRef = useRef(false)
+    const labelMapsRef = useRef({ idToName: {}, nameToId: {} })
 
-    useEffect(() => {
+    const normalizeLabelValues = (value) => (Array.isArray(value) ? value : [])
+
+    const CONTROL_DOMAINS = new Set(['switch', 'light', 'fan', 'humidifier', 'climate', 'camera'])
+    const DIAGNOSTIC_KEYWORDS = [
+      'restart', 'uptime', 'ssid', 'wifi', 'mqtt', 'ip', 'mac', 'firmware', 'version',
+      'connect_count', 'last_restart_time', 'restart_reason', 'signal', 'rssi',
+      'energy_', '_energy', 'apparentpower', 'reactivepower', 'voltage', 'current', 'factor',
+      'model', 'battery', 'batterie', 'linkquality'
+    ]
+    const SENSOR_METRIC_KEYWORDS = [
+      'temperature', 'humidity', 'dewpoint', 'moisture', 'conductivity', 'ec', 'ph', 'tds',
+      'sal', 'salinity', 'co2', 'carbondioxide', 'lux', 'lumen', 'illuminance', 'dli', 'ppfd',
+      'water_level', 'tank_level', 'reservoir_level', 'duty', 'intensity',
+      'temperatur', 'feuchtigkeit', 'leitfahigkeit', 'beleuchtungsstarke'
+    ]
+    const DEVICE_TYPE_KEYWORDS = {
+      Exhaust: ['exhaust', 'abluft'],
+      Intake: ['intake', 'zuluft'],
+      Ventilation: ['vent', 'vents', 'venti', 'ventilation', 'inlet'],
+      Humidifier: ['humidifier', 'befeuchter'],
+      Dehumidifier: ['dehumidifier', 'entfeuchter'],
+      Heater: ['heater', 'heizung'],
+      Cooler: ['cooler', 'kuehler', 'chiller'],
+      Climate: ['climate', 'klima'],
+      LightFarRed: ['light_fr', 'light_farred', 'farred', 'far_red', 'lightfarred'],
+      LightUV: ['light_uv', 'light_uvb', 'light_uva', 'uvlight', 'uv-light', 'lightuv'],
+      LightBlue: ['light_blue', 'blue_led', 'bluelight', 'blue-light', 'lightblue'],
+      LightRed: ['light_red', 'red_led', 'redlight', 'red-light', 'lightred'],
+      Light: ['light', 'lamp', 'led'],
+      CO2: ['co2', 'carbon'],
+      Camera: ['camera', 'kamera', 'cam', 'webcam'],
+      Pump: ['pump', 'dripper', 'feedsystem', 'tank'],
+      Sensor: ['sensor', 'temperature', 'temp', 'humidity', 'moisture', 'dewpoint', 'illuminance', 'ppfd', 'dli'],
+    }
+
+    const getDomain = (entityId = '') => String(entityId).split('.')[0] || ''
+    const HARD_SKIP_ENTITY_PARTS = [
+      '_last_restart_time', '_restart_reason', '_wifi_connect_count', '_mqtt_connect_count',
+      '_ssid', '_ip', '_mac', '_energy_', '_energy', 'energy_', 'apparentpower',
+      'reactivepower', '_voltage', '_current', '_factor', '_model', '_battery', '_batterie',
+      'linkquality'
+    ]
+
+    const shouldHardSkipEntity = (entityId = '') => {
+      const key = String(entityId).toLowerCase()
+      return HARD_SKIP_ENTITY_PARTS.some((part) => key.includes(part))
+    }
+
+    const isDiagnosticEntity = (entityId = '') => {
+      const key = String(entityId).toLowerCase()
+      return shouldHardSkipEntity(entityId) || DIAGNOSTIC_KEYWORDS.some((part) => key.includes(part))
+    }
+
+    const detectDeviceSuggestion = (deviceName, relatedEntities = []) => {
+      const key = String(deviceName || '').toLowerCase()
+      const labels = []
+      const reasons = []
+
+      const add = (name, reason) => {
+        if (!labels.includes(name)) labels.push(name)
+        if (reason && !reasons.includes(reason)) reasons.push(reason)
+      }
+
+      const controlEntities = relatedEntities.filter((entity) => CONTROL_DOMAINS.has(getDomain(entity.entity_id)))
+      const controlKey = controlEntities.map((entity) => entity.entity_id.toLowerCase()).join(' ')
+      const fullKey = `${key} ${controlKey}`
+
+      const matchType = (type) => DEVICE_TYPE_KEYWORDS[type].some((word) => fullKey.includes(word))
+
+      if (matchType('Exhaust')) add('Exhaust', 'keyword mapping')
+      else if (matchType('Intake')) add('Intake', 'keyword mapping')
+      else if (matchType('Ventilation')) add('Ventilation', 'keyword mapping')
+
+      if (matchType('Dehumidifier')) add('Dehumidifier', 'keyword mapping')
+      else if (matchType('Humidifier')) add('Humidifier', 'keyword mapping')
+
+      if (matchType('Heater')) add('Heater', 'keyword mapping')
+      if (matchType('Cooler')) add('Cooler', 'keyword mapping')
+      if (matchType('Climate')) add('Climate', 'keyword mapping')
+      if (matchType('Pump')) add('Pump', 'keyword mapping')
+      if (matchType('CO2')) add('CO2', 'keyword mapping')
+      if (matchType('Camera')) add('Camera', 'keyword mapping')
+
+      if (matchType('LightFarRed')) add('LightFarRed', 'keyword mapping')
+      else if (matchType('LightUV')) add('LightUV', 'keyword mapping')
+      else if (matchType('LightBlue')) add('LightBlue', 'keyword mapping')
+      else if (matchType('LightRed')) add('LightRed', 'keyword mapping')
+      else {
+        const hasNonLightControl = labels.some((label) => !['Light', 'LightFarRed', 'LightUV', 'LightBlue', 'LightRed'].includes(label))
+        if (!hasNonLightControl && matchType('Light')) add('Light', 'keyword mapping')
+      }
+
+      if (!strictMode && labels.length === 0 && matchType('Sensor')) add('Sensor', 'sensor-like device')
+
+      const confidence = labels.length > 0 ? 'high' : 'low'
+      return { labels, confidence, reason: reasons[0] || 'no strong match' }
+    }
+
+    const detectEntitySuggestion = (entity) => {
+      const entityId = String(entity?.entity_id || '')
+      const key = entityId.toLowerCase()
+      const domain = getDomain(entityId)
+
+      if (!entityId || shouldHardSkipEntity(entityId) || isDiagnosticEntity(entityId)) {
+        return { labels: [], confidence: 'low', reason: 'diagnostic entity skipped' }
+      }
+
+      const labels = []
+      const reasons = []
+      const add = (name, reason) => {
+        if (!labels.includes(name)) labels.push(name)
+        if (reason && !reasons.includes(reason)) reasons.push(reason)
+      }
+
+      const isMetricSensor = domain === 'sensor' && SENSOR_METRIC_KEYWORDS.some((metric) => key.includes(metric))
+      if (isMetricSensor) {
+        add('Sensor', 'sensor metric')
+      }
+
+      if (isMetricSensor && (key.includes('ph') || key.includes('ec') || key.includes('tds') || key.includes('sal') || key.includes('water') || key.includes('reservoir') || key.includes('tank_level'))) {
+        add('Water', 'water metric')
+      }
+
+      if (key.includes('dli')) add('DLI', 'dli metric')
+      if (key.includes('ppfd')) add('PPFD', 'ppfd metric')
+
+      if (!strictMode && domain !== 'sensor') {
+        if (key.includes('exhaust')) add('Exhaust', 'exhaust control entity')
+        else if (key.includes('intake')) add('Intake', 'intake control entity')
+        else if (key.includes('ventilation') || key.includes('vents') || key.includes('venti')) add('Ventilation', 'ventilation control entity')
+        if (key.includes('pump')) add('Pump', 'pump control entity')
+      }
+
+      const confidence = labels.length > 0 ? 'high' : 'low'
+      return { labels, confidence, reason: reasons[0] || 'not actionable' }
+    }
+
+    const getSpecialRename = (entityId) => {
+      const key = String(entityId || '').toLowerCase()
+      if (isDiagnosticEntity(entityId)) return ''
+      if (key.includes('_duty')) return 'DutySensor'
+      if (key.includes('_intensity')) return 'IntensitySensor'
+      if (key.includes('watertester') || key.includes('_ph') || key.includes('_ec') || key.includes('_tds') || key.includes('_sal')) return 'WaterSensor'
+      return ''
+    }
+
+    const loadLabelMaps = async () => {
+      if (!connection) return
+      const registry = await connection.sendMessagePromise({ type: 'config/label_registry/list' }).catch(() => [])
+      const idToName = {}
+      const nameToId = {}
+      ;(registry || []).forEach((item) => {
+        const id = item.label_id || item.id
+        const name = item.name || id
+        if (!id || !name) return
+        idToName[id] = name
+        nameToId[name.toLowerCase()] = id
+      })
+      labelMapsRef.current = { idToName, nameToId }
+    }
+
+    const ensureLabelId = async (name) => {
+      const labelName = String(name || '').trim()
+      if (!labelName) return null
+      const key = labelName.toLowerCase()
+      if (labelMapsRef.current.nameToId[key]) return labelMapsRef.current.nameToId[key]
+      if (!connection) throw new Error('No Home Assistant connection available')
+
+      const created = await connection.sendMessagePromise({ type: 'config/label_registry/create', name: labelName })
+      const id = created?.label_id || created?.id
+      if (!id) throw new Error(`Could not create label '${labelName}'`)
+
+      labelMapsRef.current.idToName[id] = labelName
+      labelMapsRef.current.nameToId[key] = id
+      return id
+    }
+
+    const loadSuggestions = async () => {
+      setIsLoading(true)
+      setError(null)
+
+      try {
+        await loadLabelMaps()
+
       const roomDevices = getDevicesByRoom(currentRoom)
       const roomEntities = getEntitiesByRoom(currentRoom)
-      
-      const suggestedNames = [...roomDevices, ...roomEntities].map(item => ({
-        ...item,
-        suggestedName: generateSuggestedName(item)
-      }))
-      setSuggestions(suggestedNames)
-    }, [currentRoom])
 
-    const toggleSelection = (id) => {
-      const newSelected = new Set(selectedItems)
-      if (newSelected.has(id)) {
-        newSelected.delete(id)
-      } else {
-        newSelected.add(id)
+      const deviceSuggestions = roomDevices.map((device) => {
+        const relatedEntities = roomEntities.filter((entity) => entity.device_id === device.id)
+        const detected = detectDeviceSuggestion(device.name_by_user || device.name || '', relatedEntities)
+        const currentLabelNames = normalizeLabelValues(device.labels).map((label) => labelMapsRef.current.idToName[label] || label)
+        const missingLabels = detected.labels.filter((label) => !currentLabelNames.some((existing) => String(existing).toLowerCase() === label.toLowerCase()))
+        return {
+          rowId: `device:${device.id}`,
+          targetType: 'device',
+          targetId: device.id,
+          currentName: device.name_by_user || device.name || device.id,
+          currentLabels: normalizeLabelValues(device.labels),
+          missingLabels,
+          suggestedLabels: detected.labels,
+          confidence: detected.confidence,
+          reason: detected.reason,
+          suggestedName: '',
+        }
+      })
+
+      const entitySuggestions = roomEntities.map((entity) => {
+        const detected = detectEntitySuggestion(entity)
+        const currentLabelNames = normalizeLabelValues(entity.attributes?.labels || entity.labels).map((label) => labelMapsRef.current.idToName[label] || label)
+        const missingLabels = detected.labels.filter((label) => !currentLabelNames.some((existing) => String(existing).toLowerCase() === label.toLowerCase()))
+        const specialName = getSpecialRename(entity.entity_id)
+        return {
+          rowId: `entity:${entity.entity_id}`,
+          targetType: 'entity',
+          targetId: entity.entity_id,
+          currentName: entity.attributes?.friendly_name || entity.entity_id,
+          currentLabels: normalizeLabelValues(entity.attributes?.labels || entity.labels),
+          missingLabels,
+          suggestedLabels: detected.labels,
+          confidence: specialName ? 'high' : detected.confidence,
+          reason: specialName ? `${detected.reason} + special metric rename` : detected.reason,
+          suggestedName: specialName,
+        }
+      })
+
+      const actionable = [...deviceSuggestions, ...entitySuggestions].filter(
+        (item) => item.missingLabels.length > 0 || item.suggestedName
+      )
+
+        setSuggestions(actionable)
+        const defaults = new Set(actionable.filter((item) => item.confidence !== 'low' || item.suggestedName).map((item) => item.rowId))
+        selectedItemsRef.current = defaults
+        setSelectedItems(defaults)
+      } catch (loadError) {
+        console.error('Auto setup load failed:', loadError)
+        setError(loadError.message)
+      } finally {
+        setIsLoading(false)
       }
-      setSelectedItems(newSelected)
+    }
+
+    const handleRefresh = () => {
+      selectedItemsRef.current = new Set()
+      setSelectedItems(new Set())
+      setShowSafePreview(false)
+      setSafePreviewItems([])
+      loadSuggestions()
+    }
+
+    useEffect(() => {
+      loadSuggestions()
+    }, [strictMode])
+
+    const toggleSelection = (rowId) => {
+      const next = new Set(selectedItems)
+      if (next.has(rowId)) next.delete(rowId)
+      else next.add(rowId)
+      selectedItemsRef.current = next
+      setSelectedItems(next)
     }
 
     const selectAll = () => {
-      const allIds = new Set(suggestions.map(s => s.id || s.entity_id))
-      setSelectedItems(allIds)
+      const all = new Set(getVisibleSuggestions().map((item) => item.rowId))
+      selectedItemsRef.current = all
+      setSelectedItems(all)
     }
 
-    const applySelected = async () => {
+    const clearSelection = () => {
+      selectedItemsRef.current = new Set()
+      setSelectedItems(new Set())
+    }
+
+    const getSafeSuggestionIds = () => {
+      return suggestions
+        .filter((item) => item.confidence === 'high' && (item.missingLabels.length > 0 || item.suggestedName))
+        .map((item) => item.rowId)
+    }
+
+    const getSafeSuggestions = () => {
+      const safeIds = new Set(getSafeSuggestionIds())
+      return suggestions.filter((item) => safeIds.has(item.rowId))
+    }
+
+    const openSafePreview = () => {
+      const safeItems = getSafeSuggestions()
+      if (safeItems.length === 0) {
+        setSuccess('No safe high-confidence actions available.')
+        return
+      }
+      setSafePreviewItems(safeItems)
+      setShowSafePreview(true)
+    }
+
+    const getVisibleSuggestions = () => {
+      const query = searchText.toLowerCase()
+      return suggestions.filter((item) => {
+        if (targetFilter !== 'all' && item.targetType !== targetFilter) return false
+        if (confidenceFilter !== 'all' && item.confidence !== confidenceFilter) return false
+        if (showSelectedOnly && !selectedItems.has(item.rowId)) return false
+
+        if (!query) return true
+        const currentLabelText = item.currentLabels
+          .map((label) => labelMapsRef.current.idToName[label] || label)
+          .join(' ')
+          .toLowerCase()
+
+        const suggestedLabelText = [...item.suggestedLabels, ...item.missingLabels].join(' ').toLowerCase()
+        return (
+          item.currentName.toLowerCase().includes(query) ||
+          item.targetId.toLowerCase().includes(query) ||
+          currentLabelText.includes(query) ||
+          suggestedLabelText.includes(query)
+        )
+      })
+    }
+
+    const applyRows = async (rows) => {
       setApplying(true)
       setSuccess(null)
-      
+      setError(null)
+
+      const rowsToApply = rows instanceof Set ? rows : new Set(rows)
       let successCount = 0
       let errorCount = 0
-      
-      for (const id of selectedItems) {
-        const suggestion = suggestions.find(s => (s.id || s.entity_id) === id)
+
+      for (const rowId of rowsToApply) {
+        const suggestion = suggestions.find((item) => item.rowId === rowId)
         if (!suggestion) continue
-        
+
         try {
-          if (suggestion.id) {
-            await updateDeviceName(suggestion.id, suggestion.suggestedName)
-          } else if (suggestion.entity_id) {
-            await updateEntityName(suggestion.entity_id, suggestion.suggestedName)
+          const currentLabels = suggestion.currentLabels || []
+          const currentLabelIds = []
+          for (const label of currentLabels) {
+            const labelKey = String(label || '')
+            if (!labelKey) continue
+            if (labelMapsRef.current.idToName[labelKey]) {
+              currentLabelIds.push(labelKey)
+              continue
+            }
+            const maybeId = await ensureLabelId(labelKey)
+            if (maybeId) currentLabelIds.push(maybeId)
           }
+
+          const suggestedLabelIds = []
+          for (const name of suggestion.missingLabels) {
+            const id = await ensureLabelId(name)
+            if (id) suggestedLabelIds.push(id)
+          }
+
+          const mergedLabelIds = [...new Set([...currentLabelIds, ...suggestedLabelIds])]
+
+          if (suggestion.targetType === 'device') {
+            if (mergedLabelIds.length > 0) {
+              await updateDeviceLabels(suggestion.targetId, mergedLabelIds)
+            }
+          } else {
+            if (mergedLabelIds.length > 0) {
+              await updateEntityLabels(suggestion.targetId, mergedLabelIds)
+            }
+            if (suggestion.suggestedName) {
+              await updateEntityName(suggestion.targetId, suggestion.suggestedName)
+            }
+          }
+
           successCount++
-        } catch (e) {
-          console.error('Error applying name:', e)
+        } catch (error) {
+          console.error('Auto setup apply failed:', suggestion.rowId, error)
+          setError(error.message)
           errorCount++
         }
       }
-      
-      setSuccess(`Applied ${successCount} names${errorCount > 0 ? ` (${errorCount} errors)` : ''}`)
+
+      setSuccess(`Applied setup to ${successCount} items${errorCount > 0 ? ` (${errorCount} errors)` : ''}`)
       setApplying(false)
+      selectedItemsRef.current = new Set()
       setSelectedItems(new Set())
-      
       setTimeout(() => setSuccess(null), 5000)
+      loadSuggestions()
+    }
+
+    const applySelected = async () => {
+      const rows = selectedItemsRef.current.size > 0 ? selectedItemsRef.current : selectedItems
+      await applyRows(rows)
+    }
+
+    const applySafe = async () => {
+      if (!strictMode) {
+        pendingSafeApplyRef.current = true
+        setStrictMode(true)
+        setSuccess('Strict OGB mode enabled. Opening Safe Apply preview...')
+        return
+      }
+      openSafePreview()
+    }
+
+    const confirmSafeApply = async () => {
+      const safeIds = safePreviewItems.map((item) => item.rowId)
+      setShowSafePreview(false)
+      await applyRows(new Set(safeIds))
+    }
+
+    useEffect(() => {
+      if (!pendingSafeApplyRef.current) return
+      if (!strictMode || isLoading || applying) return
+
+      pendingSafeApplyRef.current = false
+      const safeIds = getSafeSuggestionIds()
+      if (safeIds.length === 0) {
+        setSuccess('Strict mode active, but no safe high-confidence suggestions were found.')
+        return
+      }
+      openSafePreview()
+    }, [strictMode, isLoading, applying, suggestions])
+
+    const visibleSuggestions = getVisibleSuggestions()
+    const stats = {
+      total: suggestions.length,
+      selected: selectedItems.size,
+      devices: suggestions.filter((item) => item.targetType === 'device').length,
+      entities: suggestions.filter((item) => item.targetType === 'entity').length,
+      high: suggestions.filter((item) => item.confidence === 'high').length,
+      special: suggestions.filter((item) => item.suggestedName).length,
+      safe: suggestions.filter((item) => item.confidence === 'high' && (item.missingLabels.length > 0 || item.suggestedName)).length,
+    }
+
+    const confidenceColor = {
+      high: { bg: 'rgba(39, 174, 96, 0.18)', color: '#27ae60' },
+      medium: { bg: 'rgba(243, 156, 18, 0.18)', color: '#f39c12' },
+      low: { bg: 'rgba(231, 76, 60, 0.18)', color: '#e74c3c' },
     }
 
     return (
       <StepContent>
         <h3>Auto Setup</h3>
-        <p>Auto-generate logical names for devices and entities in room: <strong>{currentRoom}</strong></p>
+        <p>Detect and map labels for room: <strong>{currentRoom}</strong></p>
+
+        <AutoHeroCard>
+          <div><strong>Smart Mapping</strong> applies OpenGrowBox labels based on domains and naming patterns.</div>
+          <AutoHint>
+            Focus is label mapping first. Renaming is only proposed for special metrics like duty, intensity, and water sensors. Mode: <strong>{strictMode ? 'Strict OGB' : 'Extended'}</strong>.
+          </AutoHint>
+        </AutoHeroCard>
 
         {success && <SuccessBanner>{success}</SuccessBanner>}
+        {error && <ErrorBanner>{error}</ErrorBanner>}
+
+        {showSafePreview && (
+          <SafePreviewCard>
+            <SafePreviewHeader>
+              <SafePreviewTitle>Confirm OGB Safe Apply ({safePreviewItems.length})</SafePreviewTitle>
+              <TinyBadge $bg="rgba(39, 174, 96, 0.2)" $color="#27ae60">strict + high confidence only</TinyBadge>
+            </SafePreviewHeader>
+            <AutoHint>
+              This will only apply missing labels (and special metric rename if needed) on high-confidence suggestions. Existing labels are preserved.
+            </AutoHint>
+            <SafePreviewList>
+              {safePreviewItems.map((item) => (
+                <SafePreviewRow key={`safe-preview-${item.rowId}`}>
+                  <strong>{item.currentName}</strong> ({item.targetType}) - add: {item.missingLabels.length > 0 ? item.missingLabels.join(', ') : 'none'}{item.suggestedName ? `; rename: ${item.suggestedName}` : ''}
+                </SafePreviewRow>
+              ))}
+            </SafePreviewList>
+            <AutoActionsBar>
+              <ActionButton onClick={confirmSafeApply} disabled={applying}>Confirm Safe Apply</ActionButton>
+              <ActionButton onClick={() => setShowSafePreview(false)} disabled={applying}>Cancel</ActionButton>
+            </AutoActionsBar>
+          </SafePreviewCard>
+        )}
+
+        <AutoStatsGrid>
+          <AutoStatCard><AutoStatValue>{stats.total}</AutoStatValue><AutoStatLabel>Actionable</AutoStatLabel></AutoStatCard>
+          <AutoStatCard><AutoStatValue>{stats.selected}</AutoStatValue><AutoStatLabel>Selected</AutoStatLabel></AutoStatCard>
+          <AutoStatCard><AutoStatValue>{stats.devices}</AutoStatValue><AutoStatLabel>Devices</AutoStatLabel></AutoStatCard>
+          <AutoStatCard><AutoStatValue>{stats.entities}</AutoStatValue><AutoStatLabel>Entities</AutoStatLabel></AutoStatCard>
+          <AutoStatCard><AutoStatValue>{stats.high}</AutoStatValue><AutoStatLabel>High Confidence</AutoStatLabel></AutoStatCard>
+          <AutoStatCard><AutoStatValue>{stats.special}</AutoStatValue><AutoStatLabel>Special Rename</AutoStatLabel></AutoStatCard>
+          <AutoStatCard><AutoStatValue>{stats.safe}</AutoStatValue><AutoStatLabel>Safe Apply</AutoStatLabel></AutoStatCard>
+        </AutoStatsGrid>
+
+        <AutoFilters>
+          <SearchInput
+            type="text"
+            placeholder="Search by name, id, or label..."
+            value={searchText}
+            onChange={(e) => setSearchText(e.target.value)}
+          />
+          <AutoSelect value={targetFilter} onChange={(e) => setTargetFilter(e.target.value)}>
+            <option value="all">All Types</option>
+            <option value="device">Devices</option>
+            <option value="entity">Entities</option>
+          </AutoSelect>
+          <AutoSelect value={confidenceFilter} onChange={(e) => setConfidenceFilter(e.target.value)}>
+            <option value="all">All Confidence</option>
+            <option value="high">High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </AutoSelect>
+          <AutoSelect value={strictMode ? 'strict' : 'extended'} onChange={(e) => setStrictMode(e.target.value === 'strict')}>
+            <option value="strict">Strict OGB</option>
+            <option value="extended">Extended</option>
+          </AutoSelect>
+        </AutoFilters>
 
         <AutoActionsBar>
-          <ActionButton onClick={selectAll} disabled={applying}>
-            Select All
+          <ActionButton onClick={handleRefresh} disabled={applying} title="Reload suggestions">
+            <MdRefresh />
+            Refresh
+          </ActionButton>
+          <ActionButton onClick={selectAll} disabled={applying || visibleSuggestions.length === 0}>
+            Select Visible ({visibleSuggestions.length})
+          </ActionButton>
+          <ActionButton onClick={clearSelection} disabled={applying || selectedItems.size === 0}>
+            Clear Selection
           </ActionButton>
           <ActionButton onClick={applySelected} disabled={applying || selectedItems.size === 0}>
             {applying ? 'Applying...' : `Apply (${selectedItems.size})`}
           </ActionButton>
+          <ActionButton onClick={applySafe} disabled={applying || stats.safe === 0}>
+            OGB Safe Apply ({stats.safe})
+          </ActionButton>
+          <ActionButton onClick={() => setShowSelectedOnly((prev) => !prev)} disabled={applying}>
+            {showSelectedOnly ? 'Show All' : 'Show Selected'}
+          </ActionButton>
         </AutoActionsBar>
 
-        <SuggestionsTable>
-          <TableHeader>
-            <span>Type</span>
-            <span>Current Name</span>
-            <span>Suggested Name</span>
-            <span>Select</span>
-          </TableHeader>
-
-          {suggestions.length === 0 ? (
-            <EmptyState>No items found</EmptyState>
+        <EntityList>
+          {isLoading ? (
+            <EmptyState>Analyzing room entities and devices...</EmptyState>
+          ) : visibleSuggestions.length === 0 ? (
+            <EmptyState>No actionable items found</EmptyState>
           ) : (
-            suggestions.map(item => {
-              const id = item.id || item.entity_id
-              const isSelected = selectedItems.has(id)
-              const type = item.id ? 'Device' : 'Entity'
-              
+            visibleSuggestions.map((item) => {
+              const isSelected = selectedItems.has(item.rowId)
+              const type = item.targetType === 'device' ? 'Device' : 'Entity'
+              const currentLabels = item.currentLabels
+                .map((label) => labelMapsRef.current.idToName[label] || label)
+              const confidenceTone = confidenceColor[item.confidence] || confidenceColor.low
+
               return (
-                <TableRow key={id}>
-                  <TableCell>{type}</TableCell>
-                  <TableCell>{item.name_by_user || item.attributes?.friendly_name || id}</TableCell>
-                  <TableCell>{item.suggestedName}</TableCell>
-                  <TableCell>
-                    <Checkbox
-                      type="checkbox"
-                      checked={isSelected}
-                      onChange={() => toggleSelection(id)}
-                    />
-                  </TableCell>
-                </TableRow>
+                <SuggestionCard key={item.rowId}>
+                  <SuggestionTop>
+                    <div>
+                      <SuggestionTitle>{item.currentName}</SuggestionTitle>
+                      <SuggestionSub>{item.targetId}</SuggestionSub>
+                    </div>
+                    <SuggestionBadges>
+                      <TinyBadge>{type}</TinyBadge>
+                      <TinyBadge $bg={confidenceTone.bg} $color={confidenceTone.color}>{item.confidence}</TinyBadge>
+                      {item.suggestedName && <TinyBadge $bg="rgba(52, 152, 219, 0.2)" $color="#3498db">special rename</TinyBadge>}
+                    </SuggestionBadges>
+                  </SuggestionTop>
+
+                  <SuggestionSub>Detection: {item.reason}</SuggestionSub>
+
+                  <SuggestionRow>
+                    <div>
+                      <SuggestionSub>Current Labels</SuggestionSub>
+                      <LabelLine>
+                        {currentLabels.length === 0
+                          ? <NoLabels>No labels</NoLabels>
+                          : currentLabels.map((label) => <LabelChip key={`${item.rowId}-cur-${label}`}>{label}</LabelChip>)
+                        }
+                      </LabelLine>
+                    </div>
+
+                    <div>
+                      <SuggestionSub>Will Add</SuggestionSub>
+                      <LabelLine>
+                        {item.missingLabels.length === 0
+                          ? <NoLabels>No new labels</NoLabels>
+                          : item.missingLabels.map((label) => <LabelChip key={`${item.rowId}-new-${label}`}>{label}</LabelChip>)
+                        }
+                      </LabelLine>
+                    </div>
+
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '0.6rem' }}>
+                      <div>
+                        <SuggestionSub>Special Name</SuggestionSub>
+                        <div style={{ fontSize: '0.82rem', opacity: 0.8 }}>{item.suggestedName || '-'}</div>
+                      </div>
+                      <Checkbox
+                        type="checkbox"
+                        checked={isSelected}
+                        onChange={() => toggleSelection(item.rowId)}
+                      />
+                    </div>
+                  </SuggestionRow>
+                </SuggestionCard>
               )
             })
           )}
-        </SuggestionsTable>
+        </EntityList>
       </StepContent>
     )
   }

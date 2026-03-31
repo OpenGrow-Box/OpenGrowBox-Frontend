@@ -94,9 +94,6 @@ export const HomeAssistantProvider = ({ children }) => {
       }
 
       const url = new URL(normalized);
-      if (!url.port) {
-        url.port = '8123';
-      }
 
       return url.toString().replace(/\/$/, '');
     } catch (error) {

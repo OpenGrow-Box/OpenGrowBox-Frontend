@@ -33,7 +33,7 @@ const capitalize = (str) => {
 
 const Wizzard = ({ onComplete }) => {
   const { currentPlan, subscription, isLoggedIn, userEmail, userId } = usePremium()
-  const { connection, currentRoom } = useHomeAssistant()
+  const { connection, currentRoom, haToken, haBaseUrl, haApiBaseUrl } = useHomeAssistant()
   const contentRef = useRef(null)
   const pendingPlantConfigRequestRef = useRef(null)
   const plantConfigTimeoutRef = useRef(null)
@@ -83,7 +83,9 @@ const Wizzard = ({ onComplete }) => {
     plantStages: createDefaultPlantStages()
   })
 
-  const plantStageStepsFactory = createPlantStagesStepComponents({
+  const supportContext = useMemo(() => ({ currentRoom, userEmail, userId }), [currentRoom, userEmail, userId])
+
+  const plantStageStepsFactory = useMemo(() => createPlantStagesStepComponents({
     Wiz_minmax,
     icons: { MdEco, MdThermostat, MdTune, MdRefresh, MdLocalFlorist, MdGrass, MdSpa, MdCheck },
     helpers: { formatStageName, createDefaultPlantStages },
@@ -118,9 +120,9 @@ const Wizzard = ({ onComplete }) => {
       SummaryRow,
       CompleteMessage,
     },
-  })
+  }), [])
 
-  const supportStepsFactory = createSupportStepComponents({
+  const supportStepsFactory = useMemo(() => createSupportStepComponents({
     icons: { MdContactSupport, MdHelp, MdCheck, MdEmail },
     helpers: { getSupportRoute, getSupportCategoryLabel, buildGitHubIssueUrl, PRIVATE_SUPPORT_URL, UI_VERSION },
     styles: {
@@ -156,10 +158,10 @@ const Wizzard = ({ onComplete }) => {
       SupportErrorText,
       SubmitButton,
     },
-    supportContext: { currentRoom, userEmail, userId },
-  })
+    supportContext,
+  }), [supportContext])
 
-  const debugStepsFactory = createDebugStepComponents({
+  const debugStepsFactory = useMemo(() => createDebugStepComponents({
     icons: { MdDownload, MdRefresh, MdCheck },
     styles: {
       StepContent,
@@ -179,29 +181,33 @@ const Wizzard = ({ onComplete }) => {
     },
     connection,
     currentRoom,
-  })
+  }), [connection, currentRoom])
 
-  const setupStepsFactory = createSetupStepComponents({
-    icons: { 
-      MdDevices, 
-      MdLabel, 
-      MdEdit, 
-      MdSave, 
-      MdSearch, 
+  const setupStepsFactory = useMemo(() => createSetupStepComponents({
+    icons: {
+      MdDevices,
+      MdLabel,
+      MdEdit,
+      MdSave,
+      MdSearch,
       MdClose,
       MdAutoAwesome,
       MdList,
       MdOutlineLabel,
       MdThermostat,
       MdLightMode,
-      MdWindPower
+      MdWindPower,
+      MdRefresh
     },
     styles: {
       StepContent,
     },
     connection,
     currentRoom,
-  })
+    haToken,
+    haBaseUrl,
+    haApiBaseUrl
+  }), [connection, currentRoom, haToken, haBaseUrl, haApiBaseUrl])
 
   const {
     WelcomeStep: PlantWelcomeStep,
@@ -769,6 +775,29 @@ const Wizzard = ({ onComplete }) => {
     setActiveTab(tabId)
     setCurrentStep(0)
   }
+
+  // Handle tool selection in Setup tab - jump to the correct step
+  useEffect(() => {
+    if (activeTab === 'setup' && wizardData.selectedSetupTool) {
+      const toolStepMap = {
+        'deviceManager': 1,  // Device Manager
+        'entityManager': 2,  // Entity Manager
+        'labelManager': 3,    // Label Manager
+        'autoSetup': 4,      // Auto Setup
+      }
+
+      const targetStep = toolStepMap[wizardData.selectedSetupTool]
+      console.log('[Wizard] Tool selected:', wizardData.selectedSetupTool, 'targetStep:', targetStep, 'currentStep:', currentStep)
+
+      // Only jump if we're not already on the target step
+      if (targetStep !== undefined && currentStep !== targetStep) {
+        setCurrentStep(targetStep)
+      }
+
+      // Clear selection after jumping to prevent infinite loop
+      setWizardData(prev => ({ ...prev, selectedSetupTool: null }))
+    }
+  }, [activeTab, wizardData.selectedSetupTool, currentStep])
 
   const handlePrimaryAction = () => {
     if (activeTab === 'plantStages' && currentStep === steps.length - 1) {

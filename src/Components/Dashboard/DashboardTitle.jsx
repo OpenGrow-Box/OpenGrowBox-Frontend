@@ -39,7 +39,7 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
   const wizardModal = showWizzard && wizardPortalTarget
     ? createPortal(
         <WizardOverlay>
-          <WizardBackdrop onClick={() => setShowWizzard(false)} />
+          <WizardBackdrop />
           <WizardContent>
             <WizardCloseButton
               onClick={() => setShowWizzard(false)}

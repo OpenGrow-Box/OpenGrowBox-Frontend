@@ -4,19 +4,12 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
   const { MdDownload, MdRefresh, MdCheck } = icons
   const {
     StepContent,
-    SettingGroup,
-    SettingLabel,
     LogContainer,
     LogEntry,
     LogTime,
     LogLevel,
     LogSource,
     LogMessage,
-    LogActions,
-    ActionBtn,
-    ReportFeatures,
-    ReportFeature,
-    SubmitButton,
   } = styles
 
   const logLevels = [
@@ -75,6 +68,17 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
     const [error, setError] = useState(null)
     const hasLoadedRef = useRef(false)
     const historyUnsubscribeRef = useRef(null)
+    const currentRequestIdRef = useRef(null)  // Track only current request - no memory leak
+
+    // Helper to ensure logs are sorted by timestamp (newest first)
+    const sortLogsNewestFirst = (logsArray) => {
+      return [...logsArray].sort((a, b) => {
+        // Convert ISO timestamp string to milliseconds for proper sorting
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0
+        return timeB - timeA // Neueste zuerst
+      })
+    }
 
     // Helper to extract message from various log data formats
     const extractMessage = (logData) => {
@@ -117,7 +121,10 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
       setError(null)
       const requestId = `log_fetch_${Date.now()}`
       console.log('[Wizard Debug] Fetching historical logs with requestId:', requestId, 'room:', currentRoom)
-      
+
+      // Store current request ID
+      currentRequestIdRef.current = requestId
+
       let unsubscribed = false
       const safeUnsubscribe = () => {
         if (!unsubscribed) {
@@ -135,14 +142,16 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
             if (event?.event_type === 'ogbClientLogsResponse') {
               // CRITICAL: Check if this is our response
               const eventRequestId = event.data?.requestId || event.data?.request_id
-              
-              if (eventRequestId !== requestId) {
-                console.log('[Wizard Debug] Ignoring response - requestId mismatch:', eventRequestId, 'expected:', requestId)
+
+              // Ignore if requestId doesn't match current request
+              if (eventRequestId !== currentRequestIdRef.current) {
+                console.log('[Wizard Debug] Ignoring response - requestId mismatch:', eventRequestId, 'expected:', currentRequestIdRef.current)
                 return
               }
-              
+
+              console.log('[Wizard Debug] Processing response for requestId:', requestId)
               console.log('[Wizard Debug] Log response:', event.data)
-              
+
               if (event.data?.error) {
                 console.error('[Wizard Debug] Error response:', event.data.error)
                 setError(event.data.error)
@@ -163,13 +172,38 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
                   const realtime = prev.filter(l => !l.isHistorical)
                   const existingTimestamps = new Set(realtime.map(l => l.timestamp))
                   const newHistorical = historicalLogs.filter(l => !existingTimestamps.has(l.timestamp))
-                  return [...realtime, ...newHistorical.slice(0, 300)]
+
+                  // Combine and sort: newest first
+                  const combined = [...newHistorical, ...realtime]
+                  const sorted = sortLogsNewestFirst(combined)
+                  return sorted.slice(0, 300)
                 })
+
+                // Scroll to top after loading logs
+                setTimeout(() => {
+                  const container = document.querySelector('[data-log-container="true"]')
+                  if (container) {
+                    console.log('[Wizard Debug] Scrolling to top of log container')
+                    container.scrollTop = 0
+                  }
+                }, 100)
+
                 hasLoadedRef.current = true
               } else {
                 console.log('[Wizard Debug] No logs in response, file might be empty')
                 hasLoadedRef.current = true
               }
+              setLoading(false)
+              if (safeUnsubscribe()) {
+                unsubscribePromise.then((unsub) => {
+                  if (unsub) unsub()
+                }).catch(() => {})
+              }
+            } else if (event.data?.error) {
+              // Error response - still mark as loaded to avoid stuck "Loading"
+              console.error('[Wizard Debug] Error response:', event.data.error)
+              setError(event.data.error)
+              hasLoadedRef.current = true
               setLoading(false)
               if (safeUnsubscribe()) {
                 unsubscribePromise.then((unsub) => {
@@ -199,6 +233,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         const timeoutId = setTimeout(() => {
           console.log('[Wizard Debug] Timeout - stopping loading')
           setLoading(false)
+          hasLoadedRef.current = true  // Mark as loaded even on timeout
           if (safeUnsubscribe()) {
             unsubscribePromise.then((unsub) => {
               if (unsub) unsub()
@@ -216,19 +251,27 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         console.error('[Wizard Debug] Fetch historical logs failed:', e)
         setError(e.message || 'Failed to fetch logs')
         setLoading(false)
-        hasLoadedRef.current = true
+        hasLoadedRef.current = true  // Mark as loaded even on error
       }
     }, [connection, currentRoom])
 
-    // Initial load - fetch historical logs
+    // Initial load - fetch historical logs (only once per component mount)
     useEffect(() => {
       console.log('[Wizard Debug] Initial load check - connection:', !!connection, 'currentRoom:', currentRoom, 'hasLoaded:', hasLoadedRef.current)
+
+      // Only fetch if: connection exists, room exists, and hasn't been loaded yet
       if (connection && currentRoom && !hasLoadedRef.current) {
+        console.log('[Wizard Debug] Starting historical log fetch...')
         fetchHistoricalLogs()
       }
-    }, [connection, currentRoom, fetchHistoricalLogs])
+
+      // DO NOT reset hasLoadedRef on unmount - this causes re-fetch on tab switch
+      // The ref persists across mounts to prevent duplicate fetches
+    }, [])  // Empty deps - only run once on mount
 
     const handleRefresh = () => {
+      // Reset hasLoadedRef to allow refetch
+      hasLoadedRef.current = false
       setLogs(prev => prev.filter(l => !l.isHistorical))
       fetchHistoricalLogs()
     }
@@ -241,17 +284,34 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         (event) => {
           if (event?.event_type === 'LogForClient') {
             const eventData = event.data || {}
+            const timestamp = Date.now()
             const newLog = {
-              id: `realtime_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`,
-              time: event.time_fired ? new Date(event.time_fired).toLocaleTimeString() : new Date().toLocaleTimeString(),
+              id: `realtime_${timestamp}_${Math.random().toString(36).substr(2, 9)}`,
+              time: event.time_fired ? new Date(event.time_fired).toLocaleTimeString() : new Date(timestamp).toLocaleTimeString(),
               level: (eventData.DebugType || eventData.type || 'INFO').toUpperCase(),
               source: eventData.Name || eventData.name || currentRoom || 'OGB',
               message: extractMessage(eventData),
               raw: eventData,
               type: eventData.DebugType || eventData.type,
+              timestamp: timestamp,
               isHistorical: false,
             }
-            setLogs(prev => [newLog, ...prev.slice(0, 499)])
+
+            setLogs(prev => {
+              const combined = [newLog, ...prev]
+              const sorted = sortLogsNewestFirst(combined)
+              const result = sorted.slice(0, 500)
+
+              // Scroll to top when new realtime log arrives
+              setTimeout(() => {
+                const container = document.querySelector('[data-log-container="true"]')
+                if (container) {
+                  container.scrollTop = 0
+                }
+              }, 50)
+
+              return result
+            })
           }
         },
         'LogForClient'
@@ -269,7 +329,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
     const filteredLogs = logs.filter((log) => {
       // Level filter
       if (levelFilter !== 'all' && log.level?.toLowerCase() !== levelFilter) return false
-      
+
       // Text search - search in message, source, level, and raw data
       if (filterText) {
         const searchLower = filterText.toLowerCase()
@@ -279,11 +339,12 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
           log.level,
           JSON.stringify(log.raw)
         ].join(' ').toLowerCase()
-        
+
         return searchableText.includes(searchLower)
       }
       return true
     })
+    // No need to sort here - logs are already sorted in state
 
     const downloadLogs = () => {
       const logText = filteredLogs.map((l) => `[${l.time}] [${l.level}] [${l.source}] ${l.message}`).join('\n')
@@ -361,10 +422,16 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
           </div>
         )}
         
-        <LogContainer style={{ maxHeight: '400px', overflow: 'auto' }}>
+        <LogContainer style={{ maxHeight: '400px', overflow: 'auto' }} data-log-container="true">
           {filteredLogs.length === 0 ? (
             <div style={{ padding: '2rem', textAlign: 'center', opacity: 0.5 }}>
-              {logs.length === 0 ? 'Waiting for logs...' : 'No logs match filter'}
+              {loading ? (
+                'Loading logs...'
+              ) : logs.length === 0 ? (
+                'No logs available'
+              ) : (
+                'No logs match filter'
+              )}
             </div>
           ) : (
             filteredLogs.map((log) => (

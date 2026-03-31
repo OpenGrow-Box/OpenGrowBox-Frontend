@@ -1640,20 +1640,26 @@ const GrowLogs = () => {
                </LoadingSpinner>
                <LoadingText>Connecting to log stream...</LoadingText>
              </LoadingState>
-           ) : displayedLogs.length === 0 ? (
-             <NoLogsMessage>
-               {filteredLogs.length === 0 && logs.length === 0 ? (
-                 <LoadingDots>Waiting for Logs...</LoadingDots>
-               ) : filteredLogs.length === 0 ? (
-                 <EmptyState>
-                   <EmptyIcon><FaSearch /></EmptyIcon>
-                   <EmptyTitle>No logs match your search</EmptyTitle>
-                   <EmptyText>Try adjusting your search terms or filters</EmptyText>
-                 </EmptyState>
-               ) : (
-                 <LoadingDots>No more logs to display</LoadingDots>
-               )}
-             </NoLogsMessage>
+             ) : displayedLogs.length === 0 ? (
+              <NoLogsMessage>
+                {isLoading ? (
+                  <LoadingDots>Loading logs...</LoadingDots>
+                ) : filteredLogs.length === 0 && logs.length === 0 ? (
+                  <EmptyState>
+                    <EmptyIcon><FaRegCircle /></EmptyIcon>
+                    <EmptyTitle>No logs available</EmptyTitle>
+                    <EmptyText>Waiting for new log entries...</EmptyText>
+                  </EmptyState>
+                ) : filteredLogs.length === 0 ? (
+                  <EmptyState>
+                    <EmptyIcon><FaSearch /></EmptyIcon>
+                    <EmptyTitle>No logs match your search</EmptyTitle>
+                    <EmptyText>Try adjusting your search terms or filters</EmptyText>
+                  </EmptyState>
+                ) : (
+                  <LoadingDots>No more logs to display</LoadingDots>
+                )}
+              </NoLogsMessage>
            ) : (
              displayedLogs.map((log) => (
                <ExpandableLogItem
