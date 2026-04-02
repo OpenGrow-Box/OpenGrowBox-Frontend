@@ -72,6 +72,7 @@ const SensorChart = ({
   const isDev = import.meta.env.DEV;
   
   const apiBaseUrl = haApiBaseUrl || '';
+  const HISTORY_FETCH_TIMEOUT_MS = 15000;
 
   const [startDate, setStartDate] = useState(getDefaultDate());
   const [endDate, setEndDate] = useState(getDefaultDate());
@@ -128,16 +129,20 @@ const SensorChart = ({
         setLoading(true);
       }
       setError(null);
+      let timeoutId;
       try {
         // Build URL - in dev mode, use relative path for proxy
         const baseUrlPart = apiBaseUrl ? apiBaseUrl : '';
-        const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startDate)}?filter_entity_id=${sensorId}&end_time=${encodeURIComponent(endDate)}`;
+        const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startDate)}?filter_entity_id=${sensorId}&end_time=${encodeURIComponent(endDate)}&minimal_response&no_attributes&significant_changes_only`;
         console.log('Fetching history data from:', url, 'isDev:', isDev, 'apiBaseUrl:', apiBaseUrl);
+        const controller = new AbortController();
+        timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
         const response = await fetch(url, {
           headers: {
             'Authorization': `Bearer ${accessToken}`,
             'Content-Type': 'application/json',
           },
+          signal: controller.signal,
         });
         if (!response.ok) {
           throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -454,9 +459,15 @@ const SensorChart = ({
           }]
         });
       } catch (err) {
+        if (err?.name === 'AbortError') {
+          setError('Request timeout while loading chart data');
+          setChartOptions(null);
+          return;
+        }
         console.error('Chart data fetch error:', err);
         setError(err.message || 'Failed to load chart data');
       } finally {
+        if (timeoutId) clearTimeout(timeoutId);
         setLoading(false);
       }
     };

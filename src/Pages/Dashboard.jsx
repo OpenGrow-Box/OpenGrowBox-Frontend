@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
+import { MdDashboard, MdWaterDrop, MdInsights, MdBolt } from 'react-icons/md';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
 
@@ -16,8 +17,13 @@ const Dashboard = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [, setError] = useState(null);
   const [ setIsRoomDropdownOpen] = useState(false);
+  const [activeDashboardTab, setActiveDashboardTab] = useState(() => localStorage.getItem('dashboardActiveTab') || 'analytics');
   const [selectedCO2SensorIndex, setSelectedCO2SensorIndex] = useState(0);
   const roomDropdownRef = useRef(null);
+
+  useEffect(() => {
+    localStorage.setItem('dashboardActiveTab', activeDashboardTab);
+  }, [activeDashboardTab]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -116,19 +122,59 @@ const Dashboard = () => {
         <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
       </ContainerHeader>
 
-      <MainSection
-        as={motion.div}
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, ease: "easeOut" }}
-      >
-        <LeftSection>
-          <MediumProvider>
-            <GrowMetrics />
-          </MediumProvider>
-        </LeftSection>
+      <TabContainer>
+        <TabButton
+          $active={activeDashboardTab === 'analytics'}
+          onClick={() => setActiveDashboardTab('analytics')}
+        >
+          <MdDashboard size={18} />
+          <span>Analytics</span>
+        </TabButton>
+        <TabButton
+          $active={activeDashboardTab === 'metrics'}
+          onClick={() => setActiveDashboardTab('metrics')}
+        >
+          <MdInsights size={18} />
+          <span>Metrics</span>
+        </TabButton>
+        <TabButton
+          $active={activeDashboardTab === 'cropsteering'}
+          onClick={() => setActiveDashboardTab('cropsteering')}
+        >
+          <MdWaterDrop size={18} />
+          <span>Crop Steering</span>
+        </TabButton>
+        <TabButton
+          $active={activeDashboardTab === 'energy'}
+          onClick={() => setActiveDashboardTab('energy')}
+        >
+          <MdBolt size={18} />
+          <span>Energy Consumption</span>
+        </TabButton>
+      </TabContainer>
 
-        <ri>
+      {activeDashboardTab === 'metrics' && (
+        <MetricsSection
+          as={motion.div}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <MetricsContent>
+            <MediumProvider>
+              <GrowMetrics />
+            </MediumProvider>
+          </MetricsContent>
+        </MetricsSection>
+      )}
+
+      {activeDashboardTab === 'analytics' && (
+        <AnalyticsSection
+          as={motion.div}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
           <ChartGrid>
             <DashboardChart
               sensorId={sensorIds.vpd}
@@ -172,8 +218,52 @@ const Dashboard = () => {
               </EmptyMessage>
             </EmptyState>
           )}
-        </ri>
-      </MainSection>
+        </AnalyticsSection>
+      )}
+
+      {activeDashboardTab === 'cropsteering' && (
+        <CropSteeringSection
+          as={motion.div}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <CropWelcomeCard>
+            <DevBadge>
+              <MdWaterDrop size={16} /> In Development
+            </DevBadge>
+            <CropWelcomeTitle>Welcome to Crop Steering</CropWelcomeTitle>
+            <CropWelcomeText>
+              This dashboard is under active development and will launch soon.
+            </CropWelcomeText>
+            <CropWelcomeText>
+              You will get phase insights, dry-back tracking, and steering actions in one place.
+            </CropWelcomeText>
+          </CropWelcomeCard>
+        </CropSteeringSection>
+      )}
+
+      {activeDashboardTab === 'energy' && (
+        <CropSteeringSection
+          as={motion.div}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <CropWelcomeCard>
+            <DevBadge>
+              <MdBolt size={16} /> In Development
+            </DevBadge>
+            <CropWelcomeTitle>Energy Consumption</CropWelcomeTitle>
+            <CropWelcomeText>
+              This dashboard is under active development and will be available soon.
+            </CropWelcomeText>
+            <CropWelcomeText>
+              You will get consumption history, peak usage windows, and device-level energy insights.
+            </CropWelcomeText>
+          </CropWelcomeCard>
+        </CropSteeringSection>
+      )}
       <BottomBar />
     </MainContainer>
   );
@@ -291,25 +381,113 @@ const MainSection = styled.div`
   }
 `;
 
-const LeftSection = styled.section`
+const AnalyticsSection = styled(MainSection)`
+  display: block;
+`;
+
+const MetricsSection = styled(MainSection)`
+  display: block;
+`;
+
+const CropSteeringSection = styled(MainSection)`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: calc(100vh - 260px);
+
+  @media (max-width: 1024px) {
+    min-height: calc(100vh - 280px);
+  }
+`;
+
+const MetricsContent = styled.section`
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  flex: 6;
-  width:100%;
-
-  @media (max-width: 1024px) {
-    flex: 5;
-  }
+  width: 100%;
 
   @media (max-width: 768px) {
     width: 100%;
-    flex: 1;
   }
 
   @media (max-width: 480px) {
     gap: 0.75rem;
   }
+`;
+
+const TabContainer = styled.div`
+  display: flex;
+  gap: 0.5rem;
+  margin: 0.5rem 1rem 0;
+  background: var(--main-bg-card-color);
+  border: 1px solid var(--glass-border-light);
+  border-radius: 14px;
+  padding: 0.4rem;
+
+  @media (max-width: 768px) {
+    margin: 0.25rem 0.5rem 0;
+  }
+`;
+
+const TabButton = styled.button`
+  border: none;
+  background: ${props => props.$active ? 'var(--primary-button-color)' : 'transparent'};
+  color: ${props => props.$active ? 'var(--main-text-color)' : 'var(--second-text-color)'};
+  border-radius: 10px;
+  padding: 0.7rem 1rem;
+  font-weight: 600;
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    color: var(--main-text-color);
+    background: ${props => props.$active ? 'var(--primary-button-color)' : 'var(--glass-bg-secondary)'};
+  }
+`;
+
+const CropWelcomeCard = styled.div`
+  width: min(760px, 100%);
+  background: linear-gradient(145deg, rgba(11, 40, 58, 0.7), rgba(20, 61, 39, 0.55));
+  border: 1px solid var(--glass-border-light);
+  border-radius: 18px;
+  padding: 2rem;
+  text-align: center;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+
+  @media (max-width: 768px) {
+    padding: 1.25rem;
+  }
+`;
+
+const DevBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  margin-bottom: 1rem;
+  padding: 0.45rem 0.8rem;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.45);
+  color: #7dd3fc;
+  background: rgba(2, 132, 199, 0.15);
+  font-size: 0.82rem;
+  font-weight: 700;
+`;
+
+const CropWelcomeTitle = styled.h2`
+  margin: 0 0 0.65rem;
+  color: var(--main-text-color);
+  font-size: clamp(1.35rem, 3vw, 2rem);
+  font-weight: 800;
+`;
+
+const CropWelcomeText = styled.p`
+  margin: 0.35rem 0;
+  color: var(--second-text-color);
+  font-size: 1rem;
+  line-height: 1.55;
 `;
 
 const ChartGrid = styled.div`
@@ -351,4 +529,3 @@ const ContainerHeader = styled.div`
     min-height: 40px;
   }
 `;
-

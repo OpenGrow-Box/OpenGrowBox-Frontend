@@ -19,7 +19,7 @@ const LoadingIndicator = () => (
 
 const GrowMetrics = () => {
   const [selectedMetric, setSelectedMetric] = useState('all');
-  const [timeRange, setTimeRange] = useState('since_start');
+  const [timeRange, setTimeRange] = useState('last_7d');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
@@ -39,6 +39,7 @@ const GrowMetrics = () => {
   const isDev = import.meta.env.DEV;
   
   const apiBaseUrl = haApiBaseUrl || '';
+  const HISTORY_FETCH_TIMEOUT_MS = 20000;
 
   useEffect(() => {
     let interval;
@@ -135,6 +136,16 @@ const GrowMetrics = () => {
 
     return foundEntities;
   }, [entities, currentRoom]);
+
+  const sensorEntityIds = useMemo(
+    () => Object.values(sensorEntities).filter(Boolean),
+    [sensorEntities]
+  );
+
+  const sensorEntityKey = useMemo(
+    () => [...sensorEntityIds].sort().join('|'),
+    [sensorEntityIds]
+  );
 
   // Dynamic control entity detection based on entity name keywords
   const detectControlEntity = (entity, selectedRoom) => {
@@ -401,8 +412,11 @@ const GrowMetrics = () => {
   const fetchSensorData = async (entityId, startTime, endTime) => {
     // Build URL - in dev mode, use relative path for proxy
     const baseUrlPart = apiBaseUrl ? apiBaseUrl : '';
-    const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startTime)}?filter_entity_id=${entityId}&end_time=${encodeURIComponent(endTime)}`;
+    const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startTime)}?filter_entity_id=${entityId}&end_time=${encodeURIComponent(endTime)}&minimal_response&no_attributes&significant_changes_only`;
     console.log('GrowMetrics fetching from:', url, 'isDev:', isDev);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
 
     try {
       const response = await fetch(url, {
@@ -410,6 +424,7 @@ const GrowMetrics = () => {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json',
         },
+        signal: controller.signal,
       });
 
       if (!response.ok) {
@@ -419,14 +434,26 @@ const GrowMetrics = () => {
       const data = await response.json();
       return data && data.length > 0 ? data[0] : [];
     } catch (err) {
-      console.warn(`Failed to fetch data for ${entityId}:`, err);
+      if (err?.name === 'AbortError') {
+        console.warn(`Fetch timeout for ${entityId} after ${HISTORY_FETCH_TIMEOUT_MS}ms`);
+      } else {
+        console.warn(`Failed to fetch data for ${entityId}:`, err);
+      }
       return [];
+    } finally {
+      clearTimeout(timeoutId);
     }
   };
 
   const fetchAllGrowData = async () => {
     if (!token) {
       setError('Home Assistant Server oder Token nicht konfiguriert');
+      return;
+    }
+
+    if (!sensorEntityIds.length) {
+      setHistoricalData([]);
+      setLoading(false);
       return;
     }
 
@@ -475,7 +502,7 @@ const GrowMetrics = () => {
         }));
 
       // Performance: Sample data wenn zu viele Readings vorhanden
-      const maxReadings = 10000;
+      const maxReadings = 3000;
       let sampledData = sortedData;
       if (sortedData.length > maxReadings) {
         const step = Math.ceil(sortedData.length / maxReadings);
@@ -500,7 +527,7 @@ const GrowMetrics = () => {
   // Fetch data only when fetch parameters change
   useEffect(() => {
     fetchAllGrowData();
-  }, [timeRange, currentRoom, apiBaseUrl, token, currentMediumIndex, growStartDate]);
+  }, [timeRange, currentRoom, apiBaseUrl, token, currentMediumIndex, growStartDate, sensorEntityKey]);
 
   // Update target values separately (doesn't trigger data fetch)
   useEffect(() => {
@@ -1025,12 +1052,9 @@ const Container = styled.div`
 
 // Loading wrapper to contain backdrop and spinner
 const LoadingWrapper = styled.div`
-  position: fixed;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  z-index: 9999;
+  position: relative;
+  width: 100%;
+  min-height: 340px;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1038,15 +1062,7 @@ const LoadingWrapper = styled.div`
 
 // Backdrop blur for background
 const LoadingBackdrop = styled.div`
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: rgba(0, 0, 0, 0.6);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  z-index: 1;
+  display: none;
 `;
 
 const LoadingContainer = styled.div`
