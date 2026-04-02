@@ -9,7 +9,10 @@ import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
-import { FaSpinner, FaLeaf } from 'react-icons/fa';
+import { FaSpinner, FaLeaf, FaTint } from 'react-icons/fa';
+import WaterCard from '../Components/Cards/SliderCards/WaterCard';
+import TankLevelCard from '../Components/Cards/SliderCards/TankLevelCard';
+import EnergyCard from '../Components/Cards/SliderCards/EnergyCard';
 
 
 const Dashboard = () => {
@@ -79,6 +82,108 @@ const Dashboard = () => {
     };
   }, [currentRoom]);
 
+  // Water sensor IDs
+  const waterSensorIds = useMemo(() => {
+    const room = currentRoom?.trim()?.toLowerCase() || 'default';
+    return {
+      ph: `sensor.ogb_ph_${room}`,
+      ec: `sensor.ogb_ec_${room}`,
+      temp: `sensor.ogb_water_temp_${room}`,
+      tankLevel: `sensor.ogb_tank_level_${room}`
+    };
+  }, [currentRoom]);
+
+  // Detect water sensors dynamically
+  const waterSensors = useMemo(() => {
+    if (!entities) return {};
+
+    const room = currentRoom?.trim()?.toLowerCase() || 'default';
+    const sensors = {};
+
+    // pH sensors
+    Object.entries(entities).forEach(([key, entity]) => {
+      if (key.includes('ph') && !key.includes('phase')) {
+        sensors.ph = { id: key, ...entity };
+      }
+      if (key.includes('ec_') || key.includes('_ec') || key.includes('tds')) {
+        sensors.ec = { id: key, ...entity };
+      }
+      if ((key.includes('water_temp') || key.includes('water temperature')) && key.includes(room)) {
+        sensors.temp = { id: key, ...entity };
+      }
+    });
+
+    return sensors;
+  }, [entities, currentRoom]);
+
+  // Detect energy sensors dynamically (Home Assistant Energy Dashboard compatible)
+  const energySensors = useMemo(() => {
+    if (!entities) return {};
+
+    const sensors = {
+      consumption: null,
+      production: null,
+      gridImport: null,
+      gridExport: null,
+      solar: null,
+      battery: null,
+      all: [],
+    };
+
+    Object.entries(entities).forEach(([key, entity]) => {
+      if (!key.startsWith('sensor.')) return;
+
+      const value = parseFloat(entity.state);
+      if (isNaN(value) || value < 0) return;
+
+      const keyLower = key.toLowerCase();
+      const unit = entity.attributes?.unit_of_measurement || '';
+
+      // Only kWh sensors for cumulative energy
+      if (!unit.toLowerCase().includes('kwh')) return;
+
+      const sensorData = {
+        id: key,
+        value,
+        unit,
+        friendlyName: entity.attributes?.friendly_name || key.split('.').pop(),
+        category: 'energy',
+      };
+
+      sensors.all.push(sensorData);
+
+      // Home Assistant Energy Dashboard entity patterns
+      if (keyLower.includes('home_energy_consumption') || keyLower.includes('total_consumption')) {
+        sensors.consumption = sensorData;
+      }
+      if (keyLower.includes('home_energy_production') || keyLower.includes('total_production')) {
+        sensors.production = sensorData;
+      }
+      if (keyLower.includes('grid_import') || keyLower.includes('energy_import')) {
+        sensors.gridImport = sensorData;
+      }
+      if (keyLower.includes('grid_export') || keyLower.includes('energy_export')) {
+        sensors.gridExport = sensorData;
+      }
+      if (keyLower.includes('solar_energy') || keyLower.includes('solar_production')) {
+        sensors.solar = sensorData;
+      }
+      if (keyLower.includes('battery_energy') || keyLower.includes('battery_charge')) {
+        sensors.battery = sensorData;
+      }
+
+      // Fallback: use first consumption/production sensors if not found
+      if (!sensors.consumption && (keyLower.includes('consumption') || keyLower.includes('usage'))) {
+        sensors.consumption = sensorData;
+      }
+      if (!sensors.production && (keyLower.includes('production') || keyLower.includes('solar'))) {
+        sensors.production = sensorData;
+      }
+    });
+
+    return sensors;
+  }, [entities]);
+
   // Loading and error states
   useEffect(() => {
     const checkConnection = () => {
@@ -138,6 +243,13 @@ const Dashboard = () => {
           <span>Metrics</span>
         </TabButton>
         <TabButton
+          $active={activeDashboardTab === 'water'}
+          onClick={() => setActiveDashboardTab('water')}
+        >
+          <FaTint size={18} />
+          <span>Water</span>
+        </TabButton>
+        <TabButton
           $active={activeDashboardTab === 'cropsteering'}
           onClick={() => setActiveDashboardTab('cropsteering')}
         >
@@ -166,6 +278,50 @@ const Dashboard = () => {
             </MediumProvider>
           </MetricsContent>
         </MetricsSection>
+      )}
+
+      {activeDashboardTab === 'water' && (
+        <WaterSection
+          as={motion.div}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, ease: "easeOut" }}
+        >
+          <ChartGrid>
+            {waterSensors.ph && (
+              <DashboardChart
+                sensorId={waterSensors.ph.id}
+                title="pH"
+                unit=""
+                priority="high"
+              />
+            )}
+            {waterSensors.ec && (
+              <DashboardChart
+                sensorId={waterSensors.ec.id}
+                title="EC"
+                unit="mS/cm"
+                priority="high"
+              />
+            )}
+            {waterSensors.temp && (
+              <DashboardChart
+                sensorId={waterSensors.temp.id}
+                title="Water Temp"
+                unit="°C"
+                priority="medium"
+              />
+            )}
+          </ChartGrid>
+          <WaterCardsGrid>
+            <WaterCardWrapper>
+              <WaterCard pause={() => {}} resume={() => {}} isPlaying={false} filterByRoom={true} />
+            </WaterCardWrapper>
+            <TankLevelCardWrapper>
+              <TankLevelCard pause={() => {}} resume={() => {}} isPlaying={false} filterByRoom={true} />
+            </TankLevelCardWrapper>
+          </WaterCardsGrid>
+        </WaterSection>
       )}
 
       {activeDashboardTab === 'analytics' && (
@@ -244,25 +400,138 @@ const Dashboard = () => {
       )}
 
       {activeDashboardTab === 'energy' && (
-        <CropSteeringSection
+        <EnergySection
           as={motion.div}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <CropWelcomeCard>
-            <DevBadge>
-              <MdBolt size={16} /> In Development
-            </DevBadge>
-            <CropWelcomeTitle>Energy Consumption</CropWelcomeTitle>
-            <CropWelcomeText>
-              This dashboard is under active development and will be available soon.
-            </CropWelcomeText>
-            <CropWelcomeText>
-              You will get consumption history, peak usage windows, and device-level energy insights.
-            </CropWelcomeText>
-          </CropWelcomeCard>
-        </CropSteeringSection>
+          <EnergyHeader>
+            <EnergyTitle>Energy Dashboard</EnergyTitle>
+          </EnergyHeader>
+
+          <EnergyStatsGrid>
+            {energySensors.consumption && (
+              <EnergyStatCard type="consumption">
+                <EnergyStatIcon>⚡</EnergyStatIcon>
+                <EnergyStatContent>
+                  <EnergyStatLabel>Home Consumption</EnergyStatLabel>
+                  <EnergyStatValue>
+                    {energySensors.consumption.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
+                  </EnergyStatValue>
+                  <EnergyStatEntity>{energySensors.consumption.friendlyName}</EnergyStatEntity>
+                </EnergyStatContent>
+              </EnergyStatCard>
+            )}
+
+            {energySensors.production && (
+              <EnergyStatCard type="production">
+                <EnergyStatIcon>☀️</EnergyStatIcon>
+                <EnergyStatContent>
+                  <EnergyStatLabel>Home Production</EnergyStatLabel>
+                  <EnergyStatValue>
+                    {energySensors.production.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
+                  </EnergyStatValue>
+                  <EnergyStatEntity>{energySensors.production.friendlyName}</EnergyStatEntity>
+                </EnergyStatContent>
+              </EnergyStatCard>
+            )}
+
+            {energySensors.gridImport && (
+              <EnergyStatCard type="gridImport">
+                <EnergyStatIcon>🔌</EnergyStatIcon>
+                <EnergyStatContent>
+                  <EnergyStatLabel>Grid Import</EnergyStatLabel>
+                  <EnergyStatValue>
+                    {energySensors.gridImport.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
+                  </EnergyStatValue>
+                  <EnergyStatEntity>{energySensors.gridImport.friendlyName}</EnergyStatEntity>
+                </EnergyStatContent>
+              </EnergyStatCard>
+            )}
+
+            {energySensors.gridExport && (
+              <EnergyStatCard type="gridExport">
+                <EnergyStatIcon>🔋</EnergyStatIcon>
+                <EnergyStatContent>
+                  <EnergyStatLabel>Grid Export</EnergyStatLabel>
+                  <EnergyStatValue>
+                    {energySensors.gridExport.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
+                  </EnergyStatValue>
+                  <EnergyStatEntity>{energySensors.gridExport.friendlyName}</EnergyStatEntity>
+                </EnergyStatContent>
+              </EnergyStatCard>
+            )}
+
+            {energySensors.solar && (
+              <EnergyStatCard type="solar">
+                <EnergyStatIcon>🌞</EnergyStatIcon>
+                <EnergyStatContent>
+                  <EnergyStatLabel>Solar Production</EnergyStatLabel>
+                  <EnergyStatValue>
+                    {energySensors.solar.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
+                  </EnergyStatValue>
+                  <EnergyStatEntity>{energySensors.solar.friendlyName}</EnergyStatEntity>
+                </EnergyStatContent>
+              </EnergyStatCard>
+            )}
+
+            {energySensors.battery && (
+              <EnergyStatCard type="battery">
+                <EnergyStatIcon>🔋</EnergyStatIcon>
+                <EnergyStatContent>
+                  <EnergyStatLabel>Battery Energy</EnergyStatLabel>
+                  <EnergyStatValue>
+                    {energySensors.battery.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
+                  </EnergyStatValue>
+                  <EnergyStatEntity>{energySensors.battery.friendlyName}</EnergyStatEntity>
+                </EnergyStatContent>
+              </EnergyStatCard>
+            )}
+          </EnergyStatsGrid>
+
+          {energySensors.all.length > 0 && (
+            <EnergyChartsSection>
+              <ChartGrid>
+                {energySensors.consumption && (
+                  <DashboardChart
+                    sensorId={energySensors.consumption.id}
+                    title="Energy Consumption Over Time"
+                    unit="kWh"
+                    priority="high"
+                  />
+                )}
+                {energySensors.production && (
+                  <DashboardChart
+                    sensorId={energySensors.production.id}
+                    title="Energy Production Over Time"
+                    unit="kWh"
+                    priority="high"
+                  />
+                )}
+                {energySensors.gridImport && (
+                  <DashboardChart
+                    sensorId={energySensors.gridImport.id}
+                    title="Grid Import Over Time"
+                    unit="kWh"
+                    priority="medium"
+                  />
+                )}
+              </ChartGrid>
+            </EnergyChartsSection>
+          )}
+
+          {energySensors.all.length === 0 && (
+            <EmptyState>
+              <EmptyIcon><MdBolt size={48} /></EmptyIcon>
+              <EmptyTitle>No Energy Sensors Found</EmptyTitle>
+              <EmptyMessage>
+                Energy sensors will appear here when available in your Home Assistant setup.
+                Make sure you have configured the Home Assistant Energy Dashboard.
+              </EmptyMessage>
+            </EmptyState>
+          )}
+        </EnergySection>
       )}
       <BottomBar />
     </MainContainer>
@@ -387,6 +656,161 @@ const AnalyticsSection = styled(MainSection)`
 
 const MetricsSection = styled(MainSection)`
   display: block;
+`;
+
+const WaterSection = styled(MainSection)`
+  display: block;
+`;
+
+const WaterCardsGrid = styled.div`
+  display: flex;
+  gap: 1.5rem;
+  width: 100%;
+  margin-top: 1.5rem;
+
+  @media (max-width: 1024px) {
+    gap: 1rem;
+    margin-top: 1rem;
+  }
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 1rem;
+  }
+`;
+
+const WaterCardWrapper = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const TankLevelCardWrapper = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const EnergySection = styled(MainSection)`
+  display: block;
+  padding: 1rem;
+`;
+
+const EnergyHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.5rem;
+  padding-bottom: 1rem;
+  border-bottom: 1px solid var(--glass-border-light);
+`;
+
+const EnergyTitle = styled.h2`
+  color: var(--main-text-color);
+  font-size: 1.5rem;
+  font-weight: 600;
+  margin: 0;
+`;
+
+const EnergyStatsGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+    gap: 0.75rem;
+  }
+`;
+
+const EnergyStatCard = styled.div`
+  background: linear-gradient(145deg, rgba(11, 40, 58, 0.6), rgba(20, 61, 39, 0.5));
+  border: 1px solid var(--glass-border-light);
+  border-radius: 16px;
+  padding: 1.25rem;
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  transition: all 0.3s ease;
+  cursor: pointer;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
+    border-color: ${props => {
+      switch(props.type) {
+        case 'consumption': return 'rgba(255, 107, 107, 0.5)';
+        case 'production': return 'rgba(78, 205, 196, 0.5)';
+        case 'gridImport': return 'rgba(255, 159, 67, 0.5)';
+        case 'gridExport': return 'rgba(85, 239, 196, 0.5)';
+        case 'solar': return 'rgba(255, 234, 167, 0.5)';
+        case 'battery': return 'rgba(116, 185, 255, 0.5)';
+        default: return 'var(--primary-accent)';
+      }
+    }};
+  }
+`;
+
+const EnergyStatIcon = styled.div`
+  font-size: 2.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 60px;
+  height: 60px;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  flex-shrink: 0;
+`;
+
+const EnergyStatContent = styled.div`
+  flex: 1;
+  min-width: 0;
+`;
+
+const EnergyStatLabel = styled.div`
+  color: var(--second-text-color);
+  font-size: 0.85rem;
+  font-weight: 500;
+  margin-bottom: 0.5rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const EnergyStatValue = styled.div`
+  color: var(--main-text-color);
+  font-size: 1.5rem;
+  font-weight: 700;
+  line-height: 1.2;
+`;
+
+const EnergyStatUnit = styled.span`
+  font-size: 0.9rem;
+  font-weight: 500;
+  color: var(--second-text-color);
+  margin-left: 0.25rem;
+`;
+
+const EnergyStatEntity = styled.div`
+  color: var(--second-text-color);
+  font-size: 0.75rem;
+  margin-top: 0.25rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const EnergyChartsSection = styled.div`
+  margin-top: 2rem;
+`;
+
+const EnergyCardWrapper = styled.div`
+  width: 100%;
+  margin-top: 1.5rem;
+
+  @media (max-width: 1024px) {
+    margin-top: 1rem;
+  }
 `;
 
 const CropSteeringSection = styled(MainSection)`
