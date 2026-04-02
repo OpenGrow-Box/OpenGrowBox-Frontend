@@ -4,6 +4,7 @@ import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 import { getThemeColor } from '../../../utils/themeColors';
+import formatLabel from '../../../misc/formatLabel';
 
 const AllHums = ({ pause, resume, isPlaying, filterByRoom }) => {
   const { entities, currentRoom } = useHomeAssistant();
@@ -55,7 +56,7 @@ useEffect(() => {
       <Content>
         {allHumSensors.map((sensor) => (
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
-            <Label>{sensor.friendlyName}</Label>
+            <Label>{formatLabel(sensor.friendlyName || sensor.id, currentRoom, sensor.id)}</Label>
             <ValueWrapper>
               <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
                 {sensor.value.toFixed(2)}

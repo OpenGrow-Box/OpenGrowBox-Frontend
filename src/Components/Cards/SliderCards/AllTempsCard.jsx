@@ -55,7 +55,7 @@ const AllTemps = ({ pause, resume, isPlaying, filterByRoom }) => {
       <Content>
         {allTempSensors.map((sensor) => (
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
-            <Label>{sensor.friendlyName}</Label>
+            <Label>{formatLabel(sensor.friendlyName || sensor.id, currentRoom, sensor.id)}</Label>
             <ValueWrapper>
               <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
                 {sensor.value.toFixed(2)}

@@ -56,7 +56,7 @@ const CO2Card = ({pause, resume, isPlaying, filterByRoom}) => {
       <Content>
         {co2Sensors.map((sensor) => (
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.entity_id)}>
-            <Label>{sensor.friendlyName}</Label>
+            <Label>{formatLabel(sensor.friendlyName || sensor.id, currentRoom, sensor.id)}</Label>
             <ValueWrapper>
               <Value style={{ color: getColorForValue(sensor.value) }}>
                 {sensor.value}
@@ -150,4 +150,3 @@ const ModalContent = styled.div`
   align-items: center;
   justify-content: center;
 `;
-

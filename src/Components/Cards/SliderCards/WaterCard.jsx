@@ -4,6 +4,7 @@ import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 import { getThemeColor } from '../../../utils/themeColors';
+import formatLabel from '../../../misc/formatLabel';
 
 const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
@@ -22,7 +23,7 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
         id: key,
         value: parseFloat(entity.state),
         unit: entity.attributes?.unit_of_measurement || 'mV',
-        friendlyName: entity.attributes?.friendly_name || key,
+        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
         category: 'oxidation',
         context: 'water',
       }));

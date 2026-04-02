@@ -41,7 +41,7 @@ const TankLevelCard = ({pause, resume, isPlaying, filterByRoom}) => {
           id: key,
           value: rawValue,
           unit: unit,
-          friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
         };
       });
 

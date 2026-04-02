@@ -1,4 +1,5 @@
 import { SENSOR_TRANSLATIONS,extractContext,shouldIgnore} from "./sensorTranslations.js";
+import formatLabel from '../../../misc/formatLabel';
 
 export const classifyAndNormalize = (entities) => {
   return Object.entries(entities)
@@ -31,7 +32,7 @@ const classifyEntity = (key, entity) => {
     context,
     value,
     unit: displayUnit,
-    friendlyName: entity.attributes?.friendly_name || key
+    friendlyName: formatLabel(entity.attributes?.friendly_name || key, '', entity.entity_id || key)
   };
 };
 

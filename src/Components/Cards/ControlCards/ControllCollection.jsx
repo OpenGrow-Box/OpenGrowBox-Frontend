@@ -698,14 +698,66 @@ const ControllCollection = ({ option }) => {
     };
   }, [entityTooltips, getActiveDynamicFilters, currentRoom]);
 
-  const formatTitle = (title) => {
-    return title
-      .replace(/^OGB_/, '')
-      .replace(/_/g, ' ')
-      .replace(new RegExp(`${currentRoom}$`, 'i'), '')
+  const formatTitle = (entity) => {
+    const objectId = entity?.entity_id?.split('.').pop() || '';
+    const rawTitle = entity?.attributes?.friendly_name || entity?.entity_id || '';
+    const roomSlug = (currentRoom || '').toLowerCase().replace(/\s+/g, '_');
+    const escapedRoom = (currentRoom || '').replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+
+    const toWords = (text) => (text || '')
       .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/_/g, ' ')
       .toLowerCase()
-      .replace(/\b\w/g, (c) => c.toUpperCase());
+      .split(/[^a-z0-9]+/)
+      .filter(Boolean);
+
+    const roomWords = toWords(currentRoom);
+
+    const normalize = (value) => {
+      let normalized = value
+      .replace(/^ogb_/i, '')
+      .replace(new RegExp(`_${roomSlug}$`, 'i'), '')
+      .replace(new RegExp(`^${escapedRoom}\\s+`, 'i'), '')
+      .replace(new RegExp(`${escapedRoom}$`, 'i'), '')
+      .replace(/_/g, ' ')
+      .replace(/([a-z])([A-Z])/g, '$1 $2')
+      .replace(/^open\s*grow\s*box\s+/i, '')
+      .replace(new RegExp(`\\b${escapedRoom}\\b`, 'ig'), ' ')
+      .replace(/\s+/g, ' ')
+      .trim()
+      .toLowerCase();
+
+      if (roomWords.length > 0) {
+        const words = normalized.split(' ').filter(Boolean);
+        const roomPhrase = roomWords.join(' ');
+        const prefixWords = words.slice(0, roomWords.length).join(' ');
+        const prefixJoined = words.slice(0, roomWords.length).join('');
+        const roomJoined = roomWords.join('');
+
+        if (prefixWords === roomPhrase || prefixJoined === roomJoined) {
+          normalized = words.slice(roomWords.length).join(' ');
+        }
+      }
+
+      if (roomWords.length > 0) {
+        const phrasePattern = roomWords.join('\\s+');
+        normalized = normalized
+          .replace(new RegExp(`^${phrasePattern}\\s+`, 'i'), '')
+          .replace(new RegExp(`\\s+${phrasePattern}$`, 'i'), '')
+          .replace(/\s+/g, ' ')
+          .trim();
+      }
+
+      return normalized.replace(/\b\w/g, (c) => c.toUpperCase());
+    };
+
+    if (objectId.toLowerCase().startsWith('ogb_')) {
+      const fromFriendly = normalize(rawTitle);
+      if (fromFriendly.includes(' ')) return fromFriendly;
+      return normalize(objectId);
+    }
+
+    return normalize(rawTitle);
   };
 
   const filterEntitiesByKeywords = (
@@ -762,7 +814,7 @@ const ControllCollection = ({ option }) => {
         }
 
         return {
-          title: formatTitle(entity.attributes?.friendly_name || entity.entity_id),
+          title: formatTitle(entity),
           entity_id: entity.entity_id,
           attributes: entity.attributes || {},
           options: entity.attributes?.options || [],

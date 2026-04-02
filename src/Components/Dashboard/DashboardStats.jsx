@@ -3,23 +3,20 @@ import styled from 'styled-components';
 
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import StatCard from '../Cards/StatCard';
+import formatLabel from '../../misc/formatLabel';
 
 
 const DashboardStats = () => {
   const { entities,currentRoom, connection } = useHomeAssistant();
   const [roomSensors, setRoomSensors] = useState([]);
 
-  // Funktion zur Umformatierung des Labels
-  const formatLabel = (label) => {
-    return label
-      .replace(/^OGB_AVG/, '') // Entferne "OGB_
+  const normalizeStatLabel = (label) => {
+    const cleaned = String(label || '')
+      .replace(/^Current\s+/i, '')
+      .replace(/^Avg\s+/i, '')
+      .trim();
 
-      .replace(/^OGB_Current/, '') // Entferne "OGB_"
-      .replace(/_/g, ' ') // Ersetze Unterstriche mit Leerzeichen
-      .replace(new RegExp(`${currentRoom}$`, 'i'), '') // Entferne "currentRoom" dynamisch, wenn es am Ende steht
-      .replace(/([a-z])([A-Z])/g, '$1 $2') // Leerzeichen bei CamelCase
-      .toLowerCase() // Kleinschreibung
-      .replace(/\b\w/g, (c) => c.toUpperCase()); // Großbuchstaben am Wortanfang
+    return cleaned.toLowerCase() === 'dew point' ? 'Dewpoint' : cleaned;
   };
 
   const updateRoomSensors = () => {
@@ -35,7 +32,13 @@ const DashboardStats = () => {
         id: key,
         value: parseFloat(entity.state),
         unit: entity.attributes?.unit_of_measurement || '',
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+        friendlyName: normalizeStatLabel(
+          formatLabel(
+            entity.attributes?.friendly_name || key,
+            currentRoom,
+            entity.entity_id || key
+          )
+        ),
       }))
       // Sortiere in umgekehrter alphabetischer Reihenfolge basierend auf dem friendlyName
       .sort((a, b) => b.friendlyName.localeCompare(a.friendlyName));
@@ -64,7 +67,7 @@ const DashboardStats = () => {
       connection.addEventListener('message', handleStateChange);
       return () => connection.removeEventListener('message', handleStateChange);
     }
-  }, [entities, connection]);
+  }, [entities, connection, currentRoom]);
 
   return (
     <StatsContainer>
@@ -102,4 +105,3 @@ const StatsContainer = styled.div`
   }
 
   `;
-

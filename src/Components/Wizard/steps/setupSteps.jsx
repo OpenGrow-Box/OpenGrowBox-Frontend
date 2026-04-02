@@ -648,39 +648,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       return response
     } catch (wsErr) {
       console.log('[Setup] WebSocket update failed:', wsErr.message)
-
-      // Fallback: Update the device's entities' friendly_name
-      const HASS = document.querySelector('home-assistant')?.hass
-      const device = HASS?.devices?.[deviceId]
-
-      if (!device) {
-        throw new Error(`Device not found in Home Assistant: ${deviceId}`)
-      }
-
-      // Find all entities belonging to this device
-      const deviceEntities = Object.entries(HASS.entities || {})
-        .filter(([_, entity]) => entity.device_id === deviceId)
-
-      if (deviceEntities.length === 0) {
-        throw new Error('No entities found for this device')
-      }
-
-      console.log('[Setup] Updating', deviceEntities.length, 'entities as fallback')
-
-      // Update entity names with the new device name
-      for (const [entityId] of deviceEntities) {
-        try {
-          await connection.sendMessagePromise({
-            type: 'config/entity_registry/update',
-            entity_id: entityId,
-            name: newName
-          })
-        } catch (entityErr) {
-          console.log('[Setup] Entity update failed:', entityId, entityErr.message)
-        }
-      }
-
-      return { success: true, message: 'Updated entity names as fallback' }
+      throw new Error(`Device rename failed: ${wsErr.message || 'Unknown error'}`)
     }
   }
 

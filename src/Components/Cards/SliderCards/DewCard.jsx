@@ -2,21 +2,13 @@ import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import HistoryChart from '../HistoryChart';
+import formatLabel from '../../../misc/formatLabel';
 import { filterSensorsByRoom } from './sensorClassifier';
 
 const DewCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
   const [dewSensors, setDewSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
-
-  const formatLabel = (label) => {
-    return label
-      .replace(/^OGB_Dew/, '') 
-      .replace(/_/g, ' ') 
-      .replace(/([a-z])([A-Z])/g, '$1 $2') 
-      .toLowerCase() 
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  };
 
   useEffect(() => {
     let sensors = Object.entries(entities)
@@ -31,7 +23,7 @@ const DewCard = ({pause, resume, isPlaying, filterByRoom}) => {
         id: key,
         value: parseFloat(entity.state),
         unit: entity.attributes?.unit_of_measurement,
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
         entity_id: entity.entity_id,
       }));
 
@@ -157,4 +149,3 @@ const ModalContent = styled.div`
   align-items: center;
   justify-content: center;
 `;
-

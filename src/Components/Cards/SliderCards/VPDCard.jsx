@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
+import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 import { filterSensorsByRoom } from './sensorClassifier';
 
@@ -8,15 +9,6 @@ const VPDCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
   const [dewSensors, setDewSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
-
-  const formatLabel = (label) => {
-    return label
-      .replace(/^OGB_CurrentVPD/, '') 
-      .replace(/_/g, ' ') 
-      .replace(/([a-z])([A-Z])/g, '$1 $2') 
-      .toLowerCase() 
-      .replace(/\b\w/g, (c) => c.toUpperCase());
-  };
 
   useEffect(() => {
     let sensors = Object.entries(entities)
@@ -31,7 +23,7 @@ const VPDCard = ({pause, resume, isPlaying, filterByRoom}) => {
         id: key,
         value: parseFloat(entity.state),
         unit: entity.attributes?.unit_of_measurement,
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key),
+        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
         entity_id: entity.entity_id,
       }));
 
