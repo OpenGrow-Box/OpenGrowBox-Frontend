@@ -271,6 +271,7 @@ const ConsoleCard = () => {
   const [input, setInput] = useState("");
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [historyDraft, setHistoryDraft] = useState("");
   const [isConnected, setIsConnected] = useState(false);
   const [dynamicCommands, setDynamicCommands] = useState({});
   const [suggestions, setSuggestions] = useState([]);
@@ -326,6 +327,21 @@ const ConsoleCard = () => {
     return () => unsubscribe.then((unsub) => unsub());
   }, [connection, currentRoom]);
 
+  // Load persisted command history
+  useEffect(() => {
+    try {
+      const storedHistory = localStorage.getItem("console_history");
+      if (!storedHistory) return;
+
+      const parsed = JSON.parse(storedHistory);
+      if (Array.isArray(parsed)) {
+        setHistory(parsed.filter((entry) => typeof entry === "string"));
+      }
+    } catch (error) {
+      console.error("Failed to load console history:", error);
+    }
+  }, []);
+
   const addLine = useCallback((content, type = 'info') => {
     setLines(prev => [...prev, { type, content, timestamp: new Date() }]);
   }, []);
@@ -376,10 +392,13 @@ const ConsoleCard = () => {
     }
 
     // Add to history
-    const newHistory = [...history, trimmed];
-    setHistory(newHistory);
-    localStorage.setItem("console_history", JSON.stringify(newHistory));
+    setHistory((prevHistory) => {
+      const newHistory = [...prevHistory, trimmed];
+      localStorage.setItem("console_history", JSON.stringify(newHistory));
+      return newHistory;
+    });
     setHistoryIndex(-1);
+    setHistoryDraft("");
 
     // Send to backend
     if (connection) {
@@ -505,9 +524,14 @@ const ConsoleCard = () => {
       handleCommand(input);
       setInput('');
       setShowSuggestions(false);
+      setHistoryIndex(-1);
+      setHistoryDraft('');
     } else if (e.key === 'ArrowUp' && !showSuggestions) {
       e.preventDefault();
       if (history.length > 0) {
+        if (historyIndex < 0) {
+          setHistoryDraft(input);
+        }
         const newIndex = historyIndex < 0 ? history.length - 1 : Math.max(0, historyIndex - 1);
         setHistoryIndex(newIndex);
         setInput(history[newIndex]);
@@ -515,9 +539,13 @@ const ConsoleCard = () => {
     } else if (e.key === 'ArrowDown' && !showSuggestions) {
       e.preventDefault();
       if (history.length > 0) {
-        const newIndex = historyIndex < 0 ? -1 : Math.min(history.length - 1, historyIndex + 1);
+        if (historyIndex < 0) {
+          return;
+        }
+
+        const newIndex = historyIndex >= history.length - 1 ? -1 : historyIndex + 1;
         setHistoryIndex(newIndex);
-        setInput(newIndex >= 0 ? history[newIndex] : '');
+        setInput(newIndex >= 0 ? history[newIndex] : historyDraft);
       }
     }
   };
