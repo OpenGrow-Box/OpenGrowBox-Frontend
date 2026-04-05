@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
-import { MdDevices, MdTerminal, MdVideocam } from 'react-icons/md';
+import { MdDevices, MdTerminal, MdVideocam, MdSmartToy } from 'react-icons/md';
 import BottomBar from '../Components/Navigation/BottomBar';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import RoomsCard from '../Components/Cards/RoomsCard';
@@ -13,6 +13,7 @@ import DashboardSlider from '../Components/Dashboard/DashboardSlider';
 import DashboardStats from '../Components/Dashboard/DashboardStats';
 import ConsoleCard from '../Components/Cards/ControlCards/ConsoleCard';
 import CameraCard from '../Components/Cards/ControlCards/CameraCard';
+import AICareChat from '../Components/AICare/AICareChat';
 
 import OtherSensors from '../Components/Cards/OtherSensors';
 
@@ -96,6 +97,21 @@ const Home = () => {
                 />
               )}
             </TabButton>
+
+            <TabButton
+              $active={activeTab === 'plantbuddy'}
+              onClick={() => setActiveTab('plantbuddy')}
+            >
+              <MdSmartToy size={20} />
+              <span>Plant-Buddy</span>
+              {activeTab === 'plantbuddy' && (
+                <ActiveIndicator
+                  layoutId="activeTab"
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </TabButton>
           </TabContainer>
 
           <TabContent>
@@ -147,6 +163,18 @@ const Home = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <OtherSensors />
+                </motion.div>
+              )}
+
+              {activeTab === 'plantbuddy' && (
+                <motion.div
+                  key="plantbuddy"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <AICareChat />
                 </motion.div>
               )}
             </AnimatePresence>

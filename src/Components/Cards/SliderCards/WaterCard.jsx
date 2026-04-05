@@ -46,12 +46,13 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
 
 
   const getColorForValue = (value, unit) => {
-    const unitLower = unit.toLowerCase();
+    const unitLower = (unit || '').toLowerCase();
     let normalizedValue = value;
+
+    console.log('Getting color for:', value, unit, unitLower);
 
     // Einheitskonvertierung für EC/Leitfähigkeit
     if (unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('ms/us')) {
-      // µS/cm, µS/us oder ms/us zu mS konvertieren (1 mS = 1000 µS)
       normalizedValue = value / 1000;
     }
 
@@ -84,6 +85,15 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
       if (normalizedValue > 1250) return getThemeColor('--warning-accent-color');
     }
 
+    // Farben für ORP (mV)
+    if (unitLower.includes('mv') || unitLower.includes('orp')) {
+      if (normalizedValue < 150) return getThemeColor('--chart-error-color');
+      if (normalizedValue >= 150 && normalizedValue <= 250) return getThemeColor('--warning-accent-color');
+      if (normalizedValue > 250 && normalizedValue <= 350) return getThemeColor('--chart-success-color');
+      if (normalizedValue > 350 && normalizedValue <= 450) return getThemeColor('--warning-text-color');
+      if (normalizedValue > 450) return getThemeColor('--chart-warning-color');
+    }
+
     // Farben für Temperatur (Celsius)
     if (unitLower.includes('celsius') || unitLower.includes('°c')) {
       if (normalizedValue < 10) return getThemeColor('--chart-primary-color');
@@ -93,7 +103,9 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
       if (normalizedValue > 25) return getThemeColor('--warning-accent-color');
     }
 
-    return 'var(--main-bg-card-color)';
+    // Default color - use main unit color
+    console.log('Using default color for unit:', unitLower);
+    return getThemeColor('--main-unit-color');
   };
 
   // Formatierung mit Einheitskonvertierung

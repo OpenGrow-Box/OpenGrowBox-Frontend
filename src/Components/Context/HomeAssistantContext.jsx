@@ -15,6 +15,7 @@ export const HomeAssistantProvider = ({ children }) => {
 
   // State declarations
   const [entities, setEntities] = useState({});
+  const [areas, setAreas] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentRoom, setCurrentRoom] = useState('');
   const [accessToken, setAccessToken] = useState('');
@@ -249,6 +250,24 @@ export const HomeAssistantProvider = ({ children }) => {
               {}
             );
             setEntities(entitiesObj);
+            
+            // Fetch areas for room aliases
+            try {
+              const areasResponse = await fetch(`${apiBaseUrl}/api/areas`, {
+                headers: { Authorization: `Bearer ${token}` }
+              });
+              if (areasResponse.ok) {
+                const areasData = await areasResponse.json();
+                const areasObj = areasData.reduce(
+                  (acc, area) => ({ ...acc, [area.area_id]: area }),
+                  {}
+                );
+                setAreas(areasObj);
+                console.log('Loaded areas:', Object.keys(areasObj));
+              }
+            } catch (areaErr) {
+              console.warn('Could not fetch areas:', areaErr);
+            }
             
             // Extract room and token information
             const roomEntity = initialEntities.find(e => e.entity_id === 'select.ogb_rooms');
@@ -600,6 +619,7 @@ export const HomeAssistantProvider = ({ children }) => {
         setError,
         connectionState,
         entities,
+        areas,
         currentRoom,
         setCurrentRoom,
         roomOptions,

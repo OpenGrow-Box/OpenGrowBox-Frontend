@@ -41,10 +41,35 @@ const classifyEntity = (key, entity) => {
 
 const detectCategory = (key, name = "") => {
   const label = `${key} ${name}`.toLowerCase();
+  
+  // Priority order - check more specific patterns first
+  const priorityOrder = [
+    'dewpoint', 'vpd', 'co2', 'light', 'pressure', 'ph', 'ec', 'tds', 'oxidation', 'salinity', 'moisture', 'humidity', 'temperature'
+  ];
+  
+  // Find all matching categories
+  const matchedCategories = [];
   for (const [category, keywords] of Object.entries(SENSOR_TRANSLATIONS)) {
-    if (keywords.some(w => label.includes(w))) return category;
+    if (keywords.some(w => label.includes(w))) {
+      matchedCategories.push(category);
+    }
   }
-  return "unknown";
+  
+  // If no matches, return unknown
+  if (matchedCategories.length === 0) return "unknown";
+  
+  // If only one match, return it
+  if (matchedCategories.length === 1) return matchedCategories[0];
+  
+  // If multiple matches, use priority order
+  for (const category of priorityOrder) {
+    if (matchedCategories.includes(category)) {
+      return category;
+    }
+  }
+  
+  // Fallback: return first match
+  return matchedCategories[0];
 };
 
 const guessUnit = (category) =>

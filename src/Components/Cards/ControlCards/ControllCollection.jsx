@@ -21,7 +21,7 @@ const dynamicFilters = {
       },
       'VPD Perfection': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light","planttype"],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","light","planttype"],
         additionalTooltips: {}
       },
       'PID Control': {
@@ -51,12 +51,12 @@ const dynamicFilters = {
       },
       'VPD Target': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop",'hydro',"crop","ambient","light","planttype"],
+        excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop",'hydro',"crop","light","planttype"],
         additionalTooltips: {}
       },
       'Closed Environment': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","ambient","light","planttype"],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","light","planttype"],
         additionalTooltips: {}
       },
       'Script Mode': {
@@ -633,7 +633,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_waterpump_device_select_${currentRoom?.toLowerCase()}`]: 'Select a water pump entity. Requires Own Device Sets enabled.',
 
     [`ogb_grow_area_m2_${currentRoom?.toLowerCase()}`]: 'Enter your m2 Space where you growing in',
-    [`ogb_ambientcontrol_${currentRoom?.toLowerCase()}`]: 'Will be take care of the state of your Ambient( "NOT WORKING RIGHT NOW")',
+    [`ogb_ambientcontrol_${currentRoom?.toLowerCase()}`]: 'Will be start the Enviorment Guard and Take Control based on Ambient and Outside Data',
     [`ogb_vpd_devicedampening_${currentRoom?.toLowerCase()}`]: 'Enable Device Cooldowns for any device see Wiki to check the cooldowns.',
   
     [`ogb_cropsteering_mode_${currentRoom?.toLowerCase()}`]: 'Select your wokring CropSteering Mode, Use Config to Setup and Change to Manual to Activate your Config or Run Automatic',
@@ -646,9 +646,12 @@ const ControllCollection = ({ option }) => {
     
     [`ogb_vpd_determination_${currentRoom?.toLowerCase()}`]: 'Select your Time when new VPD get Calculated', 
   
-    [`ogb_light_controltype_${currentRoom?.toLowerCase()}`]: 'Select your Light Method  - UPCOOMING', 
-    [`ogb_hydro_plant_watering_${currentRoom?.toLowerCase()}`]: 'Select your Plant Watering Method - UPCOMMING',
+    [`ogb_light_controltype_${currentRoom?.toLowerCase()}`]: 'Select your Light Method  for DLI Light Mode', 
+    [`ogb_hydro_plant_watering_${currentRoom?.toLowerCase()}`]: 'Select your Plant Watering Method - Needs binded Sensors to Medium',
     [`ogb_multi_mediumctrl_${currentRoom?.toLowerCase()}`]: 'Select your if we calc AVG or Single Multi Medium Control - UPCOMMING', 
+    [`ogb_planttype_${currentRoom?.toLowerCase()}`]: 'Select your Plant Geno Type', 
+
+
 
   };
 

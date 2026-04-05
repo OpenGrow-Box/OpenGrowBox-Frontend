@@ -5,14 +5,14 @@ import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
 import { createDefaultPlantStages } from '../Wizard/wizardHelpers';
 
-const LoadingIndicator = () => (
+const LoadingIndicator = ({ message = 'Loading...' }) => (
   <LoadingWrapper>
     <LoadingBackdrop />
     <LoadingContainer>
       <div className="loading-spinner">
         <FaLeaf className="loading-icon" />
       </div>
-      <LoadingText>Grow Data is Loading...</LoadingText>
+      <LoadingText>{message}</LoadingText>
     </LoadingContainer>
   </LoadingWrapper>
 );
@@ -674,8 +674,9 @@ const GrowMetrics = () => {
     return units[metric] || '';
   };
 
-  if (loading) {
-    return <LoadingIndicator />;
+  if (loading || mediumLoading) {
+    const loadingMessage = mediumLoading ? 'Loading Grow Data...' : 'Loading...';
+    return <LoadingIndicator message={loadingMessage} />;
   }
 
   if (error) {

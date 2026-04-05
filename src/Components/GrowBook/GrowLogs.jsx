@@ -54,6 +54,7 @@ const getLogType = (data) => {
   if (entry?.Type === "CSLOG") return 'cs-log';
   if (entry?.Mode === 'Plant-Watering') return 'hydro-mode';
   if (entry?.Mode === 'Crop-Steering') return 'hydro-mode';
+  if (entry?.VPDStatus === "InDeadband" || msg.includes('deadband')) return 'vpd-deadband';
   if (entry?.vpdTarget !== undefined || entry?.vpdTargetMin !== undefined || entry?.vpdTargetMax !== undefined) return 'vpd';
 
   if (entry.action) return 'action';
@@ -848,57 +849,125 @@ const LogItem = ({ room, date, info }) => {
   };
 
   const formatVPDTargetData = (data) => {
-    const hasTargetData =
-      data?.vpdTarget !== undefined ||
-      data?.vpdTargetMin !== undefined ||
-      data?.vpdTargetMax !== undefined ||
-      data?.vpdCurrent !== undefined;
-
-    if (!hasTargetData) return null;
+    // Check for new format first
+    const hasNewFormat = data?.currentVPD !== undefined || data?.targetVPD !== undefined;
+    // Check for old format
+    const hasOldFormat = data?.vpdTarget !== undefined || data?.vpdTargetMin !== undefined;
+    
+    if (!hasNewFormat && !hasOldFormat) return null;
 
     const messageText = (data?.Message || data?.message || '').toLowerCase();
-    const title = messageText.includes('perfection') ? 'VPD Perfection' : 'VPD Target';
+    const isExecuting = messageText.includes('executing');
+    const title = messageText.includes('perfection') ? 'VPD Perfection' : (isExecuting ? 'VPD Actions Executing' : 'VPD Target');
 
     const safeValue = (value, suffix = '') =>
       value === undefined || value === null || value === '' ? 'n/a' : `${value}${suffix}`;
+
+    // Parse actions from new format
+    let actionList = [];
+    if (data?.actions) {
+      if (typeof data.actions === 'string') {
+        actionList = data.actions.split(', ').map(a => a.trim()).filter(Boolean);
+      } else if (Array.isArray(data.actions)) {
+        actionList = data.actions;
+      }
+    }
 
     return (
       <DeviationContainer>
         <DeviationHeader>
           <DeviationIcon><FaBullseye size={20} /></DeviationIcon>
           <DeviationTitle>{title}</DeviationTitle>
+          {data?.actionCount && (
+            <ActionCountBadge>{data.actionCount} actions</ActionCountBadge>
+          )}
         </DeviationHeader>
         <DeviationGrid>
-          <DeviationCard status="optimal">
+          <DeviationCard status={data?.vpdDeviation > 0.1 ? "warning" : "optimal"}>
             <DeviationInfo>
-              <DeviationLabel>Current</DeviationLabel>
-              <DeviationValue status="optimal">{safeValue(data?.vpdCurrent, ' kPa')}</DeviationValue>
-            </DeviationInfo>
-          </DeviationCard>
-          <DeviationCard status="warning">
-            <DeviationInfo>
-              <DeviationLabel>Target</DeviationLabel>
-              <DeviationValue status="warning">{safeValue(data?.vpdTarget, ' kPa')}</DeviationValue>
-            </DeviationInfo>
-          </DeviationCard>
-          <DeviationCard status="warning">
-            <DeviationInfo>
-              <DeviationLabel>Range</DeviationLabel>
-              <DeviationValue status="warning">
-                {safeValue(data?.vpdTargetMin)} - {safeValue(data?.vpdTargetMax)} kPa
+              <DeviationLabel>Current VPD</DeviationLabel>
+              <DeviationValue status={data?.vpdDeviation > 0.1 ? "warning" : "optimal"}>
+                {safeValue(data?.currentVPD ?? data?.vpdCurrent, ' kPa')}
               </DeviationValue>
             </DeviationInfo>
           </DeviationCard>
           <DeviationCard status="optimal">
             <DeviationInfo>
-              <DeviationLabel>Actions</DeviationLabel>
+              <DeviationLabel>Target VPD</DeviationLabel>
               <DeviationValue status="optimal">
-                {safeValue(data?.filteredActions ?? data?.incomingActions ?? data?.resolvedActions)}
+                {safeValue(data?.targetVPD ?? data?.vpdTarget, ' kPa')}
               </DeviationValue>
             </DeviationInfo>
           </DeviationCard>
+          {data?.vpdDeviation !== undefined && (
+            <DeviationCard status={Math.abs(data?.vpdDeviation) > 0.1 ? "warning" : "optimal"}>
+              <DeviationInfo>
+                <DeviationLabel>Deviation</DeviationLabel>
+                <DeviationValue status={Math.abs(data?.vpdDeviation) > 0.1 ? "warning" : "optimal"}>
+                  {data?.vpdDeviation > 0 ? '+' : ''}{safeValue(data?.vpdDeviation, ' kPa')}
+                </DeviationValue>
+              </DeviationInfo>
+            </DeviationCard>
+          )}
+          {!hasNewFormat && (
+            <DeviationCard status="warning">
+              <DeviationInfo>
+                <DeviationLabel>Target Range</DeviationLabel>
+                <DeviationValue status="warning">
+                  {safeValue(data?.vpdTargetMin)} - {safeValue(data?.vpdTargetMax)} kPa
+                </DeviationValue>
+              </DeviationInfo>
+            </DeviationCard>
+          )}
         </DeviationGrid>
+        {actionList.length > 0 && (
+          <ActionsContainer>
+            <ActionsTitle>Actions</ActionsTitle>
+            <ActionsList>
+              {actionList.map((action, idx) => {
+                const [device, direction] = action.split(':');
+                return (
+                  <VPDActionItem key={idx} direction={direction}>
+                    <VPDActionDevice>{device.replace('can', '')}</VPDActionDevice>
+                    <VPDActionDirection direction={direction}>{direction}</VPDActionDirection>
+                  </VPDActionItem>
+                );
+              })}
+            </ActionsList>
+          </ActionsContainer>
+        )}
       </DeviationContainer>
+    );
+  };
+
+  // Format VPD Deadband data
+  const formatDeadbandData = (data) => {
+    if (data?.VPDStatus !== "InDeadband" && !data?.deadbandActive) return null;
+
+    const message = data?.message || data?.Message || 'VPD in deadband - devices paused';
+    const isPaused = data?.deadbandActive === true;
+
+    return (
+      <DeadbandContainer>
+        <DeadbandHeader>
+          <DeadbandIcon><FaCheckCircle size={20} color="#4CAF50" /></DeadbandIcon>
+          <DeadbandTitle>VPD Deadband Active</DeadbandTitle>
+          <DeadbandStatus $active={isPaused}>
+            {isPaused ? 'Devices Paused' : 'Monitoring'}
+          </DeadbandStatus>
+        </DeadbandHeader>
+        <DeadbandMessage>{message}</DeadbandMessage>
+        <DeadbandInfo>
+          <DeadbandInfoItem>
+            <DeadbandLabel>Status:</DeadbandLabel>
+            <DeadbandValue $color="#4CAF50">{data?.VPDStatus || 'InDeadband'}</DeadbandValue>
+          </DeadbandInfoItem>
+          <DeadbandInfoItem>
+            <DeadbandLabel>Debug Type:</DeadbandLabel>
+            <DeadbandValue>{data?.DebugType || 'INFO'}</DeadbandValue>
+          </DeadbandInfoItem>
+        </DeadbandInfo>
+      </DeadbandContainer>
     );
   };
 
@@ -1389,6 +1458,7 @@ const LogItem = ({ room, date, info }) => {
   const castData = formatCastData(parsedInfo);
   const plantWateringData = formatPlantWateringData(parsedInfo);
   const vpdTargetData = formatVPDTargetData(parsedInfo);
+  const deadbandData = formatDeadbandData(parsedInfo);
   const rotationData = formatRotationData(parsedInfo);
   const csData = formatCSData(parsedInfo);
   const deviceCDData = formatDeviceCDData(parsedInfo);
@@ -1415,11 +1485,12 @@ const LogItem = ({ room, date, info }) => {
         {castData && castData}
         {plantWateringData && plantWateringData}
         {vpdTargetData && vpdTargetData}
+        {deadbandData && deadbandData}
         {rotationData && rotationData}
         {csData && csData}
         {deviceCDData && deviceCDData}
         {missingPumpsData && missingPumpsData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !rotationData && !csData && !deviceCDData && !missingPumpsData && (
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -1980,6 +2051,7 @@ const LogItemContainer = styled.div`
       case 'sensor': return 'linear-gradient(135deg, rgba(34, 193, 195, 0.1) 0%, rgba(253, 187, 45, 0.1) 100%)';
       case 'action': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 154, 0, 0.1) 100%)';
       case 'device': return 'linear-gradient(135deg, rgba(116, 75, 162, 0.1) 0%, rgba(74, 144, 226, 0.1) 100%)';
+      case 'vpd-deadband': return 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%)';
       case 'vpd': return 'linear-gradient(135deg, rgba(131, 58, 180, 0.1) 0%, rgba(253, 29, 29, 0.1) 100%)';
       case 'night-vpd': return 'linear-gradient(135deg, rgba(44, 62, 80, 0.1) 0%, rgba(52, 152, 219, 0.1) 100%)'; 
       case 'humidity': return 'linear-gradient(135deg, rgba(45, 134, 255, 0.1) 0%, rgba(45, 253, 159, 0.1) 100%)';
@@ -2410,6 +2482,70 @@ const DeviationInfo = styled.div`
   flex: 1;
 `;
 
+const ActionCountBadge = styled.div`
+  background: rgba(255, 255, 255, 0.1);
+  color: var(--primary-accent);
+  padding: 0.25rem 0.75rem;
+  border-radius: 12px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  border: 1px solid var(--primary-accent);
+`;
+
+const ActionsContainer = styled.div`
+  margin-top: 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+const ActionsTitle = styled.div`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const ActionsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const VPDActionItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+const VPDActionDevice = styled.span`
+  font-weight: 600;
+  color: var(--main-text-color);
+  font-size: 0.9rem;
+`;
+
+const VPDActionDirection = styled.span`
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: ${props => {
+    if (props.direction === 'Increase') return '#4CAF50';
+    if (props.direction === 'Reduce') return '#f44336';
+    return 'var(--second-text-color)';
+  }};
+  padding: 0.2rem 0.5rem;
+  background: ${props => {
+    if (props.direction === 'Increase') return 'rgba(76, 175, 80, 0.1)';
+    if (props.direction === 'Reduce') return 'rgba(244, 67, 54, 0.1)';
+    return 'rgba(255, 255, 255, 0.05)';
+  }};
+  border-radius: 4px;
+`;
+
 const FallbackContent = styled.div`
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
@@ -2423,6 +2559,100 @@ const FallbackContent = styled.div`
     margin: 0;
     white-space: pre-wrap;
   }
+`;
+
+// Deadband Log Styled Components
+const DeadbandContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  background: linear-gradient(135deg, rgba(255, 193, 7, 0.05) 0%, rgba(255, 152, 0, 0.05) 100%);
+  border: 1px solid rgba(255, 193, 7, 0.2);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #FFC107, #FF9800);
+  }
+`;
+
+const DeadbandHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 0.5rem;
+`;
+
+const DeadbandIcon = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 40px;
+  background: rgba(76, 175, 80, 0.1);
+  border-radius: 50%;
+  border: 2px solid rgba(76, 175, 80, 0.3);
+`;
+
+const DeadbandTitle = styled.div`
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+  flex: 1;
+`;
+
+const DeadbandStatus = styled.div`
+  padding: 0.4rem 0.8rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  background: ${props => props.$active ? 'rgba(76, 175, 80, 0.2)' : 'rgba(255, 193, 7, 0.2)'};
+  color: ${props => props.$active ? '#4CAF50' : '#FFC107'};
+  border: 1px solid ${props => props.$active ? 'rgba(76, 175, 80, 0.4)' : 'rgba(255, 193, 7, 0.4)'};
+`;
+
+const DeadbandMessage = styled.div`
+  font-size: 0.9rem;
+  color: var(--second-text-color);
+  line-height: 1.4;
+  padding: 0.5rem 0;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+const DeadbandInfo = styled.div`
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  margin-top: 0.5rem;
+`;
+
+const DeadbandInfoItem = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const DeadbandLabel = styled.span`
+  font-size: 0.75rem;
+  color: var(--second-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const DeadbandValue = styled.span`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: ${props => props.$color || 'var(--main-text-color)'};
 `;
 
 const NoLogsMessage = styled.div`

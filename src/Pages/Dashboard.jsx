@@ -1,18 +1,17 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { MdDashboard, MdWaterDrop, MdInsights, MdBolt } from 'react-icons/md';
+import { MdDashboard, MdWaterDrop, MdInsights, MdBolt, MdSmartToy } from 'react-icons/md';
+import { Zap, Sun, Plug, Battery, Droplets, Leaf, Lightbulb, Sprout } from 'lucide-react';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
+import RoomPowerSensors from '../Components/Dashboard/RoomPowerSensors';
 
 import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
-import { FaSpinner, FaLeaf, FaTint } from 'react-icons/fa';
-import WaterCard from '../Components/Cards/SliderCards/WaterCard';
-import TankLevelCard from '../Components/Cards/SliderCards/TankLevelCard';
-import EnergyCard from '../Components/Cards/SliderCards/EnergyCard';
+import { FaSpinner, FaLeaf } from 'react-icons/fa';
 
 
 const Dashboard = () => {
@@ -100,15 +99,31 @@ const Dashboard = () => {
     const room = currentRoom?.trim()?.toLowerCase() || 'default';
     const sensors = {};
 
-    // pH sensors
     Object.entries(entities).forEach(([key, entity]) => {
-      if (key.includes('ph') && !key.includes('phase')) {
+      const keyLower = key.toLowerCase();
+      
+      // pH sensors - look for 'ph' in sensor name
+      if (keyLower.includes('ph') && !keyLower.includes('phase')) {
         sensors.ph = { id: key, ...entity };
       }
-      if (key.includes('ec_') || key.includes('_ec') || key.includes('tds')) {
+      
+      // EC sensors
+      if (keyLower.includes('ec_') || keyLower.includes('_ec') || keyLower.includes('tds')) {
         sensors.ec = { id: key, ...entity };
       }
-      if ((key.includes('water_temp') || key.includes('water temperature')) && key.includes(room)) {
+      
+      // ORP sensors
+      if (keyLower.includes('orp')) {
+        sensors.orp = { id: key, ...entity };
+      }
+      
+      // TDS sensors (if not already matched as EC)
+      if (keyLower.includes('tds') && !sensors.ec) {
+        sensors.tds = { id: key, ...entity };
+      }
+      
+      // Water temperature
+      if ((keyLower.includes('water_temp') || keyLower.includes('water_temperature') || keyLower.includes('waterpump_temp')) && (keyLower.includes(room) || keyLower.includes('water'))) {
         sensors.temp = { id: key, ...entity };
       }
     });
@@ -233,35 +248,35 @@ const Dashboard = () => {
           onClick={() => setActiveDashboardTab('analytics')}
         >
           <MdDashboard size={18} />
-          <span>Analytics</span>
+          <TabLabel>Analytics</TabLabel>
         </TabButton>
         <TabButton
           $active={activeDashboardTab === 'metrics'}
           onClick={() => setActiveDashboardTab('metrics')}
         >
           <MdInsights size={18} />
-          <span>Metrics</span>
+          <TabLabel>Metrics</TabLabel>
         </TabButton>
         <TabButton
           $active={activeDashboardTab === 'water'}
           onClick={() => setActiveDashboardTab('water')}
         >
-          <FaTint size={18} />
-          <span>Water</span>
+          <Droplets size={18} />
+          <TabLabel>Water</TabLabel>
         </TabButton>
         <TabButton
           $active={activeDashboardTab === 'cropsteering'}
           onClick={() => setActiveDashboardTab('cropsteering')}
         >
           <MdWaterDrop size={18} />
-          <span>Crop Steering</span>
+          <TabLabel>Crop Steering</TabLabel>
         </TabButton>
         <TabButton
           $active={activeDashboardTab === 'energy'}
           onClick={() => setActiveDashboardTab('energy')}
         >
           <MdBolt size={18} />
-          <span>Energy Consumption</span>
+          <TabLabel>Energy</TabLabel>
         </TabButton>
       </TabContainer>
 
@@ -312,15 +327,23 @@ const Dashboard = () => {
                 priority="medium"
               />
             )}
+            {waterSensors.tds && (
+              <DashboardChart
+                sensorId={waterSensors.tds.id}
+                title="TDS"
+                unit="ppm"
+                priority="medium"
+              />
+            )}
+            {waterSensors.orp && (
+              <DashboardChart
+                sensorId={waterSensors.orp.id}
+                title="ORP"
+                unit="mV"
+                priority="medium"
+              />
+            )}
           </ChartGrid>
-          <WaterCardsGrid>
-            <WaterCardWrapper>
-              <WaterCard pause={() => {}} resume={() => {}} isPlaying={false} filterByRoom={true} />
-            </WaterCardWrapper>
-            <TankLevelCardWrapper>
-              <TankLevelCard pause={() => {}} resume={() => {}} isPlaying={false} filterByRoom={true} />
-            </TankLevelCardWrapper>
-          </WaterCardsGrid>
         </WaterSection>
       )}
 
@@ -410,127 +433,7 @@ const Dashboard = () => {
             <EnergyTitle>Energy Dashboard</EnergyTitle>
           </EnergyHeader>
 
-          <EnergyStatsGrid>
-            {energySensors.consumption && (
-              <EnergyStatCard type="consumption">
-                <EnergyStatIcon>⚡</EnergyStatIcon>
-                <EnergyStatContent>
-                  <EnergyStatLabel>Home Consumption</EnergyStatLabel>
-                  <EnergyStatValue>
-                    {energySensors.consumption.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
-                  </EnergyStatValue>
-                  <EnergyStatEntity>{energySensors.consumption.friendlyName}</EnergyStatEntity>
-                </EnergyStatContent>
-              </EnergyStatCard>
-            )}
-
-            {energySensors.production && (
-              <EnergyStatCard type="production">
-                <EnergyStatIcon>☀️</EnergyStatIcon>
-                <EnergyStatContent>
-                  <EnergyStatLabel>Home Production</EnergyStatLabel>
-                  <EnergyStatValue>
-                    {energySensors.production.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
-                  </EnergyStatValue>
-                  <EnergyStatEntity>{energySensors.production.friendlyName}</EnergyStatEntity>
-                </EnergyStatContent>
-              </EnergyStatCard>
-            )}
-
-            {energySensors.gridImport && (
-              <EnergyStatCard type="gridImport">
-                <EnergyStatIcon>🔌</EnergyStatIcon>
-                <EnergyStatContent>
-                  <EnergyStatLabel>Grid Import</EnergyStatLabel>
-                  <EnergyStatValue>
-                    {energySensors.gridImport.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
-                  </EnergyStatValue>
-                  <EnergyStatEntity>{energySensors.gridImport.friendlyName}</EnergyStatEntity>
-                </EnergyStatContent>
-              </EnergyStatCard>
-            )}
-
-            {energySensors.gridExport && (
-              <EnergyStatCard type="gridExport">
-                <EnergyStatIcon>🔋</EnergyStatIcon>
-                <EnergyStatContent>
-                  <EnergyStatLabel>Grid Export</EnergyStatLabel>
-                  <EnergyStatValue>
-                    {energySensors.gridExport.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
-                  </EnergyStatValue>
-                  <EnergyStatEntity>{energySensors.gridExport.friendlyName}</EnergyStatEntity>
-                </EnergyStatContent>
-              </EnergyStatCard>
-            )}
-
-            {energySensors.solar && (
-              <EnergyStatCard type="solar">
-                <EnergyStatIcon>🌞</EnergyStatIcon>
-                <EnergyStatContent>
-                  <EnergyStatLabel>Solar Production</EnergyStatLabel>
-                  <EnergyStatValue>
-                    {energySensors.solar.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
-                  </EnergyStatValue>
-                  <EnergyStatEntity>{energySensors.solar.friendlyName}</EnergyStatEntity>
-                </EnergyStatContent>
-              </EnergyStatCard>
-            )}
-
-            {energySensors.battery && (
-              <EnergyStatCard type="battery">
-                <EnergyStatIcon>🔋</EnergyStatIcon>
-                <EnergyStatContent>
-                  <EnergyStatLabel>Battery Energy</EnergyStatLabel>
-                  <EnergyStatValue>
-                    {energySensors.battery.value.toFixed(2)} <EnergyStatUnit>kWh</EnergyStatUnit>
-                  </EnergyStatValue>
-                  <EnergyStatEntity>{energySensors.battery.friendlyName}</EnergyStatEntity>
-                </EnergyStatContent>
-              </EnergyStatCard>
-            )}
-          </EnergyStatsGrid>
-
-          {energySensors.all.length > 0 && (
-            <EnergyChartsSection>
-              <ChartGrid>
-                {energySensors.consumption && (
-                  <DashboardChart
-                    sensorId={energySensors.consumption.id}
-                    title="Energy Consumption Over Time"
-                    unit="kWh"
-                    priority="high"
-                  />
-                )}
-                {energySensors.production && (
-                  <DashboardChart
-                    sensorId={energySensors.production.id}
-                    title="Energy Production Over Time"
-                    unit="kWh"
-                    priority="high"
-                  />
-                )}
-                {energySensors.gridImport && (
-                  <DashboardChart
-                    sensorId={energySensors.gridImport.id}
-                    title="Grid Import Over Time"
-                    unit="kWh"
-                    priority="medium"
-                  />
-                )}
-              </ChartGrid>
-            </EnergyChartsSection>
-          )}
-
-          {energySensors.all.length === 0 && (
-            <EmptyState>
-              <EmptyIcon><MdBolt size={48} /></EmptyIcon>
-              <EmptyTitle>No Energy Sensors Found</EmptyTitle>
-              <EmptyMessage>
-                Energy sensors will appear here when available in your Home Assistant setup.
-                Make sure you have configured the Home Assistant Energy Dashboard.
-              </EmptyMessage>
-            </EmptyState>
-          )}
+          <RoomPowerSensors />
         </EnergySection>
       )}
       <BottomBar />
@@ -662,36 +565,8 @@ const WaterSection = styled(MainSection)`
   display: block;
 `;
 
-const WaterCardsGrid = styled.div`
-  display: flex;
-  gap: 1.5rem;
-  width: 100%;
-  margin-top: 1.5rem;
-
-  @media (max-width: 1024px) {
-    gap: 1rem;
-    margin-top: 1rem;
-  }
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 1rem;
-  }
-`;
-
-const WaterCardWrapper = styled.div`
-  flex: 1;
-  min-width: 0;
-`;
-
-const TankLevelCardWrapper = styled.div`
-  flex: 1;
-  min-width: 0;
-`;
-
 const EnergySection = styled(MainSection)`
   display: block;
-  padding: 1rem;
 `;
 
 const EnergyHeader = styled.div`
@@ -723,14 +598,14 @@ const EnergyStatsGrid = styled.div`
 `;
 
 const EnergyStatCard = styled.div`
-  background: linear-gradient(145deg, rgba(11, 40, 58, 0.6), rgba(20, 61, 39, 0.5));
+  background: var(--main-bg-card-color);
   border: 1px solid var(--glass-border-light);
   border-radius: 16px;
   padding: 1.25rem;
   display: flex;
   align-items: center;
   gap: 1rem;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  box-shadow: var(--main-shadow-art);
   transition: all 0.3s ease;
   cursor: pointer;
 
@@ -739,12 +614,12 @@ const EnergyStatCard = styled.div`
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
     border-color: ${props => {
       switch(props.type) {
-        case 'consumption': return 'rgba(255, 107, 107, 0.5)';
-        case 'production': return 'rgba(78, 205, 196, 0.5)';
-        case 'gridImport': return 'rgba(255, 159, 67, 0.5)';
-        case 'gridExport': return 'rgba(85, 239, 196, 0.5)';
-        case 'solar': return 'rgba(255, 234, 167, 0.5)';
-        case 'battery': return 'rgba(116, 185, 255, 0.5)';
+        case 'consumption': return 'var(--chart-error-color)';
+        case 'production': return 'var(--chart-success-color)';
+        case 'gridImport': return 'var(--warning-text-color)';
+        case 'gridExport': return 'var(--chart-secondary-color)';
+        case 'solar': return 'var(--chart-primary-color)';
+        case 'battery': return 'var(--primary-accent)';
         default: return 'var(--primary-accent)';
       }
     }};
@@ -807,6 +682,7 @@ const EnergyChartsSection = styled.div`
 const EnergyCardWrapper = styled.div`
   width: 100%;
   margin-top: 1.5rem;
+  }
 
   @media (max-width: 1024px) {
     margin-top: 1rem;
@@ -841,15 +717,34 @@ const MetricsContent = styled.section`
 
 const TabContainer = styled.div`
   display: flex;
-  gap: 0.5rem;
+  gap: 0.4rem;
   margin: 0.5rem 1rem 0;
   background: var(--main-bg-card-color);
   border: 1px solid var(--glass-border-light);
   border-radius: 14px;
   padding: 0.4rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  width: calc(100% - 2rem);
+
+  &::-webkit-scrollbar {
+    display: none;
+  }
 
   @media (max-width: 768px) {
     margin: 0.25rem 0.5rem 0;
+    gap: 0.25rem;
+    padding: 0.25rem;
+    width: calc(100% - 1rem);
+  }
+
+  @media (max-width: 480px) {
+    margin: 0.2rem 0.25rem 0;
+    gap: 0.15rem;
+    padding: 0.2rem;
+    border-radius: 10px;
+    width: calc(100% - 0.5rem);
   }
 `;
 
@@ -858,28 +753,63 @@ const TabButton = styled.button`
   background: ${props => props.$active ? 'var(--primary-button-color)' : 'transparent'};
   color: ${props => props.$active ? 'var(--main-text-color)' : 'var(--second-text-color)'};
   border-radius: 10px;
-  padding: 0.7rem 1rem;
+  padding: 0.6rem 0.8rem;
   font-weight: 600;
   display: flex;
   align-items: center;
-  gap: 0.45rem;
+  justify-content: center;
+  gap: 0.35rem;
   cursor: pointer;
   transition: all 0.2s ease;
+  font-size: 0.85rem;
+  white-space: nowrap;
+  flex: 0 0 auto;
+  min-width: fit-content;
 
   &:hover {
     color: var(--main-text-color);
     background: ${props => props.$active ? 'var(--primary-button-color)' : 'var(--glass-bg-secondary)'};
   }
+
+  @media (max-width: 768px) {
+    padding: 0.5rem 0.7rem;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 600px) {
+    padding: 0.5rem 0.6rem;
+    gap: 0.25rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.5rem;
+    min-width: 44px;
+    height: 44px;
+  }
+
+  @media (max-width: 360px) {
+    padding: 0.35rem 0.4rem;
+    min-width: 40px;
+    height: 40px;
+  }
+`;
+
+const TabLabel = styled.span`
+  display: block;
+  
+  @media (max-width: 600px) {
+    display: none;
+  }
 `;
 
 const CropWelcomeCard = styled.div`
   width: min(760px, 100%);
-  background: linear-gradient(145deg, rgba(11, 40, 58, 0.7), rgba(20, 61, 39, 0.55));
+  background: var(--main-bg-card-color);
   border: 1px solid var(--glass-border-light);
   border-radius: 18px;
   padding: 2rem;
   text-align: center;
-  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--main-shadow-art);
 
   @media (max-width: 768px) {
     padding: 1.25rem;
@@ -893,9 +823,9 @@ const DevBadge = styled.div`
   margin-bottom: 1rem;
   padding: 0.45rem 0.8rem;
   border-radius: 999px;
-  border: 1px solid rgba(56, 189, 248, 0.45);
-  color: #7dd3fc;
-  background: rgba(2, 132, 199, 0.15);
+  border: 1px solid var(--primary-accent);
+  color: var(--primary-accent);
+  background: rgba(0, 255, 127, 0.1);
   font-size: 0.82rem;
   font-weight: 700;
 `;

@@ -6,11 +6,63 @@ import { motion } from 'framer-motion';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 
 const RoomSelectCard = ({title}) => {
-  const { entities, currentRoom, connection } = useHomeAssistant();
+  const { entities, currentRoom, connection, areas } = useHomeAssistant();
   const [roomOptions, setRoomOptions] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(currentRoom);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
+
+  // Debug: log areas when they change
+  useEffect(() => {
+    console.log('=== RoomSelectCard areas ===');
+    console.log('Areas object:', areas);
+    console.log('Areas keys:', Object.keys(areas));
+    console.log('dev_room area:', areas['dev_room']);
+  }, [areas]);
+
+  // Get friendly name/alias for a room - with priority: area aliases → options_with_alias → area name → fallback
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    
+    console.log('Looking for room:', roomId);
+    console.log('Looking up in areas:', areas[roomId]);
+    
+    const roomIdNormalized = roomId.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    
+    // 1. Try to get alias from select.ogb_rooms entity's options_with_alias attribute
+    const roomEntity = Object.entries(entities).find(([key]) =>
+      key.startsWith('select.ogb_rooms')
+    )?.[1];
+    
+    if (roomEntity?.attributes?.options_with_alias) {
+      const aliases = roomEntity.attributes.options_with_alias;
+      if (aliases[roomId]) {
+        console.log('Found in options_with_alias:', aliases[roomId]);
+        return aliases[roomId];
+      }
+    }
+    
+    // 2. Direct area lookup by room ID - use alias first, then name
+    const area = areas[roomId] || areas[roomIdNormalized];
+    console.log('Found area:', area);
+    
+    if (area) {
+      // Use alias if available (e.g., "BaboRoom #1")
+      if (area.aliases && area.aliases.length > 0) {
+        console.log('Using alias:', area.aliases[0]);
+        return area.aliases[0];
+      }
+      // Fallback to area name if different from ID
+      if (area.name && area.name !== area.area_id) {
+        console.log('Using area name:', area.name);
+        return area.name;
+      }
+    }
+    
+    // 3. Fallback: return the raw room ID
+    console.log('Using fallback:', roomId);
+    return roomId;
+  };
 
   useEffect(() => {
     // Hole alle verfügbaren Räume aus der select.ogb_rooms Entity
@@ -74,7 +126,7 @@ const RoomSelectCard = ({title}) => {
 
       <DropdownContainer ref={dropdownRef}>
         <DropdownHeader onClick={() => setIsOpen(!isOpen)}>
-          {selectedRoom}
+          {getRoomDisplayName(selectedRoom)}
           <FaChevronDown />
         </DropdownHeader>
         
@@ -87,7 +139,7 @@ const RoomSelectCard = ({title}) => {
             <DropdownList>
               {roomOptions.map((room, index) => (
                 <DropdownItem key={index} onMouseDown={() => handleRoomChange(room)}>
-                  {room}
+                  {getRoomDisplayName(room)}
                 </DropdownItem>
               ))}
             </DropdownList>
