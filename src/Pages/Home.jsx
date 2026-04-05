@@ -54,6 +54,21 @@ const Home = () => {
             </TabButton>
 
             <TabButton
+              $active={activeTab === 'plantbuddy'}
+              onClick={() => setActiveTab('plantbuddy')}
+            >
+              <MdSmartToy size={20} />
+              <span>Plant-Buddy</span>
+              {activeTab === 'plantbuddy' && (
+                <ActiveIndicator
+                  layoutId="activeTab"
+                  initial={false}
+                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
+                />
+              )}
+            </TabButton>
+
+            <TabButton
               $active={activeTab === 'terminal'}
               onClick={() => setActiveTab('terminal')}
             >
@@ -97,21 +112,6 @@ const Home = () => {
                 />
               )}
             </TabButton>
-
-            <TabButton
-              $active={activeTab === 'plantbuddy'}
-              onClick={() => setActiveTab('plantbuddy')}
-            >
-              <MdSmartToy size={20} />
-              <span>Plant-Buddy</span>
-              {activeTab === 'plantbuddy' && (
-                <ActiveIndicator
-                  layoutId="activeTab"
-                  initial={false}
-                  transition={{ type: 'spring', stiffness: 500, damping: 30 }}
-                />
-              )}
-            </TabButton>
           </TabContainer>
 
           <TabContent>
@@ -125,6 +125,18 @@ const Home = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <DeviceCard />
+                </motion.div>
+              )}
+
+              {activeTab === 'plantbuddy' && (
+                <motion.div
+                  key="plantbuddy"
+                  initial={{ opacity: 0, x: -20 }}
+                  animate={{ opacity: 1, x: 0 }}
+                  exit={{ opacity: 0, x: 20 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <AICareChat />
                 </motion.div>
               )}
               
@@ -163,18 +175,6 @@ const Home = () => {
                   transition={{ duration: 0.3 }}
                 >
                   <OtherSensors />
-                </motion.div>
-              )}
-
-              {activeTab === 'plantbuddy' && (
-                <motion.div
-                  key="plantbuddy"
-                  initial={{ opacity: 0, x: -20 }}
-                  animate={{ opacity: 1, x: 0 }}
-                  exit={{ opacity: 0, x: 20 }}
-                  transition={{ duration: 0.3 }}
-                >
-                  <AICareChat />
                 </motion.div>
               )}
             </AnimatePresence>

@@ -4,13 +4,13 @@ import { useMemo } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { SiApacheairflow } from "react-icons/si";
-import { MdOutlineWaterDrop, MdAir, MdTune } from "react-icons/md";
+import { MdOutlineWaterDrop, MdAir, MdTune, MdLightbulb, MdWindPower, MdCloud, MdWhatshot } from "react-icons/md";
 import {
   FaSeedling, FaCheck, FaRegCircle, FaArrowUp, FaArrowDown, FaMinus,
   FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaQuestionCircle,
   FaThermometerHalf, FaMoon, FaWater, FaSync, FaExclamationCircle,
   FaFlask, FaCog, FaPlug, FaBolt, FaClock, FaSpinner, FaLeaf, FaStickyNote, FaSearch,
-  FaBullseye, FaChartBar
+  FaBullseye, FaChartBar, FaFan
 } from "react-icons/fa";
 import { LuHeater } from "react-icons/lu";
 import { GiIceCube, GiSunset, GiSunrise, GiSun, GiMoon } from "react-icons/gi";
@@ -926,9 +926,27 @@ const LogItem = ({ room, date, info }) => {
             <ActionsList>
               {actionList.map((action, idx) => {
                 const [device, direction] = action.split(':');
+                const deviceName = device.replace('can', '').toLowerCase();
+                
+                // Get icon based on device type
+                const getDeviceIcon = (name) => {
+                  if (name.includes('exhaust') || name.includes('out') || name.includes('fan')) return <FaFan size={14} />;
+                  if (name.includes('intake') || name.includes('in')) return <MdWindPower size={14} />;
+                  if (name.includes('ventilate') || name.includes('vent')) return <WiWindy size={16} />;
+                  if (name.includes('humidif') && !name.includes('de')) return <WiHumidity size={16} />;
+                  if (name.includes('dehumidif')) return <MdCloud size={14} />;
+                  if (name.includes('heat') || name.includes('warm')) return <LuHeater size={14} />;
+                  if (name.includes('cool') || name.includes('ac')) return <GiIceCube size={14} />;
+                  if (name.includes('light') || name.includes('led')) return <MdLightbulb size={14} />;
+                  return <MdTune size={14} />;
+                };
+                
                 return (
                   <VPDActionItem key={idx} direction={direction}>
-                    <VPDActionDevice>{device.replace('can', '')}</VPDActionDevice>
+                    <VPDActionDevice>
+                      {getDeviceIcon(deviceName)}
+                      <span style={{ marginLeft: '8px' }}>{device.replace('can', '')}</span>
+                    </VPDActionDevice>
                     <VPDActionDirection direction={direction}>{direction}</VPDActionDirection>
                   </VPDActionItem>
                 );

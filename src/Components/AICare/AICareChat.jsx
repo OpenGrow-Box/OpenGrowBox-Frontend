@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect, createContext, useContext } from 'react';
 import styled from 'styled-components';
-import { MdSend, MdImage, MdRefresh, MdDelete, MdClose, MdCamera, MdOutlineErrorOutline, MdSmartToy, MdInfo, MdArrowDropDown, MdSettings, MdVisibility, MdChat, MdPsychology, MdCheckCircle, MdAnalytics } from 'react-icons/md';
+import { MdSend, MdImage, MdDelete, MdClose, MdCamera, MdOutlineErrorOutline, MdSmartToy, MdInfo, MdArrowDropDown, MdSettings, MdVisibility, MdChat, MdPsychology, MdCheckCircle, MdAnalytics, MdEdit } from 'react-icons/md';
 import { Bot, Sprout, Search, BarChart3, Droplets, Bug, Lightbulb } from 'lucide-react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useGlobalState } from '../Context/GlobalContext';
@@ -83,26 +83,40 @@ Be honest about limitations while providing the most helpful guidance possible.
 
 Remember: The goal is to help the user grow healthy, thriving plants in their OpenGrowBox system.`;
 
-const BASIC_IMAGE_ANALYSIS_PROMPT = `You are Plant-Buddy, a plant health analysis assistant. Analyze the provided plant image and focus on health and vitality assessment.
+const BASIC_IMAGE_ANALYSIS_PROMPT = `You are Plant-Buddy, an expert plant health analyst. Look at this image carefully and provide a detailed health assessment.
 
-Key Analysis Points:
-1. **Overall Plant Health**: Assess the general vitality, vigor, and condition of the plant(s)
-2. **Leaf Analysis**: Check for discoloration (yellowing, browning, spots), curling, wilting, deformities, or unusual patterns
-3. **Stem & Structure**: Look for stunted growth, stretching, thinning, weak stems, or structural issues
-4. **Pest Detection**: Identify any visible insects, webbing, feeding marks, eggs, or pest damage
-5. **Disease Signs**: Look for fungal growth, mold, mildew, bacterial spots, or rot
-6. **Environmental Stress**: Identify heat stress, light burn, nutrient deficiencies, or water issues
-7. **Root Health** (if visible): Check for root rot, discoloration, or development issues
+ANALYZE THESE ASPECTS:
+🌿 OVERALL HEALTH: Rate as Excellent/Good/Fair/Poor. Describe the plant's general appearance, vigor, and vitality.
 
-Important: Focus on health assessment, not plant counting. The number of plants is irrelevant - what matters is their condition and any problems present.
+🍃 LEAF CONDITION: 
+- Color: Are leaves vibrant green, yellowing, browning, spotted, or discolored?
+- Structure: Any curling, wilting, drooping, or deformities?
+- Damage: Signs of burning, nutrient deficiencies, or physical damage?
 
-Provide a clear assessment of:
-- Overall health status (healthy, minor issues, serious problems)
-- Specific issues identified with locations on the plant
-- Severity of any problems found
-- Recommended next steps or treatments
+🪴 GROWTH & STRUCTURE:
+- Stem health: Strong or weak, stretching, thinning?
+- Overall structure: Normal growth or stunted?
+- Any visible abnormalities?
 
-Be honest and specific about what you observe. Don't make assumptions about plant varieties or species.`;
+🐛 PESTS & DISEASES:
+- Look carefully for: insects, spider mites, aphids, whiteflies, thrips
+- Check for: webbing, bite marks, holes in leaves, sticky residue
+- Signs of disease: mold, mildew, fungus, bacterial spots, rot
+
+⚠️ ENVIRONMENTAL STRESS:
+- Heat stress: leaf edges curling up, crispy texture
+- Light burn: bleached or burned spots
+- Nutrient issues: yellowing patterns (old leaves = nitrogen, new leaves = iron, etc.)
+- Water stress: wilting, drooping, or overwatering signs
+
+YOUR RESPONSE FORMAT:
+1. HEALTH RATING: [Excellent/Good/Fair/Poor] - Brief explanation
+2. KEY FINDINGS: List 2-4 main observations (good or bad)
+3. IDENTIFIED ISSUES: If any problems found, describe them specifically
+4. RECOMMENDATIONS: Clear, actionable next steps to address issues or maintain health
+5. MONITORING: What to watch for in coming days
+
+Be specific about what you see. If you notice multiple plants, assess the overall health of the grow. Focus on actionable advice.`;
 
 const SYSTEM_PROMPT_SIMPLE = `You are Plant-Buddy, a helpful AI assistant for the OpenGrowBox plant growing system.
 
@@ -489,11 +503,29 @@ Make sure ${apiProvider} is running and accessible from this device.
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  const MAX_SESSION_TOKENS = 100000;
+
+  const resetSession = () => {
+    setMessages([]);
+    setSessionUsage({
+      totalPromptTokens: 0,
+      totalCompletionTokens: 0,
+      totalTokens: 0,
+      requestCount: 0
+    });
+    localStorage.removeItem('plantbuddy_messages');
+    localStorage.removeItem('plantbuddy_conversation_id');
+  };
+
   const handleSendMessage = async (customPrompt = null) => {
-    // Prevent multiple simultaneous requests or rapid clicks
     if (isProcessing) return;
 
-    // Add a simple throttle - prevent calls within 1 second of last attempt
+    if (sessionUsage.totalTokens >= MAX_SESSION_TOKENS) {
+      setErrorMessage(`Session token limit (${MAX_SESSION_TOKENS.toLocaleString()}) reached. Please start a new conversation.`);
+      setShowErrorModal(true);
+      return;
+    }
+
     const now = Date.now();
     if (handleSendMessage.lastCall && (now - handleSendMessage.lastCall) < 1000) {
       console.log('Throttled - call too soon');
@@ -533,9 +565,18 @@ Make sure ${apiProvider} is running and accessible from this device.
       // Use direct API if configured
       if (hasAnyApiKey() || hasOllama || hasLMStudio) {
         if (selectedImage) {
-          const content = await processWithImageAnalysis(text, selectedImage);
-          responseResult = { content, usage: null };
+          responseResult = await processWithImageAnalysis(text, selectedImage);
         } else {
+          // Check if user mentions image-related keywords but hasn't uploaded an image
+          const imageKeywords = /\b(image|photo|picture|picture|upload|camera|capture|analyze.*image|check.*photo|look at.*picture)/i;
+          if (imageKeywords.test(text)) {
+            setErrorMessage('You mentioned an image, but no image was uploaded. Please upload an image using the camera or file upload button for image analysis.');
+            setShowErrorModal(true);
+            setMessages(prev => prev.slice(0, -1));
+            setIsProcessing(false);
+            return;
+          }
+          
           // Check if we need to perform a web search for additional context
           const needsWebSearch = detectNeedForWebSearch(text, messages);
 
@@ -584,9 +625,18 @@ Make sure ${apiProvider} is running and accessible from this device.
           }
         }
       } else if (selectedImage) {
-        const content = await processWithImageAnalysis(text, selectedImage);
-        responseResult = { content, usage: null };
+        responseResult = await processWithImageAnalysis(text, selectedImage);
       } else {
+        // Check if user mentions image-related keywords but hasn't uploaded an image
+        const imageKeywords = /\b(image|photo|picture|picture|upload|camera|capture|analyze.*image|check.*photo|look at.*picture)/i;
+        if (imageKeywords.test(text)) {
+          setErrorMessage('You mentioned an image, but no image was uploaded. Please upload an image using the camera or file upload button for image analysis.');
+          setShowErrorModal(true);
+          setMessages(prev => prev.slice(0, -1));
+          setIsProcessing(false);
+          return;
+        }
+        
         const content = await processWithHomeAssistant(text);
         responseResult = { content, usage: null };
       }
@@ -696,7 +746,7 @@ Make sure ${apiProvider} is running and accessible from this device.
         throw new Error('Invalid API provider');
       }
 
-      return result.content;
+      return result;
     } catch (error) {
       console.error('Direct API error:', error);
       throw error;
@@ -1048,8 +1098,11 @@ Make sure ${apiProvider} is running and accessible from this device.
                     <ProviderOption
                       $selected={apiProvider === 'openai'}
                       onClick={() => {
-                        setApiProvider('openai');
-                        localStorage.setItem('plantbuddy_provider', 'openai');
+                        if (apiProvider !== 'openai') {
+                          setApiProvider('openai');
+                          localStorage.setItem('plantbuddy_provider', 'openai');
+                          resetSession();
+                        }
                         setShowProviderDropdown(false);
                       }}
                     >
@@ -1060,8 +1113,11 @@ Make sure ${apiProvider} is running and accessible from this device.
                     <ProviderOption
                       $selected={apiProvider === 'anthropic'}
                       onClick={() => {
-                        setApiProvider('anthropic');
-                        localStorage.setItem('plantbuddy_provider', 'anthropic');
+                        if (apiProvider !== 'anthropic') {
+                          setApiProvider('anthropic');
+                          localStorage.setItem('plantbuddy_provider', 'anthropic');
+                          resetSession();
+                        }
                         setShowProviderDropdown(false);
                       }}
                     >
@@ -1072,8 +1128,11 @@ Make sure ${apiProvider} is running and accessible from this device.
                     <ProviderOption
                       $selected={apiProvider === 'ollama'}
                       onClick={() => {
-                        setApiProvider('ollama');
-                        localStorage.setItem('plantbuddy_provider', 'ollama');
+                        if (apiProvider !== 'ollama') {
+                          setApiProvider('ollama');
+                          localStorage.setItem('plantbuddy_provider', 'ollama');
+                          resetSession();
+                        }
                         setShowProviderDropdown(false);
                       }}
                     >
@@ -1084,8 +1143,11 @@ Make sure ${apiProvider} is running and accessible from this device.
                     <ProviderOption
                       $selected={apiProvider === 'lmstudio'}
                       onClick={() => {
-                        setApiProvider('lmstudio');
-                        localStorage.setItem('plantbuddy_provider', 'lmstudio');
+                        if (apiProvider !== 'lmstudio') {
+                          setApiProvider('lmstudio');
+                          localStorage.setItem('plantbuddy_provider', 'lmstudio');
+                          resetSession();
+                        }
                         setShowProviderDropdown(false);
                       }}
                     >
@@ -1122,7 +1184,10 @@ Make sure ${apiProvider} is running and accessible from this device.
                       key={model.id}
                       $selected={selectedModel === model.id}
                       onClick={() => {
-                        setSelectedModel(model.id);
+                        if (selectedModel !== model.id) {
+                          setSelectedModel(model.id);
+                          resetSession();
+                        }
                         setShowModelDropdown(false);
                       }}
                     >
@@ -1160,9 +1225,6 @@ Make sure ${apiProvider} is running and accessible from this device.
             </ActionButton>
             <ActionButton onClick={() => setShowApiSettings(true)} title="API Settings">
               <MdSettings size={20} />
-            </ActionButton>
-            <ActionButton onClick={() => setShowTemplates(!showTemplates)} title="Prompt-Templates">
-              <MdRefresh size={20} />
             </ActionButton>
             <ActionButton onClick={clearConversation} title="Delete Conversation">
               <MdDelete size={20} />
@@ -1237,6 +1299,24 @@ Make sure ${apiProvider} is running and accessible from this device.
                     </MessageTokens>
                   )}
                 </MessageMeta>
+                {message.role === 'user' && (
+                  <MessageActions>
+                    <EditMessageButton 
+                      onClick={() => {
+                        setInputText(message.content);
+                        if (message.image) {
+                          setSelectedImage(message.image);
+                        }
+                        setTimeout(() => {
+                          document.querySelector('.message-input')?.focus();
+                        }, 100);
+                      }}
+                    >
+                      <MdEdit size={12} />
+                      Edit & Resend
+                    </EditMessageButton>
+                  </MessageActions>
+                )}
               </MessageBubble>
             ))}
             {isProcessing && (
@@ -1318,6 +1398,7 @@ Make sure ${apiProvider} is running and accessible from this device.
               <MdCamera size={20} />
             </CameraButton>
             <MessageInput
+              className="message-input"
               value={inputText}
               onChange={(e) => setInputText(e.target.value)}
               onKeyDown={(e) => {
@@ -2081,6 +2162,51 @@ const SessionUsageText = styled.span`
   font-size: 0.7rem;
 `;
 
+const MessageActions = styled.div`
+  display: flex;
+  gap: 0.25rem;
+  margin-top: 0.5rem;
+  padding-top: 0.5rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+const EditMessageButton = styled.button`
+  background: transparent;
+  border: 1px solid var(--primary-accent);
+  color: var(--primary-accent);
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
+  font-size: 0.7rem;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  transition: all 0.2s ease;
+  font-weight: 500;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (max-width: 768px) {
+    padding: 0.4rem 0.7rem;
+    font-size: 0.75rem;
+    border-radius: 8px;
+  }
+
+  &:hover {
+    background: rgba(0, 255, 127, 0.1);
+    transform: translateY(-1px);
+  }
+  
+  &:active {
+    transform: translateY(0);
+    background: rgba(0, 255, 127, 0.15);
+  }
+
+  &:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+`;
+
 const TypingIndicator = styled.div`
   display: flex;
   gap: 0.25rem;
@@ -2110,9 +2236,14 @@ const TypingDot = styled.div`
 `;
 
 const InputArea = styled.div`
-  padding: 1rem 1.5rem;
+  padding: 1rem;
   background: var(--main-bg-card-color);
   border-top: 1px solid var(--glass-border-light);
+  
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+  }
 `;
 
 const ImagePreview = styled.div`
@@ -2124,6 +2255,18 @@ const ImagePreview = styled.div`
   background: rgba(0, 0, 0, 0.2);
   border: 1px solid var(--glass-border-light);
   border-radius: 8px;
+  animation: slideDown 0.3s ease;
+  
+  @keyframes slideDown {
+    from {
+      opacity: 0;
+      transform: translateY(-10px);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
 `;
 
 const PreviewImage = styled.img`
@@ -2131,31 +2274,50 @@ const PreviewImage = styled.img`
   height: 60px;
   object-fit: cover;
   border-radius: 6px;
+  
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 50px;
+  }
 `;
 
 const RemoveImageButton = styled.button`
   background: rgba(255, 107, 107, 0.2);
   border: 1px solid rgba(255, 107, 107, 0.3);
   color: #ff6b6b;
-  width: 24px;
-  height: 24px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   cursor: pointer;
   transition: all 0.2s ease;
+  flex-shrink: 0;
+  
+  @media (max-width: 768px) {
+    width: 32px;
+    height: 32px;
+  }
 
   &:hover {
     background: rgba(255, 107, 107, 0.3);
     transform: scale(1.1);
   }
+  
+  &:active {
+    transform: scale(0.95);
+  }
 `;
 
 const InputRow = styled.div`
   display: flex;
-  align-items: center;
-  gap: 0.75rem;
+  align-items: flex-end;
+  gap: 0.5rem;
+  
+  @media (max-width: 768px) {
+    gap: 0.4rem;
+  }
 `;
 
 const ImageUploadButton = styled.button`
@@ -2164,6 +2326,8 @@ const ImageUploadButton = styled.button`
   color: ${props => props.$disabled ? 'var(--second-text-color)' : 'var(--second-text-color)'};
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 8px;
   cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
   transition: all 0.2s ease;
@@ -2172,6 +2336,14 @@ const ImageUploadButton = styled.button`
   justify-content: center;
   flex-shrink: 0;
   opacity: ${props => props.$disabled ? 0.4 : 1};
+  -webkit-tap-highlight-color: transparent;
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
 
   &:hover {
     ${props => !props.$disabled && `
@@ -2179,6 +2351,10 @@ const ImageUploadButton = styled.button`
       color: var(--primary-accent);
       border-color: var(--primary-accent);
     `}
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.95);
   }
 `;
 
@@ -2196,6 +2372,8 @@ const MessageInput = styled.textarea`
   max-height: 120px;
   outline: none;
   transition: all 0.2s ease;
+  -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 
   &:focus {
     border-color: var(--primary-accent);
@@ -2210,6 +2388,12 @@ const MessageInput = styled.textarea`
     opacity: 0.5;
     cursor: not-allowed;
   }
+  
+  @media (max-width: 768px) {
+    font-size: 16px;
+    padding: 0.65rem 0.85rem;
+    border-radius: 12px;
+  }
 `;
 
 const SendButton = styled.button`
@@ -2218,6 +2402,8 @@ const SendButton = styled.button`
   color: var(--primary-accent);
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
@@ -2225,10 +2411,23 @@ const SendButton = styled.button`
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  -webkit-tap-highlight-color: transparent;
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+    border-radius: 12px;
+  }
 
   &:hover:not(:disabled) {
     transform: scale(1.05);
     box-shadow: 0 4px 12px rgba(0, 255, 127, 0.3);
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.95);
   }
 
   &:disabled {
@@ -2714,6 +2913,8 @@ const CameraButton = styled.button`
   color: var(--second-text-color);
   width: 44px;
   height: 44px;
+  min-width: 44px;
+  min-height: 44px;
   border-radius: 8px;
   cursor: ${props => props.$disabled ? 'not-allowed' : 'pointer'};
   transition: all 0.2s ease;
@@ -2722,6 +2923,14 @@ const CameraButton = styled.button`
   justify-content: center;
   flex-shrink: 0;
   opacity: ${props => props.$disabled ? 0.4 : 1};
+  -webkit-tap-highlight-color: transparent;
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    min-width: 40px;
+    min-height: 40px;
+  }
 
   &:hover {
     ${props => !props.$disabled && `
@@ -2729,6 +2938,10 @@ const CameraButton = styled.button`
       color: var(--primary-accent);
       border-color: var(--primary-accent);
     `}
+  }
+  
+  &:active:not(:disabled) {
+    transform: scale(0.95);
   }
 `;
 
