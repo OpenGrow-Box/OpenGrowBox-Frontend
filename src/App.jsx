@@ -2,7 +2,7 @@ import { lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 
-import { GlobalStateProvider } from './Components/Context/GlobalContext';
+import { GlobalStateProvider, useGlobalState } from './Components/Context/GlobalContext';
 import HomeAssistantProvider, { useHomeAssistant } from './Components/Context/HomeAssistantContext';
 import { MediumProvider } from './Components/Context/MediumContext';
 import { OGBPremiumProvider } from './Components/Context/OGBPremiumContext';
@@ -32,6 +32,11 @@ const Settings = lazy(() => import('./Pages/Settings'));
 const SetupPage = lazy(() => import('./Pages/SetupPage'));
 const FourOFour = lazy(() => import('./Pages/Four0Four'));
 
+// Lazy load LITE pages
+const LiteHome = lazy(() => import('./Pages/Lite/LiteHome'));
+const LiteDashboard = lazy(() => import('./Pages/Lite/LiteDashboard'));
+const LiteGrowBook = lazy(() => import('./Pages/Lite/LiteGrowBook'));
+
 
 
 // Loading fallback component
@@ -41,6 +46,36 @@ const PageLoader = () => (
     <LoaderText>Loading...</LoaderText>
   </LoaderContainer>
 );
+
+// Conditional routing based on siteView
+const AppRoutes = () => {
+  const { state } = useGlobalState();
+  const siteView = state.Settings?.siteView || 'lite';
+
+  return (
+    <Routes>
+      <Route path="/" element={<Interface />} />
+      <Route path="/config" element={<SetupPage forceTokenEntry={true} />} />
+      <Route path="/*" element={<FourOFour/>}/>
+      
+      {siteView === 'pro' ? (
+        <>
+          <Route path="/home" element={<Home />} />
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/growbook" element={<GrowBook />} />
+        </>
+      ) : (
+        <>
+          <Route path="/home" element={<LiteHome />} />
+          <Route path="/dashboard" element={<LiteDashboard />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/growbook" element={<LiteGrowBook />} />
+        </>
+      )}
+    </Routes>
+  );
+};
 
 export default function App() {
 
@@ -69,15 +104,7 @@ export default function App() {
                         <ConnectionStatus />
                         <MainContent>
                           <Suspense fallback={<PageLoader />}>
-                            <Routes>
-                              <Route path="/" element={<Interface />} />
-                              <Route path="/home" element={<Home />} />
-                              <Route path="/dashboard" element={<Dashboard />} />
-                              <Route path="/settings" element={<Settings />} />
-                              <Route path="/growbook" element={<GrowBook />} />
-                              <Route path="/config" element={<SetupPage />} />
-                              <Route path="/*" element={<FourOFour/>}/>
-                            </Routes>
+                            <AppRoutes />
                           </Suspense>
                         </MainContent>
                       </AppContainer>

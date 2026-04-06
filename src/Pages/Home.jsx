@@ -174,6 +174,7 @@ const Home = () => {
                   exit={{ opacity: 0, x: 20 }}
                   transition={{ duration: 0.3 }}
                 >
+                  <OthersInfoText>These sensors are only for viewing and have no connection to OpenGrowBox controls</OthersInfoText>
                   <OtherSensors />
                 </motion.div>
               )}
@@ -319,5 +320,18 @@ const ContainerHeader = styled.div`
     gap: 0.5rem;
     flex-wrap: wrap;
   }
+`;
+
+const OthersInfoText = styled.p`
+  color: var(--main-text-color);
+  font-size: 0.85rem;
+  text-align: center;
+  padding: 0.75rem 1rem;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 10px;
+  margin-bottom: 1rem;
+  line-height: 1.4;
+  opacity: 0.8;
 `;
 

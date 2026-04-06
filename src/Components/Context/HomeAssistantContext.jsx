@@ -251,22 +251,14 @@ export const HomeAssistantProvider = ({ children }) => {
             );
             setEntities(entitiesObj);
             
-            // Fetch areas for room aliases
-            try {
-              const areasResponse = await fetch(`${apiBaseUrl}/api/areas`, {
-                headers: { Authorization: `Bearer ${token}` }
-              });
-              if (areasResponse.ok) {
-                const areasData = await areasResponse.json();
-                const areasObj = areasData.reduce(
-                  (acc, area) => ({ ...acc, [area.area_id]: area }),
-                  {}
-                );
-                setAreas(areasObj);
-                console.log('Loaded areas:', Object.keys(areasObj));
-              }
-            } catch (areaErr) {
-              console.warn('Could not fetch areas:', areaErr);
+            // Fetch areas from connection.areas instead of REST API
+            if (connection && connection.areas) {
+              const areasObj = connection.areas.reduce(
+                (acc, area) => ({ ...acc, [area.area_id]: area }),
+                {}
+              );
+              setAreas(areasObj);
+              console.log('Loaded areas from connection.areas:', Object.keys(areasObj));
             }
             
             // Extract room and token information

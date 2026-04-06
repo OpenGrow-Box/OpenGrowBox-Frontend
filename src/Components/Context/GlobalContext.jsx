@@ -22,10 +22,14 @@ const initialState = {
   hassWS:{},
   Design: {
     theme: 'Main',
-    availableThemes: ['Main', 'Hacky','BookWorm','BlueOcean','CyberPunk','Unicorn','Darkness','Aurora','Sunshine'],
+    availableThemes: ['Main', 'Hacky','BookWorm','BlueOcean','CyberPunk','Unicorn','Darkness','Aurora','Sunshine','Crystal','Lumina','Radiance','NeonNights','MysticPurple','SunsetGlow','ForestDream','OceanBreeze','MidnightRose','ArcticFrost','CherryBlossom','Volcanic'],
+    availableThemesLite: ['Main', 'Aurora', 'Darkness'],
+    availableThemesPro: ['Main', 'Hacky','BookWorm','BlueOcean','CyberPunk','Unicorn','Darkness','Aurora','Sunshine','Crystal','Lumina','Radiance','NeonNights','MysticPurple','SunsetGlow','ForestDream','OceanBreeze','MidnightRose','ArcticFrost','CherryBlossom','Volcanic'],
+    previousProTheme: 'Main',
   },
   Settings: {
     safeModeEnabled: true, // Enable safe mode by default to prevent accidental mobile changes
+    siteView: 'lite', // 'lite' or 'pro' - default is lite
   },
 };
 
@@ -46,7 +50,9 @@ export const GlobalStateProvider = ({ children }) => {
             ...initialState.Design,
             ...parsedState.Design,
             // Always use the latest availableThemes from initialState
-            availableThemes: initialState.Design.availableThemes
+            availableThemes: initialState.Design.availableThemes,
+            availableThemesPro: initialState.Design.availableThemesPro,
+            availableThemesLite: initialState.Design.availableThemesLite
           }
         };
       }

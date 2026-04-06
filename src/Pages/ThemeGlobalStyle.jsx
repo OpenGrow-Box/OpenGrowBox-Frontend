@@ -16,6 +16,8 @@ function ThemeGlobalStyle() {
   }
 
   switch (theme) {
+    case 'Main':
+      return <GlobalStyle />;
     case 'Unicorn':
       return <GlobalUnicornStyle />;
     case 'Hacky':
@@ -32,6 +34,30 @@ function ThemeGlobalStyle() {
       return <GlobalAuroraStyle />;
     case 'Sunshine':
       return <GlobalSunshineStyle />;
+    case 'Crystal':
+      return <GlobalCrystalStyle />;
+    case 'Lumina':
+      return <GlobalLuminaStyle />;
+    case 'Radiance':
+      return <GlobalRadianceStyle />;
+    case 'NeonNights':
+      return <GlobalNeonNightsStyle />;
+    case 'MysticPurple':
+      return <GlobalMysticPurpleStyle />;
+    case 'SunsetGlow':
+      return <GlobalSunsetGlowStyle />;
+    case 'ForestDream':
+      return <GlobalForestDreamStyle />;
+    case 'OceanBreeze':
+      return <GlobalOceanBreezeStyle />;
+    case 'MidnightRose':
+      return <GlobalMidnightRoseStyle />;
+    case 'ArcticFrost':
+      return <GlobalArcticFrostStyle />;
+    case 'CherryBlossom':
+      return <GlobalCherryBlossomStyle />;
+    case 'Volcanic':
+      return <GlobalVolcanicStyle />;
     default:
       return <GlobalStyle />;
   }
@@ -221,6 +247,98 @@ const createTheme = ({ variables, background, scrollbar }) => createGlobalStyle`
     background: ${background};
   }
 `;
+
+// LITE Mode Theme - Clean, Fresh, Lightweight
+const GlobalLiteStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 28%),
+    radial-gradient(circle at top right, rgba(74, 222, 128, 0.12), transparent 26%),
+    radial-gradient(circle at bottom center, rgba(234, 179, 8, 0.08), transparent 30%),
+    linear-gradient(145deg, #0a0f1a 0%, #131c2d 46%, #1f2b40 100%)
+  `,
+  scrollbar: '#38bdf8',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(56, 189, 248, 0.15), transparent 28%),
+      radial-gradient(circle at top right, rgba(74, 222, 128, 0.12), transparent 26%),
+      radial-gradient(circle at bottom center, rgba(234, 179, 8, 0.08), transparent 30%),
+      linear-gradient(145deg, #0a0f1a 0%, #131c2d 46%, #1f2b40 100%);
+    --primary-color: #e0f2fe;
+    --secondary-color: #ccfbf1;
+    --primary-accent: #38bdf8;
+    --secondary-accent: #4ade80;
+    --main-text-color: #f1f5f9;
+    --second-text-color: #cbd5e1;
+    --error-text-color: #f87171;
+    --primary-button-color: #0284c7;
+    --secondary-button-color: #16a34a;
+    --main-hover-color: rgba(56, 189, 248, 0.14);
+    --secondary-hover-color: rgba(74, 222, 128, 0.14);
+    --clear-hover-color: rgba(234, 179, 8, 0.12);
+    --main-bg-color: rgba(10, 15, 26, 0.88);
+    --second-bg-color: rgba(19, 28, 45, 0.8);
+    --main-unit-color: #38bdf8;
+    --second-unit-color: #4ade80;
+    --main-value-color: #e2e8f0;
+    --main-bg-nav-color: rgba(10, 15, 26, 0.95);
+    --main-bg-card-color: rgba(19, 28, 45, 0.72);
+    --main-bg-Innercard-color: rgba(31, 43, 64, 0.56);
+    --main-arrow-up: #4ade80;
+    --main-arrow-down: #f87171;
+    --cannabis-active-color: #4ade80;
+    --cannabis-inactive-color: #64748b;
+    --warning-color: #fbbf24;
+    --warning-text-color: #fcd34d;
+    --warning-accent-color: #f59e0b;
+    --muted-text-color: #94a3b8;
+    --placeholder-text-color: #94a3b8;
+    --disabled-text-color: #475569;
+    --border-light-color: #334155;
+    --focus-color: #38bdf8;
+    --chart-primary-color: #38bdf8;
+    --chart-secondary-color: #4ade80;
+    --chart-success-color: #34d399;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #f87171;
+    --chart-neutral-color: #64748b;
+    --sensor-temp-color: #38bdf8;
+    --sensor-humidity-color: #4ade80;
+    --sensor-co2-color: #f472b6;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #38bdf8;
+    --sensor-ec-color: #34d399;
+    --border-color: rgba(56, 189, 248, 0.15);
+    --border-hover-color: rgba(74, 222, 128, 0.24);
+    --disabled-bg-color: rgba(15, 23, 42, 0.32);
+    --active-bg-color: rgba(56, 189, 248, 0.12);
+    --pressed-bg-color: rgba(74, 222, 128, 0.16);
+    --input-bg-color: rgba(15, 23, 42, 0.62);
+    --input-border-color: rgba(56, 189, 248, 0.22);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(56, 189, 248, 0.14);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #38bdf8 0%,
+      #4ade80 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #334155 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #334155 100%
+    );
+    --main-shadow-art: rgba(15, 23, 42, 0.5) 0px 24px 60px,
+      rgba(56, 189, 248, 0.1) 0px 10px 24px,
+      rgba(74, 222, 128, 0.08) 0px 2px 10px;
+    --main-gradient-1: rgba(56, 189, 248, 0.28);
+    --main-gradient-2: rgba(74, 222, 128, 0.22);
+    --main-gradient-3: rgba(234, 179, 8, 0.16);
+    --main-gradient-4: rgba(56, 189, 248, 0.14);
+    --main-gradient-5: rgba(74, 222, 128, 0.12);
+    --glass-bg-primary: rgba(56, 189, 248, 0.06);
+    --glass-bg-secondary: rgba(74, 222, 128, 0.04);
+    --glass-border: rgba(56, 189, 248, 0.12);
+    --glass-border-light: rgba(74, 222, 128, 0.14);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+  `,
+});
 
 const GlobalStyle = createTheme({
   background: `
@@ -1025,5 +1143,1079 @@ const GlobalDarkModeStyle = createTheme({
     --glass-border: rgba(255, 255, 255, 0.08);
     --glass-border-light: rgba(255, 255, 255, 0.12);
     --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  `,
+});
+
+const GlobalCrystalStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
+    radial-gradient(circle at top right, rgba(6, 182, 212, 0.06), transparent 28%),
+    linear-gradient(145deg, #ffffff 0%, #f8fafc 46%, #f1f5f9 100%)
+  `,
+  scrollbar: '#3b82f6',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
+      radial-gradient(circle at top right, rgba(6, 182, 212, 0.06), transparent 28%),
+      linear-gradient(145deg, #ffffff 0%, #f8fafc 46%, #f1f5f9 100%);
+    --primary-color: #1f2937;
+    --secondary-color: #4b5563;
+    --primary-accent: #3b82f6;
+    --secondary-accent: #06b6d4;
+    --main-text-color: #111827;
+    --second-text-color: #374151;
+    --error-text-color: #dc2626;
+    --primary-button-color: #3b82f6;
+    --secondary-button-color: #06b6d4;
+    --main-hover-color: rgba(59, 130, 246, 0.1);
+    --secondary-hover-color: rgba(6, 182, 212, 0.1);
+    --clear-hover-color: rgba(59, 130, 246, 0.08);
+    --main-bg-color: rgba(255, 255, 255, 0.98);
+    --second-bg-color: rgba(248, 250, 252, 0.95);
+    --main-unit-color: #3b82f6;
+    --second-unit-color: #06b6d4;
+    --main-value-color: #1e40af;
+    --main-bg-nav-color: rgba(255, 255, 255, 0.99);
+    --main-bg-card-color: rgba(255, 255, 255, 0.95);
+    --main-bg-Innercard-color: rgba(248, 250, 252, 0.92);
+    --main-arrow-up: #16a34a;
+    --main-arrow-down: #dc2626;
+    --cannabis-active-color: #16a34a;
+    --cannabis-inactive-color: #6b7280;
+    --warning-color: #f59e0b;
+    --warning-text-color: #d97706;
+    --warning-accent-color: #ea580c;
+    --muted-text-color: #6b7280;
+    --placeholder-text-color: #9ca3af;
+    --disabled-text-color: #d1d5db;
+    --border-light-color: #94a3b8;
+    --focus-color: #3b82f6;
+    --chart-primary-color: #3b82f6;
+    --chart-secondary-color: #06b6d4;
+    --chart-success-color: #16a34a;
+    --chart-warning-color: #f59e0b;
+    --chart-error-color: #dc2626;
+    --chart-neutral-color: #6b7280;
+    --sensor-temp-color: #dc2626;
+    --sensor-humidity-color: #3b82f6;
+    --sensor-co2-color: #06b6d4;
+    --sensor-light-color: #f59e0b;
+    --sensor-ph-color: #16a34a;
+    --sensor-ec-color: #06b6d4;
+    --border-color: #cbd5e1;
+    --border-hover-color: #3b82f6;
+    --disabled-bg-color: #f1f5f9;
+    --active-bg-color: rgba(59, 130, 246, 0.12);
+    --pressed-bg-color: rgba(6, 182, 212, 0.16);
+    --input-bg-color: rgba(255, 255, 255, 0.98);
+    --input-border-color: #cbd5e1;
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(59, 130, 246, 0.1);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #60a5fa 0%,
+      #3b82f6 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e2e8f0 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e2e8f0 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.1) 0px 8px 24px,
+      rgba(59, 130, 246, 0.08) 0px 4px 12px,
+      rgba(0, 0, 0, 0.04) 0px 2px 4px;
+    --main-gradient-1: rgba(59, 130, 246, 0.12);
+    --main-gradient-2: rgba(6, 182, 212, 0.1);
+    --main-gradient-3: rgba(16, 163, 74, 0.08);
+    --main-gradient-4: rgba(59, 130, 246, 0.06);
+    --main-gradient-5: rgba(6, 182, 212, 0.04);
+    --glass-bg-primary: rgba(255, 255, 255, 0.9);
+    --glass-bg-secondary: rgba(248, 250, 252, 0.8);
+    --glass-border: rgba(203, 213, 225, 0.6);
+    --glass-border-light: rgba(59, 130, 246, 0.3);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  `,
+});
+
+const GlobalLuminaStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(251, 191, 36, 0.12), transparent 32%),
+    radial-gradient(circle at top right, rgba(253, 230, 138, 0.1), transparent 30%),
+    linear-gradient(145deg, #fafbfc 0%, #f5f6f8 46%, #eef0f4 100%)
+  `,
+  scrollbar: '#f59e0b',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(251, 191, 36, 0.12), transparent 32%),
+      radial-gradient(circle at top right, rgba(253, 230, 138, 0.1), transparent 30%),
+      linear-gradient(145deg, #fafbfc 0%, #f5f6f8 46%, #eef0f4 100%);
+    --primary-color: #1e293b;
+    --secondary-color: #475569;
+    --primary-accent: #f59e0b;
+    --secondary-accent: #d97706;
+    --main-text-color: #0f172a;
+    --second-text-color: #334155;
+    --error-text-color: #dc2626;
+    --primary-button-color: #f59e0b;
+    --secondary-button-color: #d97706;
+    --main-hover-color: rgba(251, 191, 36, 0.12);
+    --secondary-hover-color: rgba(217, 119, 6, 0.14);
+    --clear-hover-color: rgba(251, 191, 36, 0.1);
+    --main-bg-color: rgba(255, 255, 255, 0.96);
+    --second-bg-color: rgba(250, 251, 252, 0.94);
+    --main-unit-color: #f59e0b;
+    --second-unit-color: #d97706;
+    --main-value-color: #b45309;
+    --main-bg-nav-color: rgba(255, 255, 255, 0.98);
+    --main-bg-card-color: rgba(255, 255, 255, 0.94);
+    --main-bg-Innercard-color: rgba(250, 251, 252, 0.9);
+    --main-arrow-up: #16a34a;
+    --main-arrow-down: #dc2626;
+    --cannabis-active-color: #f59e0b;
+    --cannabis-inactive-color: #64748b;
+    --warning-color: #ea580c;
+    --warning-text-color: #c2410c;
+    --warning-accent-color: #dc2626;
+    --muted-text-color: #64748b;
+    --placeholder-text-color: #94a3b8;
+    --disabled-text-color: #cbd5e1;
+    --border-light-color: #e2e8f0;
+    --focus-color: #f59e0b;
+    --chart-primary-color: #f59e0b;
+    --chart-secondary-color: #d97706;
+    --chart-success-color: #16a34a;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #dc2626;
+    --chart-neutral-color: #64748b;
+    --sensor-temp-color: #dc2626;
+    --sensor-humidity-color: #f59e0b;
+    --sensor-co2-color: #d97706;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #16a34a;
+    --sensor-ec-color: #f59e0b;
+    --border-color: #e2e8f0;
+    --border-hover-color: #f59e0b;
+    --disabled-bg-color: #f1f5f9;
+    --active-bg-color: rgba(251, 191, 36, 0.14);
+    --pressed-bg-color: rgba(217, 119, 6, 0.18);
+    --input-bg-color: rgba(255, 255, 255, 0.96);
+    --input-border-color: #e2e8f0;
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(251, 191, 36, 0.12);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #fcd34d 0%,
+      #f59e0b calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e2e8f0 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e2e8f0 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.08) 0px 8px 24px,
+      rgba(251, 191, 36, 0.08) 0px 4px 12px,
+      rgba(0, 0, 0, 0.04) 0px 2px 4px;
+    --main-gradient-1: rgba(251, 191, 36, 0.14);
+    --main-gradient-2: rgba(253, 230, 138, 0.12);
+    --main-gradient-3: rgba(16, 163, 74, 0.1);
+    --main-gradient-4: rgba(251, 191, 36, 0.08);
+    --main-gradient-5: rgba(217, 119, 6, 0.06);
+    --glass-bg-primary: rgba(255, 255, 255, 0.85);
+    --glass-bg-secondary: rgba(250, 251, 252, 0.75);
+    --glass-border: rgba(226, 232, 240, 0.7);
+    --glass-border-light: rgba(251, 191, 36, 0.25);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.92);
+  `,
+});
+
+const GlobalRadianceStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.1), transparent 34%),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 32%),
+    radial-gradient(circle at bottom center, rgba(16, 185, 129, 0.06), transparent 28%),
+    linear-gradient(145deg, #fafafa 0%, #f4f5f7 46%, #eef0f3 100%)
+  `,
+  scrollbar: '#22c55e',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(34, 197, 94, 0.1), transparent 34%),
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 32%),
+      radial-gradient(circle at bottom center, rgba(16, 185, 129, 0.06), transparent 28%),
+      linear-gradient(145deg, #fafafa 0%, #f4f5f7 46%, #eef0f3 100%);
+    --primary-color: #1a1a2e;
+    --secondary-color: #2d3748;
+    --primary-accent: #22c55e;
+    --secondary-accent: #38bdf8;
+    --main-text-color: #0f172a;
+    --second-text-color: #1e293b;
+    --error-text-color: #dc2626;
+    --primary-button-color: #22c55e;
+    --secondary-button-color: #38bdf8;
+    --main-hover-color: rgba(34, 197, 94, 0.12);
+    --secondary-hover-color: rgba(56, 189, 248, 0.14);
+    --clear-hover-color: rgba(34, 197, 94, 0.1);
+    --main-bg-color: rgba(255, 255, 255, 0.97);
+    --second-bg-color: rgba(250, 250, 250, 0.95);
+    --main-unit-color: #22c55e;
+    --second-unit-color: #38bdf8;
+    --main-value-color: #15803d;
+    --main-bg-nav-color: rgba(255, 255, 255, 0.99);
+    --main-bg-card-color: rgba(255, 255, 255, 0.95);
+    --main-bg-Innercard-color: rgba(250, 250, 250, 0.92);
+    --main-arrow-up: #22c55e;
+    --main-arrow-down: #dc2626;
+    --cannabis-active-color: #22c55e;
+    --cannabis-inactive-color: #64748b;
+    --warning-color: #f59e0b;
+    --warning-text-color: #d97706;
+    --warning-accent-color: #ea580c;
+    --muted-text-color: #64748b;
+    --placeholder-text-color: #94a3b8;
+    --disabled-text-color: #cbd5e1;
+    --border-light-color: #e2e8f0;
+    --focus-color: #22c55e;
+    --chart-primary-color: #38bdf8;
+    --chart-secondary-color: #22c55e;
+    --chart-success-color: #16a34a;
+    --chart-warning-color: #f59e0b;
+    --chart-error-color: #dc2626;
+    --chart-neutral-color: #64748b;
+    --sensor-temp-color: #dc2626;
+    --sensor-humidity-color: #38bdf8;
+    --sensor-co2-color: #22c55e;
+    --sensor-light-color: #f59e0b;
+    --sensor-ph-color: #16a34a;
+    --sensor-ec-color: #22c55e;
+    --border-color: #e2e8f0;
+    --border-hover-color: #22c55e;
+    --disabled-bg-color: #f1f5f9;
+    --active-bg-color: rgba(34, 197, 94, 0.14);
+    --pressed-bg-color: rgba(56, 189, 248, 0.18);
+    --input-bg-color: rgba(255, 255, 255, 0.97);
+    --input-border-color: #e2e8f0;
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(34, 197, 94, 0.12);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #4ade80 0%,
+      #22c55e calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e2e8f0 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e2e8f0 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.06) 0px 8px 24px,
+      rgba(34, 197, 94, 0.06) 0px 4px 12px,
+      rgba(0, 0, 0, 0.03) 0px 2px 4px;
+    --main-gradient-1: rgba(34, 197, 94, 0.12);
+    --main-gradient-2: rgba(56, 189, 248, 0.1);
+    --main-gradient-3: rgba(16, 185, 129, 0.08);
+    --main-gradient-4: rgba(34, 197, 94, 0.06);
+    --main-gradient-5: rgba(56, 189, 248, 0.04);
+    --glass-bg-primary: rgba(255, 255, 255, 0.88);
+    --glass-bg-secondary: rgba(250, 250, 250, 0.78);
+    --glass-border: rgba(226, 232, 240, 0.68);
+    --glass-border-light: rgba(34, 197, 94, 0.22);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  `,
+});
+
+const GlobalNeonNightsStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(236, 72, 153, 0.2), transparent 32%),
+    radial-gradient(circle at top right, rgba(6, 182, 212, 0.16), transparent 30%),
+    linear-gradient(145deg, #0a0a0f 0%, #13131a 46%, #1c1c26 100%)
+  `,
+  scrollbar: '#ec4899',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(236, 72, 153, 0.2), transparent 32%),
+      radial-gradient(circle at top right, rgba(6, 182, 212, 0.16), transparent 30%),
+      linear-gradient(145deg, #0a0a0f 0%, #13131a 46%, #1c1c26 100%);
+    --primary-color: #fce7f3;
+    --secondary-color: #cffafe;
+    --primary-accent: #ec4899;
+    --secondary-accent: #06b6d4;
+    --main-text-color: #fdf2f8;
+    --second-text-color: #e5e7eb;
+    --error-text-color: #f87171;
+    --primary-button-color: #ec4899;
+    --secondary-button-color: #06b6d4;
+    --main-hover-color: rgba(236, 72, 153, 0.18);
+    --secondary-hover-color: rgba(6, 182, 212, 0.2);
+    --clear-hover-color: rgba(6, 182, 212, 0.12);
+    --main-bg-color: rgba(10, 10, 15, 0.94);
+    --second-bg-color: rgba(19, 19, 26, 0.86);
+    --main-unit-color: #ec4899;
+    --second-unit-color: #06b6d4;
+    --main-value-color: #f0abfc;
+    --main-bg-nav-color: rgba(10, 10, 15, 0.97);
+    --main-bg-card-color: rgba(19, 19, 26, 0.74);
+    --main-bg-Innercard-color: rgba(28, 28, 38, 0.58);
+    --main-arrow-up: #22c55e;
+    --main-arrow-down: #f87171;
+    --cannabis-active-color: #22c55e;
+    --cannabis-inactive-color: #737373;
+    --warning-color: #fbbf24;
+    --warning-text-color: #fcd34d;
+    --warning-accent-color: #fb923c;
+    --muted-text-color: #a1a1aa;
+    --placeholder-text-color: #71717a;
+    --disabled-text-color: #52525b;
+    --border-light-color: #3f3f46;
+    --focus-color: #ec4899;
+    --chart-primary-color: #ec4899;
+    --chart-secondary-color: #06b6d4;
+    --chart-success-color: #22c55e;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #f87171;
+    --chart-neutral-color: #71717a;
+    --sensor-temp-color: #f87171;
+    --sensor-humidity-color: #06b6d4;
+    --sensor-co2-color: #ec4899;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #22c55e;
+    --sensor-ec-color: #06b6d4;
+    --border-color: rgba(236, 72, 153, 0.22);
+    --border-hover-color: rgba(6, 182, 212, 0.3);
+    --disabled-bg-color: rgba(82, 82, 91, 0.24);
+    --active-bg-color: rgba(236, 72, 153, 0.16);
+    --pressed-bg-color: rgba(6, 182, 212, 0.22);
+    --input-bg-color: rgba(10, 10, 15, 0.72);
+    --input-border-color: rgba(236, 72, 153, 0.26);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(236, 72, 153, 0.18);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #f9a8d4 0%,
+      #ec4899 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #27272a calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #27272a 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.64) 0px 24px 60px,
+      rgba(236, 72, 153, 0.16) 0px 10px 24px,
+      rgba(6, 182, 212, 0.1) 0px 2px 10px;
+    --main-gradient-1: rgba(236, 72, 153, 0.26);
+    --main-gradient-2: rgba(6, 182, 212, 0.22);
+    --main-gradient-3: rgba(34, 197, 94, 0.18);
+    --main-gradient-4: rgba(6, 182, 212, 0.14);
+    --main-gradient-5: rgba(236, 72, 153, 0.12);
+    --glass-bg-primary: rgba(10, 10, 15, 0.58);
+    --glass-bg-secondary: rgba(19, 19, 26, 0.38);
+    --glass-border: rgba(236, 72, 153, 0.18);
+    --glass-border-light: rgba(6, 182, 212, 0.22);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  `,
+});
+
+const GlobalMysticPurpleStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(139, 92, 246, 0.22), transparent 30%),
+    radial-gradient(circle at top right, rgba(168, 85, 247, 0.18), transparent 28%),
+    linear-gradient(145deg, #0f0a1e 0%, #1a1235 44%, #251a42 100%)
+  `,
+  scrollbar: '#a78bfa',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(139, 92, 246, 0.22), transparent 30%),
+      radial-gradient(circle at top right, rgba(168, 85, 247, 0.18), transparent 28%),
+      linear-gradient(145deg, #0f0a1e 0%, #1a1235 44%, #251a42 100%);
+    --primary-color: #ede9fe;
+    --secondary-color: #ddd6fe;
+    --primary-accent: #a78bfa;
+    --secondary-accent: #c084fc;
+    --main-text-color: #faf5ff;
+    --second-text-color: #e9d5ff;
+    --error-text-color: #f87171;
+    --primary-button-color: #7c3aed;
+    --secondary-button-color: #9333ea;
+    --main-hover-color: rgba(139, 92, 246, 0.16);
+    --secondary-hover-color: rgba(168, 85, 247, 0.18);
+    --clear-hover-color: rgba(192, 132, 252, 0.12);
+    --main-bg-color: rgba(15, 10, 30, 0.92);
+    --second-bg-color: rgba(26, 18, 53, 0.84);
+    --main-unit-color: #a78bfa;
+    --second-unit-color: #c084fc;
+    --main-value-color: #e9d5ff;
+    --main-bg-nav-color: rgba(15, 10, 30, 0.96);
+    --main-bg-card-color: rgba(26, 18, 53, 0.72);
+    --main-bg-Innercard-color: rgba(37, 26, 66, 0.56);
+    --main-arrow-up: #22c55e;
+    --main-arrow-down: #f87171;
+    --cannabis-active-color: #a78bfa;
+    --cannabis-inactive-color: #6b7280;
+    --warning-color: #fbbf24;
+    --warning-text-color: #fcd34d;
+    --warning-accent-color: #fb923c;
+    --muted-text-color: #a78bfa;
+    --placeholder-text-color: #8b5cf6;
+    --disabled-text-color: #6d28d9;
+    --border-light-color: #5b21b6;
+    --focus-color: #a78bfa;
+    --chart-primary-color: #a78bfa;
+    --chart-secondary-color: #c084fc;
+    --chart-success-color: #34d399;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #f87171;
+    --chart-neutral-color: #7c3aed;
+    --sensor-temp-color: #f87171;
+    --sensor-humidity-color: #a78bfa;
+    --sensor-co2-color: #c084fc;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #34d399;
+    --sensor-ec-color: #22c55e;
+    --border-color: rgba(139, 92, 246, 0.24);
+    --border-hover-color: rgba(168, 85, 247, 0.3);
+    --disabled-bg-color: rgba(109, 40, 217, 0.22);
+    --active-bg-color: rgba(139, 92, 246, 0.14);
+    --pressed-bg-color: rgba(168, 85, 247, 0.18);
+    --input-bg-color: rgba(15, 10, 30, 0.66);
+    --input-border-color: rgba(139, 92, 246, 0.28);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(139, 92, 246, 0.16);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #c4b5fd 0%,
+      #a78bfa calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #4c1d95 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #4c1d95 100%
+    );
+    --main-shadow-art: rgba(15, 10, 30, 0.56) 0px 24px 60px,
+      rgba(139, 92, 246, 0.12) 0px 10px 24px,
+      rgba(168, 85, 247, 0.08) 0px 2px 10px;
+    --main-gradient-1: rgba(139, 92, 246, 0.28);
+    --main-gradient-2: rgba(168, 85, 247, 0.24);
+    --main-gradient-3: rgba(192, 132, 252, 0.2);
+    --main-gradient-4: rgba(167, 139, 250, 0.18);
+    --main-gradient-5: rgba(124, 58, 237, 0.14);
+    --glass-bg-primary: rgba(15, 10, 30, 0.54);
+    --glass-bg-secondary: rgba(26, 18, 53, 0.34);
+    --glass-border: rgba(139, 92, 246, 0.16);
+    --glass-border-light: rgba(168, 85, 247, 0.2);
+    --glass-shadow-inset: inset 0 1px 0 rgba(250, 245, 255, 0.06);
+  `,
+});
+
+const GlobalSunsetGlowStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(250, 204, 21, 0.28), transparent 30%),
+    radial-gradient(circle at top right, rgba(251, 146, 60, 0.24), transparent 32%),
+    radial-gradient(circle at bottom center, rgba(234, 179, 8, 0.16), transparent 28%),
+    linear-gradient(145deg, #1a1508 0%, #2d240d 44%, #403412 100%)
+  `,
+  scrollbar: '#facc15',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(250, 204, 21, 0.28), transparent 30%),
+      radial-gradient(circle at top right, rgba(251, 146, 60, 0.24), transparent 32%),
+      radial-gradient(circle at bottom center, rgba(234, 179, 8, 0.16), transparent 28%),
+      linear-gradient(145deg, #1a1508 0%, #2d240d 44%, #403412 100%);
+    --primary-color: #fef9c3;
+    --secondary-color: #fde047;
+    --primary-accent: #facc15;
+    --secondary-accent: #fb923c;
+    --main-text-color: #fefce8;
+    --second-text-color: #fef08a;
+    --error-text-color: #fca5a5;
+    --primary-button-color: #eab308;
+    --secondary-button-color: #f97316;
+    --main-hover-color: rgba(250, 204, 21, 0.22);
+    --secondary-hover-color: rgba(251, 146, 60, 0.2);
+    --clear-hover-color: rgba(253, 224, 71, 0.14);
+    --main-bg-color: rgba(26, 21, 8, 0.92);
+    --second-bg-color: rgba(45, 36, 13, 0.84);
+    --main-unit-color: #facc15;
+    --second-unit-color: #fb923c;
+    --main-value-color: #fde047;
+    --main-bg-nav-color: rgba(26, 21, 8, 0.96);
+    --main-bg-card-color: rgba(45, 36, 13, 0.72);
+    --main-bg-Innercard-color: rgba(64, 52, 18, 0.56);
+    --main-arrow-up: #22c55e;
+    --main-arrow-down: #ef4444;
+    --cannabis-active-color: #facc15;
+    --cannabis-inactive-color: #854d0e;
+    --warning-color: #f97316;
+    --warning-text-color: #fdba74;
+    --warning-accent-color: #ea580c;
+    --muted-text-color: #fde047;
+    --placeholder-text-color: #ca8a04;
+    --disabled-text-color: #a16207;
+    --border-light-color: #a16207;
+    --focus-color: #facc15;
+    --chart-primary-color: #facc15;
+    --chart-secondary-color: #fb923c;
+    --chart-success-color: #22c55e;
+    --chart-warning-color: #f97316;
+    --chart-error-color: #ef4444;
+    --chart-neutral-color: #ca8a04;
+    --sensor-temp-color: #ef4444;
+    --sensor-humidity-color: #facc15;
+    --sensor-co2-color: #fb923c;
+    --sensor-light-color: #fde047;
+    --sensor-ph-color: #22c55e;
+    --sensor-ec-color: #facc15;
+    --border-color: rgba(250, 204, 21, 0.28);
+    --border-hover-color: rgba(251, 146, 60, 0.36);
+    --disabled-bg-color: rgba(161, 98, 7, 0.32);
+    --active-bg-color: rgba(250, 204, 21, 0.2);
+    --pressed-bg-color: rgba(251, 146, 60, 0.26);
+    --input-bg-color: rgba(26, 21, 8, 0.68);
+    --input-border-color: rgba(250, 204, 21, 0.34);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(250, 204, 21, 0.2);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #fde047 0%,
+      #facc15 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #713f12 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #713f12 100%
+    );
+    --main-shadow-art: rgba(10, 8, 2, 0.56) 0px 24px 60px,
+      rgba(250, 204, 21, 0.16) 0px 10px 24px,
+      rgba(251, 146, 60, 0.1) 0px 2px 10px;
+    --main-gradient-1: rgba(250, 204, 21, 0.34);
+    --main-gradient-2: rgba(251, 146, 60, 0.28);
+    --main-gradient-3: rgba(234, 179, 8, 0.24);
+    --main-gradient-4: rgba(253, 224, 71, 0.2);
+    --main-gradient-5: rgba(202, 138, 4, 0.18);
+    --glass-bg-primary: rgba(26, 21, 8, 0.56);
+    --glass-bg-secondary: rgba(45, 36, 13, 0.38);
+    --glass-border: rgba(250, 204, 21, 0.22);
+    --glass-border-light: rgba(251, 146, 60, 0.26);
+    --glass-shadow-inset: inset 0 1px 0 rgba(254, 252, 232, 0.08);
+  `,
+});
+
+const GlobalForestDreamStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 32%),
+    radial-gradient(circle at top right, rgba(132, 204, 22, 0.14), transparent 30%),
+    linear-gradient(145deg, #0a1a0a 0%, #122d12 46%, #1a3a1a 100%)
+  `,
+  scrollbar: '#22c55e',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(34, 197, 94, 0.18), transparent 32%),
+      radial-gradient(circle at top right, rgba(132, 204, 22, 0.14), transparent 30%),
+      linear-gradient(145deg, #0a1a0a 0%, #122d12 46%, #1a3a1a 100%);
+    --primary-color: #dcfce7;
+    --secondary-color: #ecfccb;
+    --primary-accent: #22c55e;
+    --secondary-accent: #84cc16;
+    --main-text-color: #f0fdf4;
+    --second-text-color: #bbf7d0;
+    --error-text-color: #f87171;
+    --primary-button-color: #16a34a;
+    --secondary-button-color: #65a30d;
+    --main-hover-color: rgba(34, 197, 94, 0.16);
+    --secondary-hover-color: rgba(132, 204, 22, 0.18);
+    --clear-hover-color: rgba(74, 222, 128, 0.12);
+    --main-bg-color: rgba(10, 26, 10, 0.92);
+    --second-bg-color: rgba(18, 45, 18, 0.84);
+    --main-unit-color: #22c55e;
+    --second-unit-color: #84cc16;
+    --main-value-color: #86efac;
+    --main-bg-nav-color: rgba(10, 26, 10, 0.96);
+    --main-bg-card-color: rgba(18, 45, 18, 0.72);
+    --main-bg-Innercard-color: rgba(26, 58, 26, 0.56);
+    --main-arrow-up: #4ade80;
+    --main-arrow-down: #f87171;
+    --cannabis-active-color: #22c55e;
+    --cannabis-inactive-color: #166534;
+    --warning-color: #fbbf24;
+    --warning-text-color: #fcd34d;
+    --warning-accent-color: #fb923c;
+    --muted-text-color: #6ee7b7;
+    --placeholder-text-color: #4ade80;
+    --disabled-text-color: #14532d;
+    --border-light-color: #15803d;
+    --focus-color: #22c55e;
+    --chart-primary-color: #22c55e;
+    --chart-secondary-color: #84cc16;
+    --chart-success-color: #4ade80;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #f87171;
+    --chart-neutral-color: #166534;
+    --sensor-temp-color: #f87171;
+    --sensor-humidity-color: #22c55e;
+    --sensor-co2-color: #84cc16;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #4ade80;
+    --sensor-ec-color: #22c55e;
+    --border-color: rgba(34, 197, 94, 0.22);
+    --border-hover-color: rgba(132, 204, 22, 0.28);
+    --disabled-bg-color: rgba(20, 83, 45, 0.24);
+    --active-bg-color: rgba(34, 197, 94, 0.14);
+    --pressed-bg-color: rgba(132, 204, 22, 0.18);
+    --input-bg-color: rgba(10, 26, 10, 0.68);
+    --input-border-color: rgba(34, 197, 94, 0.26);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(34, 197, 94, 0.16);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #86efac 0%,
+      #22c55e calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #14532d calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #14532d 100%
+    );
+    --main-shadow-art: rgba(10, 26, 10, 0.56) 0px 24px 60px,
+      rgba(34, 197, 94, 0.12) 0px 10px 24px,
+      rgba(132, 204, 22, 0.08) 0px 2px 10px;
+    --main-gradient-1: rgba(34, 197, 94, 0.24);
+    --main-gradient-2: rgba(132, 204, 22, 0.2);
+    --main-gradient-3: rgba(74, 222, 128, 0.18);
+    --main-gradient-4: rgba(34, 197, 94, 0.14);
+    --main-gradient-5: rgba(101, 163, 13, 0.12);
+    --glass-bg-primary: rgba(10, 26, 10, 0.54);
+    --glass-bg-secondary: rgba(18, 45, 18, 0.36);
+    --glass-border: rgba(34, 197, 94, 0.16);
+    --glass-border-light: rgba(132, 204, 22, 0.2);
+    --glass-shadow-inset: inset 0 1px 0 rgba(240, 253, 244, 0.06);
+  `,
+});
+
+const GlobalOceanBreezeStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 34%),
+    radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 32%),
+    linear-gradient(145deg, #e0f7fa 0%, #d4f5fc 46%, #c5f0f7 100%)
+  `,
+  scrollbar: '#0ea5e9',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 34%),
+      radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 32%),
+      linear-gradient(145deg, #e0f7fa 0%, #d4f5fc 46%, #c5f0f7 100%);
+    --primary-color: #0c4a6e;
+    --secondary-color: #075985;
+    --primary-accent: #0ea5e9;
+    --secondary-accent: #38bdf8;
+    --main-text-color: #083344;
+    --second-text-color: #0e7490;
+    --error-text-color: #dc2626;
+    --primary-button-color: #0284c7;
+    --secondary-button-color: #0ea5e9;
+    --main-hover-color: rgba(14, 165, 233, 0.12);
+    --secondary-hover-color: rgba(56, 189, 248, 0.14);
+    --clear-hover-color: rgba(14, 165, 233, 0.1);
+    --main-bg-color: rgba(255, 255, 255, 0.96);
+    --second-bg-color: rgba(240, 249, 255, 0.94);
+    --main-unit-color: #0ea5e9;
+    --second-unit-color: #38bdf8;
+    --main-value-color: #0369a1;
+    --main-bg-nav-color: rgba(255, 255, 255, 0.98);
+    --main-bg-card-color: rgba(255, 255, 255, 0.94);
+    --main-bg-Innercard-color: rgba(240, 249, 255, 0.92);
+    --main-arrow-up: #16a34a;
+    --main-arrow-down: #dc2626;
+    --cannabis-active-color: #0ea5e9;
+    --cannabis-inactive-color: #64748b;
+    --warning-color: #f59e0b;
+    --warning-text-color: #d97706;
+    --warning-accent-color: #ea580c;
+    --muted-text-color: #64748b;
+    --placeholder-text-color: #94a3b8;
+    --disabled-text-color: #cbd5e1;
+    --border-light-color: #bae6fd;
+    --focus-color: #0ea5e9;
+    --chart-primary-color: #38bdf8;
+    --chart-secondary-color: #0ea5e9;
+    --chart-success-color: #16a34a;
+    --chart-warning-color: #f59e0b;
+    --chart-error-color: #dc2626;
+    --chart-neutral-color: #64748b;
+    --sensor-temp-color: #dc2626;
+    --sensor-humidity-color: #38bdf8;
+    --sensor-co2-color: #0ea5e9;
+    --sensor-light-color: #f59e0b;
+    --sensor-ph-color: #16a34a;
+    --sensor-ec-color: #0ea5e9;
+    --border-color: #bae6fd;
+    --border-hover-color: #0ea5e9;
+    --disabled-bg-color: #e0f2fe;
+    --active-bg-color: rgba(14, 165, 233, 0.12);
+    --pressed-bg-color: rgba(56, 189, 248, 0.16);
+    --input-bg-color: rgba(255, 255, 255, 0.96);
+    --input-border-color: #bae6fd;
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(14, 165, 233, 0.12);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #7dd3fc 0%,
+      #0ea5e9 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #bae6fd calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #bae6fd 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.06) 0px 8px 24px,
+      rgba(14, 165, 233, 0.08) 0px 4px 12px,
+      rgba(0, 0, 0, 0.04) 0px 2px 4px;
+    --main-gradient-1: rgba(14, 165, 233, 0.14);
+    --main-gradient-2: rgba(56, 189, 248, 0.12);
+    --main-gradient-3: rgba(16, 163, 74, 0.1);
+    --main-gradient-4: rgba(14, 165, 233, 0.08);
+    --main-gradient-5: rgba(56, 189, 248, 0.06);
+    --glass-bg-primary: rgba(255, 255, 255, 0.88);
+    --glass-bg-secondary: rgba(240, 249, 255, 0.78);
+    --glass-border: rgba(186, 230, 253, 0.68);
+    --glass-border-light: rgba(14, 165, 233, 0.25);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.94);
+  `,
+});
+
+const GlobalMidnightRoseStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(244, 114, 182, 0.2), transparent 32%),
+    radial-gradient(circle at top right, rgba(192, 132, 252, 0.16), transparent 30%),
+    linear-gradient(145deg, #0f0a14 0%, #1a1022 46%, #251a30 100%)
+  `,
+  scrollbar: '#f472b6',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(244, 114, 182, 0.2), transparent 32%),
+      radial-gradient(circle at top right, rgba(192, 132, 252, 0.16), transparent 30%),
+      linear-gradient(145deg, #0f0a14 0%, #1a1022 46%, #251a30 100%);
+    --primary-color: #fce7f3;
+    --secondary-color: #f3e8ff;
+    --primary-accent: #f472b6;
+    --secondary-accent: #c084fc;
+    --main-text-color: #fdf2f8;
+    --second-text-color: #f9a8d4;
+    --error-text-color: #f87171;
+    --primary-button-color: #db2777;
+    --secondary-button-color: #a855f7;
+    --main-hover-color: rgba(244, 114, 182, 0.18);
+    --secondary-hover-color: rgba(192, 132, 252, 0.2);
+    --clear-hover-color: rgba(232, 121, 249, 0.12);
+    --main-bg-color: rgba(15, 10, 20, 0.94);
+    --second-bg-color: rgba(26, 16, 34, 0.86);
+    --main-unit-color: #f472b6;
+    --second-unit-color: #c084fc;
+    --main-value-color: #f9a8d4;
+    --main-bg-nav-color: rgba(15, 10, 20, 0.97);
+    --main-bg-card-color: rgba(26, 16, 34, 0.74);
+    --main-bg-Innercard-color: rgba(37, 26, 48, 0.58);
+    --main-arrow-up: #4ade80;
+    --main-arrow-down: #f87171;
+    --cannabis-active-color: #f472b6;
+    --cannabis-inactive-color: #737373;
+    --warning-color: #fbbf24;
+    --warning-text-color: #fcd34d;
+    --warning-accent-color: #fb923c;
+    --muted-text-color: #f472b6;
+    --placeholder-text-color: #a855f7;
+    --disabled-text-color: #86198f;
+    --border-light-color: #701a75;
+    --focus-color: #f472b6;
+    --chart-primary-color: #f472b6;
+    --chart-secondary-color: #c084fc;
+    --chart-success-color: #34d399;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #f87171;
+    --chart-neutral-color: #86198f;
+    --sensor-temp-color: #f87171;
+    --sensor-humidity-color: #f472b6;
+    --sensor-co2-color: #c084fc;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #34d399;
+    --sensor-ec-color: #22c55e;
+    --border-color: rgba(244, 114, 182, 0.24);
+    --border-hover-color: rgba(192, 132, 252, 0.3);
+    --disabled-bg-color: rgba(134, 25, 143, 0.24);
+    --active-bg-color: rgba(244, 114, 182, 0.16);
+    --pressed-bg-color: rgba(192, 132, 252, 0.22);
+    --input-bg-color: rgba(15, 10, 20, 0.72);
+    --input-border-color: rgba(244, 114, 182, 0.26);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(244, 114, 182, 0.18);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #f9a8d4 0%,
+      #f472b6 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #581c87 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #581c87 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.64) 0px 24px 60px,
+      rgba(244, 114, 182, 0.16) 0px 10px 24px,
+      rgba(192, 132, 252, 0.1) 0px 2px 10px;
+    --main-gradient-1: rgba(244, 114, 182, 0.26);
+    --main-gradient-2: rgba(192, 132, 252, 0.22);
+    --main-gradient-3: rgba(52, 211, 153, 0.18);
+    --main-gradient-4: rgba(232, 121, 249, 0.14);
+    --main-gradient-5: rgba(168, 85, 247, 0.12);
+    --glass-bg-primary: rgba(15, 10, 20, 0.58);
+    --glass-bg-secondary: rgba(26, 16, 34, 0.38);
+    --glass-border: rgba(244, 114, 182, 0.18);
+    --glass-border-light: rgba(192, 132, 252, 0.22);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.06);
+  `,
+});
+
+const GlobalArcticFrostStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(186, 230, 253, 0.18), transparent 34%),
+    radial-gradient(circle at top right, rgba(224, 242, 254, 0.14), transparent 32%),
+    linear-gradient(145deg, #f0f9ff 0%, #e5f5fa 46%, #dbeafe 100%)
+  `,
+  scrollbar: '#0ea5e9',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(186, 230, 253, 0.18), transparent 34%),
+      radial-gradient(circle at top right, rgba(224, 242, 254, 0.14), transparent 32%),
+      linear-gradient(145deg, #f0f9ff 0%, #e5f5fa 46%, #dbeafe 100%);
+    --primary-color: #0f172a;
+    --secondary-color: #334155;
+    --primary-accent: #0ea5e9;
+    --secondary-accent: #7dd3fc;
+    --main-text-color: #0c4a6e;
+    --second-text-color: #0e7490;
+    --error-text-color: #dc2626;
+    --primary-button-color: #0284c7;
+    --secondary-button-color: #0ea5e9;
+    --main-hover-color: rgba(14, 165, 233, 0.14);
+    --secondary-hover-color: rgba(125, 211, 252, 0.16);
+    --clear-hover-color: rgba(14, 165, 233, 0.1);
+    --main-bg-color: rgba(255, 255, 255, 0.98);
+    --second-bg-color: rgba(240, 249, 255, 0.96);
+    --main-unit-color: #0ea5e9;
+    --second-unit-color: #7dd3fc;
+    --main-value-color: #0369a1;
+    --main-bg-nav-color: rgba(255, 255, 255, 0.99);
+    --main-bg-card-color: rgba(255, 255, 255, 0.96);
+    --main-bg-Innercard-color: rgba(240, 249, 255, 0.94);
+    --main-arrow-up: #16a34a;
+    --main-arrow-down: #dc2626;
+    --cannabis-active-color: #0ea5e9;
+    --cannabis-inactive-color: #94a3b8;
+    --warning-color: #f59e0b;
+    --warning-text-color: #d97706;
+    --warning-accent-color: #ea580c;
+    --muted-text-color: #64748b;
+    --placeholder-text-color: #94a3b8;
+    --disabled-text-color: #cbd5e1;
+    --border-light-color: #bae6fd;
+    --focus-color: #0ea5e9;
+    --chart-primary-color: #7dd3fc;
+    --chart-secondary-color: #0ea5e9;
+    --chart-success-color: #16a34a;
+    --chart-warning-color: #f59e0b;
+    --chart-error-color: #dc2626;
+    --chart-neutral-color: #94a3b8;
+    --sensor-temp-color: #dc2626;
+    --sensor-humidity-color: #7dd3fc;
+    --sensor-co2-color: #0ea5e9;
+    --sensor-light-color: #f59e0b;
+    --sensor-ph-color: #16a34a;
+    --sensor-ec-color: #0ea5e9;
+    --border-color: #bae6fd;
+    --border-hover-color: #0ea5e9;
+    --disabled-bg-color: #f0f9ff;
+    --active-bg-color: rgba(14, 165, 233, 0.14);
+    --pressed-bg-color: rgba(125, 211, 252, 0.18);
+    --input-bg-color: rgba(255, 255, 255, 0.98);
+    --input-border-color: #bae6fd;
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(14, 165, 233, 0.14);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #bae6fd 0%,
+      #0ea5e9 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e0f2fe calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #e0f2fe 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.04) 0px 8px 24px,
+      rgba(14, 165, 233, 0.06) 0px 4px 12px,
+      rgba(0, 0, 0, 0.02) 0px 2px 4px;
+    --main-gradient-1: rgba(14, 165, 233, 0.16);
+    --main-gradient-2: rgba(125, 211, 252, 0.14);
+    --main-gradient-3: rgba(16, 163, 74, 0.12);
+    --main-gradient-4: rgba(14, 165, 233, 0.1);
+    --main-gradient-5: rgba(125, 211, 252, 0.08);
+    --glass-bg-primary: rgba(255, 255, 255, 0.92);
+    --glass-bg-secondary: rgba(240, 249, 255, 0.82);
+    --glass-border: rgba(186, 230, 253, 0.72);
+    --glass-border-light: rgba(14, 165, 233, 0.28);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.96);
+  `,
+});
+
+const GlobalCherryBlossomStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(244, 114, 182, 0.14), transparent 32%),
+    radial-gradient(circle at top right, rgba(251, 207, 232, 0.1), transparent 30%),
+    linear-gradient(145deg, #fdf2f8 0%, #fce7f3 46%, #fbcfe8 100%)
+  `,
+  scrollbar: '#f472b6',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(244, 114, 182, 0.14), transparent 32%),
+      radial-gradient(circle at top right, rgba(251, 207, 232, 0.1), transparent 30%),
+      linear-gradient(145deg, #fdf2f8 0%, #fce7f3 46%, #fbcfe8 100%);
+    --primary-color: #831843;
+    --secondary-color: #be185d;
+    --primary-accent: #ec4899;
+    --secondary-accent: #f472b6;
+    --main-text-color: #500724;
+    --second-text-color: #9d174d;
+    --error-text-color: #dc2626;
+    --primary-button-color: #db2777;
+    --secondary-button-color: #ec4899;
+    --main-hover-color: rgba(236, 72, 153, 0.12);
+    --secondary-hover-color: rgba(244, 114, 182, 0.14);
+    --clear-hover-color: rgba(251, 207, 232, 0.1);
+    --main-bg-color: rgba(253, 242, 248, 0.96);
+    --second-bg-color: rgba(252, 231, 243, 0.94);
+    --main-unit-color: #ec4899;
+    --second-unit-color: #f472b6;
+    --main-value-color: #be185d;
+    --main-bg-nav-color: rgba(253, 242, 248, 0.98);
+    --main-bg-card-color: rgba(255, 255, 255, 0.95);
+    --main-bg-Innercard-color: rgba(251, 207, 232, 0.92);
+    --main-arrow-up: #22c55e;
+    --main-arrow-down: #dc2626;
+    --cannabis-active-color: #22c55e;
+    --cannabis-inactive-color: #f472b6;
+    --warning-color: #f59e0b;
+    --warning-text-color: #d97706;
+    --warning-accent-color: #ea580c;
+    --muted-text-color: #9d174d;
+    --placeholder-text-color: #db2777;
+    --disabled-text-color: #fbcfe8;
+    --border-light-color: #fbcfe8;
+    --focus-color: #ec4899;
+    --chart-primary-color: #ec4899;
+    --chart-secondary-color: #f472b6;
+    --chart-success-color: #22c55e;
+    --chart-warning-color: #f59e0b;
+    --chart-error-color: #dc2626;
+    --chart-neutral-color: #be185d;
+    --sensor-temp-color: #dc2626;
+    --sensor-humidity-color: #ec4899;
+    --sensor-co2-color: #f472b6;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #22c55e;
+    --sensor-ec-color: #ec4899;
+    --border-color: #fbcfe8;
+    --border-hover-color: #ec4899;
+    --disabled-bg-color: #fce7f3;
+    --active-bg-color: rgba(236, 72, 153, 0.12);
+    --pressed-bg-color: rgba(244, 114, 182, 0.16);
+    --input-bg-color: rgba(255, 255, 255, 0.98);
+    --input-border-color: #fbcfe8;
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(236, 72, 153, 0.12);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #f9a8d4 0%,
+      #ec4899 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #fce7f3 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #fce7f3 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.06) 0px 8px 24px,
+      rgba(236, 72, 153, 0.08) 0px 4px 12px,
+      rgba(0, 0, 0, 0.04) 0px 2px 4px;
+    --main-gradient-1: rgba(236, 72, 153, 0.14);
+    --main-gradient-2: rgba(244, 114, 182, 0.12);
+    --main-gradient-3: rgba(251, 207, 232, 0.1);
+    --main-gradient-4: rgba(236, 72, 153, 0.08);
+    --main-gradient-5: rgba(244, 114, 182, 0.06);
+    --glass-bg-primary: rgba(255, 255, 255, 0.9);
+    --glass-bg-secondary: rgba(251, 207, 232, 0.8);
+    --glass-border: rgba(251, 207, 232, 0.7);
+    --glass-border-light: rgba(236, 72, 153, 0.25);
+    --glass-shadow-inset: inset 0 1px 0 rgba(255, 255, 255, 0.95);
+  `,
+});
+
+const GlobalVolcanicStyle = createTheme({
+  background: `
+    radial-gradient(circle at top left, rgba(239, 68, 68, 0.2), transparent 32%),
+    radial-gradient(circle at top right, rgba(249, 115, 22, 0.16), transparent 30%),
+    radial-gradient(circle at bottom center, rgba(153, 27, 27, 0.12), transparent 28%),
+    linear-gradient(145deg, #1a0505 0%, #2d0a0a 46%, #450a0a 100%)
+  `,
+  scrollbar: '#ef4444',
+  variables: css`
+    --theme-font-family: ${BASE_FONT_FAMILY};
+    --page-background:
+      radial-gradient(circle at top left, rgba(239, 68, 68, 0.2), transparent 32%),
+      radial-gradient(circle at top right, rgba(249, 115, 22, 0.16), transparent 30%),
+      radial-gradient(circle at bottom center, rgba(153, 27, 27, 0.12), transparent 28%),
+      linear-gradient(145deg, #1a0505 0%, #2d0a0a 46%, #450a0a 100%);
+    --primary-color: #fef2f2;
+    --secondary-color: #fecaca;
+    --primary-accent: #ef4444;
+    --secondary-accent: #f97316;
+    --main-text-color: #fef2f2;
+    --second-text-color: #fca5a5;
+    --error-text-color: #fca5a5;
+    --primary-button-color: #dc2626;
+    --secondary-button-color: #ea580c;
+    --main-hover-color: rgba(239, 68, 68, 0.18);
+    --secondary-hover-color: rgba(249, 115, 22, 0.16);
+    --clear-hover-color: rgba(254, 202, 202, 0.12);
+    --main-bg-color: rgba(26, 5, 5, 0.94);
+    --second-bg-color: rgba(45, 10, 10, 0.86);
+    --main-unit-color: #ef4444;
+    --second-unit-color: #f97316;
+    --main-value-color: #fca5a5;
+    --main-bg-nav-color: rgba(26, 5, 5, 0.97);
+    --main-bg-card-color: rgba(45, 10, 10, 0.74);
+    --main-bg-Innercard-color: rgba(69, 10, 10, 0.58);
+    --main-arrow-up: #22c55e;
+    --main-arrow-down: #fca5a5;
+    --cannabis-active-color: #22c55e;
+    --cannabis-inactive-color: #7f1d1d;
+    --warning-color: #fbbf24;
+    --warning-text-color: #fcd34d;
+    --warning-accent-color: #f97316;
+    --muted-text-color: #fca5a5;
+    --placeholder-text-color: #dc2626;
+    --disabled-text-color: #991b1b;
+    --border-light-color: #991b1b;
+    --focus-color: #ef4444;
+    --chart-primary-color: #ef4444;
+    --chart-secondary-color: #f97316;
+    --chart-success-color: #22c55e;
+    --chart-warning-color: #fbbf24;
+    --chart-error-color: #fca5a5;
+    --chart-neutral-color: #b91c1c;
+    --sensor-temp-color: #fca5a5;
+    --sensor-humidity-color: #ef4444;
+    --sensor-co2-color: #f97316;
+    --sensor-light-color: #fbbf24;
+    --sensor-ph-color: #22c55e;
+    --sensor-ec-color: #ef4444;
+    --border-color: rgba(239, 68, 68, 0.26);
+    --border-hover-color: rgba(249, 115, 22, 0.34);
+    --disabled-bg-color: rgba(153, 27, 27, 0.24);
+    --active-bg-color: rgba(239, 68, 68, 0.16);
+    --pressed-bg-color: rgba(249, 115, 22, 0.2);
+    --input-bg-color: rgba(26, 5, 5, 0.72);
+    --input-border-color: rgba(239, 68, 68, 0.32);
+    --input-focus-border-color: var(--primary-accent);
+    --button-hover-bg: rgba(239, 68, 68, 0.18);
+    --slider-BG-color: linear-gradient(
+      to right,
+      #fca5a5 0%,
+      #ef4444 calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #7f1d1d calc((var(--val) - var(--min)) / (var(--max) - var(--min)) * 100%),
+      #7f1d1d 100%
+    );
+    --main-shadow-art: rgba(0, 0, 0, 0.64) 0px 24px 60px,
+      rgba(239, 68, 68, 0.16) 0px 10px 24px,
+      rgba(249, 115, 22, 0.1) 0px 2px 10px;
+    --main-gradient-1: rgba(239, 68, 68, 0.26);
+    --main-gradient-2: rgba(249, 115, 22, 0.22);
+    --main-gradient-3: rgba(220, 38, 38, 0.2);
+    --main-gradient-4: rgba(251, 146, 60, 0.18);
+    --main-gradient-5: rgba(185, 28, 28, 0.16);
+    --glass-bg-primary: rgba(26, 5, 5, 0.58);
+    --glass-bg-secondary: rgba(45, 10, 10, 0.38);
+    --glass-border: rgba(239, 68, 68, 0.2);
+    --glass-border-light: rgba(249, 115, 22, 0.24);
+    --glass-shadow-inset: inset 0 1px 0 rgba(254, 242, 242, 0.06);
   `,
 });

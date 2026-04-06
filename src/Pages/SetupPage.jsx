@@ -4,6 +4,7 @@ import { useGlobalState } from '../Components/Context/GlobalContext';
 import { useNavigate } from 'react-router-dom';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import SecureTokenStorage from '../utils/secureTokenStorage';
+import isValidToken from '../misc/isValidJWT';
 
 // Define the blue-green gradient
 const GradientDefs = () => (
@@ -18,16 +19,53 @@ const GradientDefs = () => (
   </svg>
 );
 
-const SetupPage = () => {
+const SetupPage = ({ forceTokenEntry = false }) => {
   const [inputToken, setInputToken] = useState('');
   const [inputServerUrl, setInputServerUrl] = useState(import.meta.env.VITE_HA_HOST || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [pendingToken, setPendingToken] = useState(null);
-  const { setDeep } = useGlobalState();
+  const [showInterfaceSelection, setShowInterfaceSelection] = useState(false);
+  const [isCheckingExistingToken, setIsCheckingExistingToken] = useState(true);
+  const { setDeep, state } = useGlobalState();
   const navigate = useNavigate();
   const { connection, reconnect, loading, error, connectionState, setError } = useHomeAssistant();
   
   const isDev = import.meta.env.DEV;
+
+  // Check for existing token on mount
+  useEffect(() => {
+    const checkExistingToken = async () => {
+      // If forceTokenEntry is true, always show token input
+      if (forceTokenEntry) {
+        console.log('Force token entry mode - showing token input');
+        setIsCheckingExistingToken(false);
+        return;
+      }
+
+      const existingToken =
+        SecureTokenStorage.getToken() ||
+        localStorage.getItem('haToken') ||
+        localStorage.getItem('devToken');
+
+      // If we have a valid token and configuration is valid, skip to interface selection
+      if (isValidToken(existingToken)) {
+        console.log('Existing token found, checking configuration...');
+        // Check if siteView is already selected
+        if (state.Settings?.siteView) {
+          // Everything is configured, go to home
+          navigate('/home');
+          return;
+        } else {
+          // Token exists but no siteView selected, show interface selection directly
+          console.log('Token exists, showing interface selection');
+          setShowInterfaceSelection(true);
+        }
+      }
+      setIsCheckingExistingToken(false);
+    };
+
+    checkExistingToken();
+  }, [navigate, state.Settings?.siteView, forceTokenEntry]);
 
   // Watch for connection after token is set
   useEffect(() => {
@@ -44,7 +82,12 @@ const SetupPage = () => {
           SecureTokenStorage.storeToken(pendingToken);
           setPendingToken(null);
           setIsConnecting(false);
-          navigate("/home");
+          // Check if siteView is already selected
+          if (state.Settings?.siteView) {
+            navigate("/home");
+          } else {
+            setShowInterfaceSelection(true);
+          }
         } catch (err) {
           console.error('Error completing setup:', err);
           setIsConnecting(false);
@@ -63,7 +106,7 @@ const SetupPage = () => {
       // Other error - don't clear pendingToken, let reconnect retry
       console.warn('Connection error, retrying...', error);
     }
-  }, [connection, loading, error, pendingToken, navigate, connectionState]);
+  }, [connection, loading, error, pendingToken, navigate, connectionState, state.Settings?.siteView]);
 
   const handleInputChange = (e) => {
     setInputToken(e.target.value);
@@ -101,7 +144,12 @@ const SetupPage = () => {
     if (connection) {
       try {
         await handleTokenChange("text.ogb_accesstoken", inputToken);
-        navigate("/home");
+        // Check if siteView is already selected
+        if (state.Settings?.siteView) {
+          navigate("/home");
+        } else {
+          setShowInterfaceSelection(true);
+        }
       } catch (err) {
         console.error('Error updating token:', err);
         alert('Error saving token. Please try again.');
@@ -114,6 +162,21 @@ const SetupPage = () => {
       // Use reconnect which sets isManualConnectRef to avoid race with useEffect
       setTimeout(() => reconnect(), 100);
     }
+  };
+
+  const handleInterfaceSelection = (mode) => {
+    setDeep('Settings.siteView', mode);
+    navigate("/home");
+  };
+
+  const handleReenterToken = () => {
+    // Clear the existing token and show token input
+    setShowInterfaceSelection(false);
+    setInputToken('');
+    // Optionally clear stored tokens
+    // localStorage.removeItem('haToken');
+    // localStorage.removeItem('devToken');
+    // SecureTokenStorage.clearToken();
   };
 
   const handleTokenChange = async (entity, value) => {
@@ -140,37 +203,79 @@ const SetupPage = () => {
   return (
     <Wrapper>
       <GradientDefs />
-      <Header>
-        Welcome to OpenGrowBox
-      </Header>
-      <SubText>
-        {isDev 
-          ? 'Please enter your Home Assistant server URL and Long-Lived Access Token to proceed.'
-          : 'Please enter your Home Assistant Long-Lived Access Token to proceed.'
-        }
-      </SubText>
-      <InputWrapper>
-        {isDev && (
-          <Input
-            type="url"
-            placeholder="Home Assistant Server URL (e.g., http://homeassistant.local:8123)"
-            value={inputServerUrl}
-            onChange={handleServerUrlChange}
-          />
-        )}
-        <Input
-          type="text"
-          placeholder="Enter Assistant Long-Lived Token..."
-          value={inputToken}
-          onChange={handleInputChange}
-        />
-        <SubmitButton onClick={handleSubmit} disabled={isConnecting}>
-          {isConnecting ? 'Connecting...' : 'Save Token'}
-        </SubmitButton>
-      </InputWrapper>
-      <Footer>
-        🪴 Grow smarter with OpenGrowBox! 🪴 Harvest Better
-      </Footer>
+      {showInterfaceSelection ? (
+        <InterfaceSelectionWrapper>
+          <InterfaceHeader>
+            Choose Your Interface
+          </InterfaceHeader>
+          <InterfaceSubText>
+            Select the interface that best fits your needs
+          </InterfaceSubText>
+          <InterfaceCards>
+            <InterfaceCard onClick={() => handleInterfaceSelection('lite')}>
+              <CardIcon>🌱</CardIcon>
+              <CardTitle>LITE</CardTitle>
+              <CardDescription>
+                Simple and clean interface
+              </CardDescription>
+              <CardFeatures>
+                <CardFeature>• Sensor values only</CardFeature>
+                <CardFeature>• Basic controls</CardFeature>
+                <CardFeature>• Easy to use</CardFeature>
+              </CardFeatures>
+            </InterfaceCard>
+            <InterfaceCard onClick={() => handleInterfaceSelection('pro')}>
+              <CardIcon>⚡</CardIcon>
+              <CardTitle>PRO</CardTitle>
+              <CardDescription>
+                Full-featured experience
+              </CardDescription>
+              <CardFeatures>
+                <CardFeature>• All features included</CardFeature>
+                <CardFeature>• AI Assistant</CardFeature>
+                <CardFeature>• Advanced analytics</CardFeature>
+              </CardFeatures>
+            </InterfaceCard>
+          </InterfaceCards>
+          <ReenterTokenButton onClick={handleReenterToken}>
+            ↻ Re-enter Token
+          </ReenterTokenButton>
+        </InterfaceSelectionWrapper>
+      ) : (
+        <>
+          <Header>
+            Welcome to OpenGrowBox
+          </Header>
+          <SubText>
+            {isDev 
+              ? 'Please enter your Home Assistant server URL and Long-Lived Access Token to proceed.'
+              : 'Please enter your Home Assistant Long-Lived Access Token to proceed.'
+            }
+          </SubText>
+          <InputWrapper>
+            {isDev && (
+              <Input
+                type="url"
+                placeholder="Home Assistant Server URL (e.g., http://homeassistant.local:8123)"
+                value={inputServerUrl}
+                onChange={handleServerUrlChange}
+              />
+            )}
+            <Input
+              type="text"
+              placeholder="Enter Assistant Long-Lived Token..."
+              value={inputToken}
+              onChange={handleInputChange}
+            />
+            <SubmitButton onClick={handleSubmit} disabled={isConnecting}>
+              {isConnecting ? 'Connecting...' : 'Save Token'}
+            </SubmitButton>
+          </InputWrapper>
+          <Footer>
+            🪴 Grow smarter with OpenGrowBox! 🪴 Harvest Better
+          </Footer>
+        </>
+      )}
     </Wrapper>
   );
 };
@@ -353,5 +458,151 @@ const Footer = styled.div`
 
   @media (max-width: 768px) {
     font-size: 0.9rem;
+  }
+`;
+
+const InterfaceSelectionWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  width: 100%;
+  max-width: 800px;
+  animation: ${fadeIn} 0.5s ease-in-out;
+`;
+
+const InterfaceHeader = styled.h1`
+  font-size: 2.5rem;
+  color: #E9F5DB;
+  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+  margin-bottom: 1rem;
+  font-weight: 700;
+  letter-spacing: 1px;
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+`;
+
+const InterfaceSubText = styled.p`
+  font-size: 1.1rem;
+  color: #F4F1DE;
+  margin-bottom: 2.5rem;
+  text-align: center;
+  max-width: 600px;
+  line-height: 1.5;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+    max-width: 90%;
+  }
+`;
+
+const InterfaceCards = styled.div`
+  display: flex;
+  gap: 2rem;
+  width: 100%;
+  justify-content: center;
+  flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    flex-direction: column;
+    gap: 1.5rem;
+  }
+`;
+
+const InterfaceCard = styled.div`
+  flex: 1;
+  min-width: 280px;
+  max-width: 350px;
+  padding: 2.5rem;
+  background: rgba(42, 157, 143, 0.2);
+  backdrop-filter: blur(8px);
+  border: 2px solid rgba(255, 255, 255, 0.1);
+  border-radius: 20px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+
+  &:hover {
+    background: rgba(42, 157, 143, 0.3);
+    border-color: #48CAE4;
+    transform: translateY(-5px);
+    box-shadow: 0 8px 30px rgba(72, 202, 228, 0.3);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 100%;
+    max-width: 100%;
+    padding: 2rem;
+  }
+`;
+
+const CardIcon = styled.div`
+  font-size: 3rem;
+  text-align: center;
+  margin-bottom: 1rem;
+`;
+
+const CardTitle = styled.h2`
+  font-size: 1.8rem;
+  color: #E9F5DB;
+  text-align: center;
+  margin-bottom: 0.5rem;
+  font-weight: 700;
+
+  @media (max-width: 768px) {
+    font-size: 1.5rem;
+  }
+`;
+
+const CardDescription = styled.p`
+  font-size: 1rem;
+  color: #F4F1DE;
+  text-align: center;
+  margin-bottom: 1.5rem;
+  opacity: 0.9;
+
+  @media (max-width: 768px) {
+    font-size: 0.9rem;
+  }
+`;
+
+const CardFeatures = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const CardFeature = styled.div`
+  font-size: 0.9rem;
+  color: #F4F1DE;
+  padding: 0.5rem;
+  background: rgba(38, 70, 83, 0.4);
+  border-radius: 8px;
+  text-align: left;
+`;
+
+const ReenterTokenButton = styled.button`
+  margin-top: 2rem;
+  padding: 0.75rem 1.5rem;
+  font-size: 0.9rem;
+  color: #F4F1DE;
+  background: rgba(38, 70, 83, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+
+  &:hover {
+    background: rgba(38, 70, 83, 0.6);
+    border-color: #48CAE4;
+    transform: translateY(-2px);
+  }
+
+  @media (max-width: 768px) {
+    margin-top: 1.5rem;
+    padding: 0.6rem 1.2rem;
+    font-size: 0.85rem;
   }
 `;

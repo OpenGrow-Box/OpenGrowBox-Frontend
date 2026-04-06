@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useGlobalState } from '../Components/Context/GlobalContext';
 import { useNavigate } from 'react-router-dom';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
-import isValidJWT from '../misc/isValidJWT';
+import isValidToken from '../misc/isValidJWT';
 import SetupPage from './SetupPage';
 import styled, { keyframes } from 'styled-components';
 import SecureTokenStorage from '../utils/secureTokenStorage';
@@ -24,7 +24,7 @@ const getRandomMessage = () =>
   loadingMessages[Math.floor(Math.random() * loadingMessages.length)];
 
 const Interface = () => {
-  const { accessToken } = useGlobalState();
+  const { accessToken, state } = useGlobalState();
   const navigate = useNavigate();
   const [token, setToken] = useState('');
   const [isLoading, setIsLoading] = useState(true);
@@ -46,7 +46,7 @@ const Interface = () => {
 
       await new Promise((res) => setTimeout(res, loadingDuration));
 
-      if (isValidJWT(localToken)) {
+      if (isValidToken(localToken)) {
         setToken(localToken);
       } else {
         setToken('');
@@ -65,12 +65,27 @@ const Interface = () => {
         return; // Stay on current page to show SetupPage
       }
 
-      // If we have a valid token and configuration, proceed to home
-      if (isValidJWT(accessToken)) {
-        navigate('/home');
+      // If we have a valid token and configuration, check siteView
+      if (isValidToken(accessToken)) {
+        const siteView = state.Settings?.siteView;
+        if (!siteView) {
+          // No siteView selected, show setup page with interface selection
+          console.log('No siteView selected, showing setup page');
+          return;
+        }
+        // Ensure siteView is valid (lite or pro)
+        if (siteView !== 'lite' && siteView !== 'pro') {
+          console.log('Invalid siteView, showing setup page');
+          return;
+        }
+        // Only navigate to home if we're on the root path (/)
+        // Don't redirect if user manually navigated to /config
+        if (window.location.pathname === '/' || window.location.pathname === '/ogb-gui/' || window.location.pathname === '/ogb-gui') {
+          navigate('/home');
+        }
       }
     }
-  }, [accessToken, isLoading, isConfigurationValid, navigate]);
+  }, [accessToken, isLoading, isConfigurationValid, navigate, state.Settings?.siteView]);
 
   if (isLoading) {
     // Show different loading messages based on connection state
@@ -105,7 +120,12 @@ const Interface = () => {
 
   // Show setup page if configuration is invalid or no valid token
   if (!isConfigurationValid() || !token) {
-    return <SetupPage />;
+    return <SetupPage forceTokenEntry={true} />;
+  }
+
+  // If configuration is valid but no siteView selected, show setup with interface selection
+  if (isConfigurationValid() && token && !state.Settings?.siteView) {
+    return <SetupPage forceTokenEntry={false} />;
   }
 
   // If we have valid configuration but no connection yet, show loading

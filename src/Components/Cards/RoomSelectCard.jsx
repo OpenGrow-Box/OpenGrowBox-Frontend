@@ -14,10 +14,18 @@ const RoomSelectCard = ({title}) => {
 
   // Debug: log areas when they change
   useEffect(() => {
-    console.log('=== RoomSelectCard areas ===');
+    console.log('=== RoomSelectCard Debug ===');
     console.log('Areas object:', areas);
-    console.log('Areas keys:', Object.keys(areas));
-    console.log('dev_room area:', areas['dev_room']);
+    if (areas) {
+      console.log('Areas keys:', Object.keys(areas));
+      Object.entries(areas).forEach(([id, area]) => {
+        console.log(`  Area "${id}":`, {
+          name: area.name,
+          aliases: area.aliases,
+          friendly_name: area.friendly_name,
+        });
+      });
+    }
   }, [areas]);
 
   // Get friendly name/alias for a room - with priority: area aliases → options_with_alias → area name → fallback
@@ -25,9 +33,7 @@ const RoomSelectCard = ({title}) => {
     if (!roomId) return '';
     
     console.log('Looking for room:', roomId);
-    console.log('Looking up in areas:', areas[roomId]);
-    
-    const roomIdNormalized = roomId.toLowerCase().replace(/\s+/g, '_').replace(/-/g, '_');
+    console.log('Available areas:', Object.keys(areas || {}));
     
     // 1. Try to get alias from select.ogb_rooms entity's options_with_alias attribute
     const roomEntity = Object.entries(entities).find(([key]) =>
@@ -36,31 +42,37 @@ const RoomSelectCard = ({title}) => {
     
     if (roomEntity?.attributes?.options_with_alias) {
       const aliases = roomEntity.attributes.options_with_alias;
+      console.log('options_with_alias:', aliases);
       if (aliases[roomId]) {
         console.log('Found in options_with_alias:', aliases[roomId]);
         return aliases[roomId];
       }
     }
     
-    // 2. Direct area lookup by room ID - use alias first, then name
-    const area = areas[roomId] || areas[roomIdNormalized];
+    // 2. Direct area lookup by room ID
+    const area = areas ? areas[roomId] : null;
     console.log('Found area:', area);
     
     if (area) {
-      // Use alias if available (e.g., "BaboRoom #1")
-      if (area.aliases && area.aliases.length > 0) {
-        console.log('Using alias:', area.aliases[0]);
+      // Use alias if available (array of strings)
+      if (area.aliases && Array.isArray(area.aliases) && area.aliases.length > 0) {
+        console.log('Using area.aliases:', area.aliases);
         return area.aliases[0];
       }
       // Fallback to area name if different from ID
       if (area.name && area.name !== area.area_id) {
-        console.log('Using area name:', area.name);
+        console.log('Using area.name:', area.name);
         return area.name;
+      }
+      // Fallback to friendly_name if different
+      if (area.friendly_name && area.friendly_name !== area.area_id) {
+        console.log('Using area.friendly_name:', area.friendly_name);
+        return area.friendly_name;
       }
     }
     
     // 3. Fallback: return the raw room ID
-    console.log('Using fallback:', roomId);
+    console.log('Using fallback (room ID):', roomId);
     return roomId;
   };
 
