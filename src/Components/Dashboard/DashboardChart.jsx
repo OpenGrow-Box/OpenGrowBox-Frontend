@@ -427,12 +427,35 @@ const SensorChart = ({
         yData.shift();
       }
 
+      // Calculate new average for the AVG line
+      const newAvg = yData.reduce((a, b) => a + b, 0) / yData.length;
+
       chartDataRef.current = { xData, yData };
 
+      // Update both series: main data and AVG line
       chartInstance.setOption({
         xAxis: { data: xData },
-        series: [{ data: yData }]
+        series: [
+          { data: yData },
+          {
+            data: yData.map(() => newAvg),
+            markLine: {
+              data: [{
+                yAxis: newAvg,
+                label: {
+                  formatter: `Ø ${newAvg.toFixed(2)}`
+                }
+              }]
+            }
+          }
+        ]
       });
+
+      // Also update the stats avg
+      setStats(prev => ({
+        ...prev,
+        avg: newAvg.toFixed(2)
+      }));
     }
   }, [entities, sensorId]);
 
