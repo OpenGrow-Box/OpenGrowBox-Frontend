@@ -191,7 +191,13 @@ const StatusIndicatorIcon = ({ status, size = 16 }) => {
 
 
 
-const LogItem = ({ room, date, info }) => {
+const LogItem = ({ room, date, info, getRoomDisplayName }) => {
+  // Fallback function if getRoomDisplayName is not provided
+  const getRoomName = (roomId) => {
+    if (!roomId) return 'Unknown';
+    if (getRoomDisplayName) return getRoomDisplayName(roomId);
+    return roomId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
   // Parse the info if it's a string with error handling
   const parsedInfo = (() => {
     try {
@@ -1819,6 +1825,7 @@ const ExpandableLogItem = ({ log, isExpanded, onToggle, getRoomDisplayName }) =>
             room={log.room || ''}
             date={log.date}
             info={log.info}
+            getRoomDisplayName={getRoomDisplayName}
           />
         </ExpandedContent>
       )}

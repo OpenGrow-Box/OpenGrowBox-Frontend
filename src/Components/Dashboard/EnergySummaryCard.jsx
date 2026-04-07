@@ -120,6 +120,7 @@ const Card = styled.div`
   display: flex;
   flex-direction: column;
   padding: 1.25rem;
+  min-height: 140px;
   background: ${props => props.highlight 
     ? 'linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(96, 165, 250, 0.1) 100%)' 
     : 'var(--glass-bg-secondary)'
@@ -131,7 +132,6 @@ const Card = styled.div`
   border-radius: 16px;
   backdrop-filter: blur(10px);
   transition: all 0.3s ease;
-  overflow: hidden;
 
   &::before {
     content: '';
@@ -155,6 +155,7 @@ const Card = styled.div`
 
   @media (max-width: 768px) {
     padding: 1rem;
+    min-height: 120px;
     &:hover {
       transform: translateY(-2px);
     }
@@ -196,6 +197,7 @@ const CardContent = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
+  z-index: 1;
 `;
 
 const Label = styled.span`
@@ -241,8 +243,8 @@ const SparklineContainer = styled.div`
   left: 0;
   right: 0;
   height: 40px;
-  opacity: 0.6;
   pointer-events: none;
+  z-index: 0;
 `;
 
 export default EnergySummaryCard;

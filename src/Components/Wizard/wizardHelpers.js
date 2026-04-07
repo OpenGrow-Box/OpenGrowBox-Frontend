@@ -1,6 +1,6 @@
 export const GITHUB_ISSUES_URL = 'https://github.com/OpenGrow-Box/OpenGrowBox-Frontend/issues/new'
 export const PRIVATE_SUPPORT_URL = import.meta.env.VITE_SUPPORT_API_URL + '/support'
-export const UI_VERSION = 'v1.0.9'
+export const UI_VERSION = 'v1.1.0'
 export const PLANT_CONFIG_EVENT = 'needPlantConfig'
 export const PLANT_CONFIG_RESULT_EVENT = 'needPlantConfigResult'
 export const SAVE_PLANT_CONFIG_EVENT = 'savePlantConfig'

@@ -239,28 +239,34 @@ const DataSection = styled.section`
 
 const TabContainer = styled.div`
   display: flex;
+  flex-wrap: wrap;
   gap: 0.5rem;
   background: var(--main-bg-card-color);
   padding: 0.5rem;
   border-radius: 12px;
   backdrop-filter: blur(10px);
+  justify-content: center;
 `;
 
 const TabButton = styled.button`
   position: relative;
   display: flex;
   align-items: center;
+  justify-content: center;
   gap: 0.5rem;
-  padding: 0.75rem 1.5rem;
+  padding: 0.75rem 1rem;
   background: transparent;
   border: none;
   border-radius: 8px;
   color: ${props => props.$active ? 'var(--main-text-color)' : 'var(--placeholder-text-color)'};
-  font-size: 0.95rem;
+  font-size: 0.85rem;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
   z-index: 1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   &:hover {
     color: var(--main-text-color);
@@ -268,9 +274,13 @@ const TabButton = styled.button`
   }
 
   span {
-    @media (max-width: 480px) {
+    @media (max-width: 600px) {
       display: none;
     }
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.6rem 0.8rem;
   }
 `;
 

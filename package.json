@@ -1,7 +1,7 @@
 {
   "name": "ogb-ha-gui",
   "private": true,
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "OpenGrowBox Home Assistant GUI Integration",
   "type": "module",
   "scripts": {

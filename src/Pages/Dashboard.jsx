@@ -18,10 +18,45 @@ const Dashboard = () => {
   const { currentRoom, entities, connectionState } = useHomeAssistant();
   const [isLoading, setIsLoading] = useState(true);
   const [, setError] = useState(null);
-  const [ setIsRoomDropdownOpen] = useState(false);
+  const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
   const [activeDashboardTab, setActiveDashboardTab] = useState(() => localStorage.getItem('dashboardActiveTab') || 'analytics');
   const [selectedCO2SensorIndex, setSelectedCO2SensorIndex] = useState(0);
   const roomDropdownRef = useRef(null);
+
+  // Global live mode state - shared across all charts
+  const [isGlobalLiveMode, setIsGlobalLiveMode] = useState(false);
+  const [globalLiveRefreshTrigger, setGlobalLiveRefreshTrigger] = useState(0);
+  const globalLiveIntervalRef = useRef(null);
+
+  // Global live mode interval - 30 seconds
+  useEffect(() => {
+    if (isGlobalLiveMode) {
+      // Trigger immediate refresh when live mode is activated
+      setGlobalLiveRefreshTrigger(prev => prev + 1);
+      
+      // Set up 30-second interval for all charts
+      globalLiveIntervalRef.current = setInterval(() => {
+        setGlobalLiveRefreshTrigger(prev => prev + 1);
+      }, 30000); // 30 seconds
+    } else {
+      // Clear interval when live mode is deactivated
+      if (globalLiveIntervalRef.current) {
+        clearInterval(globalLiveIntervalRef.current);
+        globalLiveIntervalRef.current = null;
+      }
+    }
+
+    return () => {
+      if (globalLiveIntervalRef.current) {
+        clearInterval(globalLiveIntervalRef.current);
+      }
+    };
+  }, [isGlobalLiveMode]);
+
+  // Handle global live mode toggle from any chart
+  const handleLiveModeChange = (isLive) => {
+    setIsGlobalLiveMode(isLive);
+  };
 
   useEffect(() => {
     localStorage.setItem('dashboardActiveTab', activeDashboardTab);
@@ -125,6 +160,11 @@ const Dashboard = () => {
       // Water temperature
       if ((keyLower.includes('water_temp') || keyLower.includes('water_temperature') || keyLower.includes('waterpump_temp')) && (keyLower.includes(room) || keyLower.includes('water'))) {
         sensors.temp = { id: key, ...entity };
+      }
+      
+      // Tank/Reservoir Level
+      if ((keyLower.includes('tank_level') || keyLower.includes('reservoir_level') || keyLower.includes('water_level')) && (keyLower.includes(room) || !keyLower.includes('_room'))) {
+        sensors.tankLevel = { id: key, ...entity };
       }
     });
 
@@ -303,44 +343,76 @@ const Dashboard = () => {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <ChartGrid>
+            {waterSensors.tankLevel && (
+              <DashboardChart
+                key={`tank-${waterSensors.tankLevel.id}`}
+                sensorId={waterSensors.tankLevel.id}
+                title="Reservoir Level"
+                unit="%"
+                priority="high"
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
+              />
+            )}
             {waterSensors.ph && (
               <DashboardChart
+                key={`ph-${waterSensors.ph.id}`}
                 sensorId={waterSensors.ph.id}
                 title="pH"
                 unit=""
                 priority="high"
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
               />
             )}
             {waterSensors.ec && (
               <DashboardChart
+                key={`ec-${waterSensors.ec.id}`}
                 sensorId={waterSensors.ec.id}
                 title="EC"
                 unit="mS/cm"
                 priority="high"
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
               />
             )}
             {waterSensors.temp && (
               <DashboardChart
+                key={`temp-${waterSensors.temp.id}`}
                 sensorId={waterSensors.temp.id}
                 title="Water Temp"
                 unit="°C"
                 priority="medium"
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
               />
             )}
             {waterSensors.tds && (
               <DashboardChart
+                key={`tds-${waterSensors.tds.id}`}
                 sensorId={waterSensors.tds.id}
                 title="TDS"
                 unit="ppm"
                 priority="medium"
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
               />
             )}
             {waterSensors.orp && (
               <DashboardChart
+                key={`orp-${waterSensors.orp.id}`}
                 sensorId={waterSensors.orp.id}
                 title="ORP"
                 unit="mV"
                 priority="medium"
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
               />
             )}
           </ChartGrid>
@@ -360,18 +432,27 @@ const Dashboard = () => {
               title="VPD"
               unit="kPa"
               priority="high"
+              isGlobalLiveMode={isGlobalLiveMode}
+              globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+              onLiveModeChange={handleLiveModeChange}
             />
             <DashboardChart
               sensorId={sensorIds.temperature}
               title="Avg Temp"
               unit="°C"
               priority="high"
+              isGlobalLiveMode={isGlobalLiveMode}
+              globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+              onLiveModeChange={handleLiveModeChange}
             />
             <DashboardChart
               sensorId={sensorIds.humidity}
               title="Avg Humidity"
               unit="%"
               priority="high"
+              isGlobalLiveMode={isGlobalLiveMode}
+              globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+              onLiveModeChange={handleLiveModeChange}
             />
 
             {co2Sensors.length > 0 && (
@@ -384,6 +465,9 @@ const Dashboard = () => {
                 sensorOptions={co2Sensors.length > 1 ? co2Sensors : null}
                 selectedSensorIndex={selectedCO2SensorIndex}
                 onSensorChange={setSelectedCO2SensorIndex}
+                isGlobalLiveMode={isGlobalLiveMode}
+                globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+                onLiveModeChange={handleLiveModeChange}
               />
             )}
           </ChartGrid>
@@ -717,20 +801,15 @@ const MetricsContent = styled.section`
 
 const TabContainer = styled.div`
   display: flex;
+  flex-wrap: wrap;
   gap: 0.4rem;
   margin: 0.5rem 1rem 0;
   background: var(--main-bg-card-color);
   border: 1px solid var(--glass-border-light);
   border-radius: 14px;
   padding: 0.4rem;
-  overflow-x: auto;
-  -webkit-overflow-scrolling: touch;
-  scrollbar-width: none;
+  justify-content: center;
   width: calc(100% - 2rem);
-
-  &::-webkit-scrollbar {
-    display: none;
-  }
 
   @media (max-width: 768px) {
     margin: 0.25rem 0.5rem 0;
@@ -761,10 +840,10 @@ const TabButton = styled.button`
   gap: 0.35rem;
   cursor: pointer;
   transition: all 0.2s ease;
-  font-size: 0.85rem;
+  font-size: 0.8rem;
   white-space: nowrap;
-  flex: 0 0 auto;
-  min-width: fit-content;
+  overflow: hidden;
+  text-overflow: ellipsis;
 
   &:hover {
     color: var(--main-text-color);
@@ -773,12 +852,13 @@ const TabButton = styled.button`
 
   @media (max-width: 768px) {
     padding: 0.5rem 0.7rem;
-    font-size: 0.8rem;
+    font-size: 0.75rem;
   }
 
   @media (max-width: 600px) {
     padding: 0.5rem 0.6rem;
-    gap: 0.25rem;
+    gap: 0.2rem;
+    font-size: 0.7rem;
   }
 
   @media (max-width: 480px) {
@@ -797,7 +877,7 @@ const TabButton = styled.button`
 const TabLabel = styled.span`
   display: block;
   
-  @media (max-width: 600px) {
+  @media (max-width: 768px) {
     display: none;
   }
 `;
