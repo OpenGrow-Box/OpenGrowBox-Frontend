@@ -40,7 +40,7 @@ const ThemeSectionHeader = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 0.75rem 1rem;
+  padding: 0.85rem 1.1rem;
   background: var(--glass-bg-primary);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
@@ -62,7 +62,7 @@ const ThemeSectionHeaderContent = styled.div`
 
 const ThemeSectionTitle = styled.span`
   color: var(--main-text-color);
-  font-size: 0.95rem;
+  font-size: 1rem;
   font-weight: 600;
 `;
 
@@ -589,10 +589,10 @@ const SettingsPanel = () => {
       <ThemeSection>
         <ThemeSectionHeader onClick={() => setThemesExpanded(!themesExpanded)}>
           <ThemeSectionHeaderContent>
-            <Palette size={18} />
+            <Palette size={20} style={{ color: 'var(--primary-accent)' }} />
             <ThemeSectionTitle>Available Themes ({availableThemesPro.length})</ThemeSectionTitle>
           </ThemeSectionHeaderContent>
-          {themesExpanded ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
+          {themesExpanded ? <ChevronUp size={22} /> : <ChevronDown size={22} />}
         </ThemeSectionHeader>
         <ThemeList $expanded={themesExpanded}>
           {availableThemesPro.map((themeName) => {
