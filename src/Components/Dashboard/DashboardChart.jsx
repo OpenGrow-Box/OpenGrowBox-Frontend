@@ -340,9 +340,9 @@ const SensorChart = ({
               symbol: 'none',
               lineStyle: {
                 width: 2,
-                color: getThemeColor('--second-text-color'),
+                color: '#ffffff',
                 type: 'dashed',
-                opacity: 0.7
+                opacity: 0.9
               },
               tooltip: {
                 show: true,
