@@ -22,9 +22,13 @@ const SensorChart = ({
       .toISOString().slice(0, 16);
   };
 
-  const { haApiBaseUrl, haToken: accessToken } = useHomeAssistant();
+  const { haApiBaseUrl, haToken: accessToken, entities, connection } = useHomeAssistant();
   const isDev = import.meta.env.DEV;
   const HISTORY_FETCH_TIMEOUT_MS = 15000;
+
+  // Store chart data in ref for live updates
+  const chartDataRef = useRef({ xData: [], yData: [] });
+  const currentValueRef = useRef(null);
 
   const [startDate, setStartDate] = useState(getDefaultDate(-12 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState(getDefaultDate());
@@ -170,10 +174,10 @@ const SensorChart = ({
         const trend = secondAvg > firstAvg * 1.05 ? 'up' : secondAvg < firstAvg * 0.95 ? 'down' : 'stable';
         
         setStats({
-          current: current.toFixed(1),
-          min: min.toFixed(1),
-          max: max.toFixed(1),
-          avg: avg.toFixed(1),
+          current: current.toFixed(2),
+          min: min.toFixed(2),
+          max: max.toFixed(2),
+          avg: avg.toFixed(2),
           trend
         });
 
@@ -190,6 +194,10 @@ const SensorChart = ({
         
         const xData = sensorData.map(item => item.last_changed);
         const yData = filledYData;
+
+        // Store data in ref for live updates
+        chartDataRef.current = { xData, yData };
+        currentValueRef.current = current;
 
         // Get colors - different colors for different sensor types (using theme colors)
         const textColor = getThemeColor('--main-text-color');
@@ -385,6 +393,48 @@ const SensorChart = ({
 
     fetchHistoryData();
   }, [startDate, endDate, sensorId, haApiBaseUrl, accessToken, minThreshold, maxThreshold, title, unit, chartType]);
+
+  // Live update effect - update chart when entity changes via WebSocket
+  useEffect(() => {
+    if (!sensorId || !entities) return;
+
+    const entity = entities[sensorId];
+    if (!entity || !entity.state) return;
+
+    const newValue = parseFloat(entity.state);
+    if (isNaN(newValue)) return;
+
+    // Only update if value changed
+    if (currentValueRef.current === newValue) return;
+    currentValueRef.current = newValue;
+
+    // Update stats immediately
+    setStats(prev => ({
+      ...prev,
+      current: newValue.toFixed(2)
+    }));
+
+    // Update chart data if we have existing data
+    const chartInstance = chartRef.current?.getEchartsInstance();
+    if (chartInstance && chartDataRef.current.xData.length > 0) {
+      const now = new Date().toISOString();
+      const xData = [...chartDataRef.current.xData, now];
+      const yData = [...chartDataRef.current.yData, newValue];
+
+      // Keep only last 1000 points for performance
+      if (xData.length > 1000) {
+        xData.shift();
+        yData.shift();
+      }
+
+      chartDataRef.current = { xData, yData };
+
+      chartInstance.setOption({
+        xAxis: { data: xData },
+        series: [{ data: yData }]
+      });
+    }
+  }, [entities, sensorId]);
 
   const getTrendIcon = () => {
     if (stats.trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
