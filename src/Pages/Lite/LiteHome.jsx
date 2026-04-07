@@ -1,6 +1,6 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import BottomBar from '../../Components/Navigation/LiteBottomBar';
+import BottomBar from '../../Components/Navigation/BottomBar';
 import DashboardTitle from '../../Components/Dashboard/DashboardTitle';
 import { useHomeAssistant } from '../../Components/Context/HomeAssistantContext';
 import { useGlobalState } from '../../Components/Context/GlobalContext';
@@ -8,15 +8,22 @@ import { Thermometer, Droplets, Gauge, Lightbulb, Fan, Power, Video, VideoOff } 
 import RoomSelectCard from '../../Components/Cards/RoomSelectCard';
 import LiteControlCard from '../../Components/Dashboard/LiteControlCard';
 import formatLabel from '../../misc/formatLabel';
+import formatRoomName from '../../misc/formatRoomName';
 
 const LiteHome = () => {
-  const { HASS, currentRoom, entities, connection, sendCommand, accessToken } = useHomeAssistant();
+  const { currentRoom, entities, connection, haBaseUrl, haToken: accessToken, haApiBaseUrl, areas } = useHomeAssistant();
   const { state } = useGlobalState();
+  
   const [cameraImage, setCameraImage] = useState(null);
   const [cameraError, setCameraError] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState(null);
 
-  // Sensor IDs
+  // Get base URL for API calls - prefer haApiBaseUrl, then haBaseUrl, then fallback
+  const baseUrl = import.meta.env.PROD 
+    ? (haApiBaseUrl || window.location.origin) 
+    : (import.meta.env.VITE_HA_HOST || haBaseUrl || '');
+
+  // Sensor IDs - use currentRoom for API calls (same as PRO mode)
   const sensorIds = useMemo(() => {
     const room = currentRoom?.trim()?.toLowerCase() || 'default';
     return {
@@ -26,16 +33,15 @@ const LiteHome = () => {
     };
   }, [currentRoom]);
 
-  // Kamera aus dem aktuellen Raum finden
+  // Kamera aus dem aktuellen Raum finden - similar to CameraCard logic
   useEffect(() => {
     if (!entities || !currentRoom) return;
     
-    const cameras = Object.entries(entities)
+    // Find all available cameras first
+    const allCameras = Object.entries(entities)
       .filter(([key, entity]) => {
         return key.startsWith('camera.') && 
-               entity.state !== 'unavailable' &&
-               !entity.hidden && 
-               !entity.attributes?.hidden;
+               entity.state !== 'unavailable';
       })
       .map(([key, entity]) => ({
         entityId: key,
@@ -43,14 +49,16 @@ const LiteHome = () => {
         entity: entity
       }));
     
-    if (cameras.length > 0) {
-      setSelectedCamera(cameras[0].entityId);
+    // Try to find cameras in current room using HASS devices
+    // If no room-specific cameras found, use any available camera
+    if (allCameras.length > 0) {
+      setSelectedCamera(allCameras[0].entityId);
     }
   }, [entities, currentRoom]);
 
   // Kamera-Bild laden
   useEffect(() => {
-    if (!selectedCamera || !accessToken || !HASS?.host) {
+    if (!selectedCamera || !accessToken || !baseUrl) {
       setCameraImage(null);
       return;
     }
@@ -66,7 +74,7 @@ const LiteHome = () => {
         if (entityPicture) {
           const imageUrl = entityPicture.startsWith('http') 
             ? entityPicture 
-            : `${HASS.host}${entityPicture}`;
+            : `${baseUrl}${entityPicture}`;
           
           const headers = {};
           if (!entityPicture.includes('token=')) {
@@ -84,7 +92,7 @@ const LiteHome = () => {
         }
         
         // Fallback: API-Endpunkt
-        const apiUrl = `${HASS.host}/api/camera_proxy/${selectedCamera}`;
+        const apiUrl = `${baseUrl}/api/camera_proxy/${selectedCamera}`;
         const response = await fetch(apiUrl, {
           headers: { 'Authorization': `Bearer ${accessToken}` }
         });
@@ -98,7 +106,7 @@ const LiteHome = () => {
           setCameraError(true);
         }
       } catch (error) {
-        console.error('Error fetching camera image:', error);
+        // console.error('Error fetching camera image:', error);
         setCameraError(true);
       }
     };
@@ -114,7 +122,7 @@ const LiteHome = () => {
         URL.revokeObjectURL(cameraImage);
       }
     };
-  }, [selectedCamera, accessToken, HASS, entities]);
+  }, [selectedCamera, accessToken, baseUrl, entities]);
 
   const getSensorValue = (entityId, unit = '') => {
     if (!entities) return '--';
@@ -178,7 +186,7 @@ const LiteHome = () => {
         service_data: { entity_id: deviceId },
       });
     } catch (error) {
-      console.error('Error toggling device:', error);
+      // console.error('Error toggling device:', error);
     }
   };
 
@@ -194,7 +202,7 @@ const LiteHome = () => {
         service_data: { entity_id: deviceId, brightness: brightnessValue },
       });
     } catch (error) {
-      console.error('Error setting brightness:', error);
+      // console.error('Error setting brightness:', error);
     }
   };
 
@@ -209,7 +217,7 @@ const LiteHome = () => {
         service_data: { entity_id: deviceId, percentage: parseInt(percentage) },
       });
     } catch (error) {
-      console.error('Error setting fan speed:', error);
+      // console.error('Error setting fan speed:', error);
     }
   };
 

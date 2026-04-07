@@ -3,16 +3,24 @@ import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { useMemo } from 'react';
 import { Home, MapPin} from 'lucide-react';
+import { useGlobalState } from '../Context/GlobalContext';
 
 const RoomsCard = ({ areas }) => {
-  const { currentRoom, entities } = useHomeAssistant();
+  const { currentRoom, entities, } = useHomeAssistant();
+  const {HASS} = useGlobalState()
+
+  // Helper to get room display name (alias if available, otherwise room ID)
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId;
+  };
 
   // Filtere nur Räume, die sensor.ogb_ Entities haben
   const filteredAreas = useMemo(() => {
     return areas.filter(room => {
       // Filtere "ambient" aus
       if (room.toLowerCase() === "ambient") return false;
-      
       // Prüfe ob es für diesen Raum mindestens einen sensor.ogb_ gibt
       const hasSensors = Object.keys(entities).some(entityId => 
         entityId.startsWith('sensor.ogb_') && 
@@ -36,7 +44,7 @@ const RoomsCard = ({ areas }) => {
         </HeaderLeft>
         <CurrentRoomBadge>
           <MapPin size={12} />
-          <span>{currentRoom}</span>
+          <span>{getRoomDisplayName(currentRoom)}</span>
         </CurrentRoomBadge>
       </CompactHeader>
 
@@ -48,7 +56,7 @@ const RoomsCard = ({ areas }) => {
           >
             {duplicatedAreas.map((area, index) => (
               <RoomItem key={index} $isActive={area === currentRoom}>
-                <RoomName>{area}</RoomName>
+                <RoomName>{getRoomDisplayName(area)}</RoomName>
               </RoomItem>
             ))}
           </ScrollingList>

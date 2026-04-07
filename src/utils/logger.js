@@ -22,7 +22,7 @@ export const logger = {
    */
   debug: (message, ...args) => {
     if (CURRENT_LOG_LEVEL <= LOG_LEVELS.DEBUG) {
-      console.debug(`[DEBUG] ${message}`, ...args);
+      // console.debug(`[DEBUG] ${message}`, ...args);
     }
   },
 
@@ -31,7 +31,7 @@ export const logger = {
    */
   info: (message, ...args) => {
     if (CURRENT_LOG_LEVEL <= LOG_LEVELS.INFO) {
-      console.info(`[INFO] ${message}`, ...args);
+      // console.info(`[INFO] ${message}`, ...args);
     }
   },
 
@@ -40,7 +40,7 @@ export const logger = {
    */
   warn: (message, ...args) => {
     if (CURRENT_LOG_LEVEL <= LOG_LEVELS.WARN) {
-      console.warn(`[WARN] ${message}`, ...args);
+      // console.warn(`[WARN] ${message}`, ...args);
     }
   },
 
@@ -49,7 +49,7 @@ export const logger = {
    */
   error: (message, ...args) => {
     if (CURRENT_LOG_LEVEL <= LOG_LEVELS.ERROR) {
-      console.error(`[ERROR] ${message}`, ...args);
+      // console.error(`[ERROR] ${message}`, ...args);
 
       // In production, send errors to error reporting service
       if (import.meta.env.PROD) {
@@ -92,10 +92,10 @@ function reportError(message, args) {
   // Example: Sentry, LogRocket, etc.
   try {
     // Could send to error reporting service here
-    console.error('Error reported:', { message, args, timestamp: new Date().toISOString() });
+    // console.error('Error reported:', { message, args, timestamp: new Date().toISOString() });
   } catch (reportingError) {
     // Prevent infinite loops if error reporting itself fails
-    console.error('Failed to report error:', reportingError);
+    // console.error('Failed to report error:', reportingError);
   }
 }
 
@@ -108,7 +108,7 @@ export const performanceLogger = {
    */
   time: (label) => {
     if (!import.meta.env.PROD) {
-      console.time(label);
+      // console.time(label);
     }
   },
 
@@ -117,7 +117,7 @@ export const performanceLogger = {
    */
   timeEnd: (label) => {
     if (!import.meta.env.PROD) {
-      console.timeEnd(label);
+      // console.timeEnd(label);
     }
   },
 

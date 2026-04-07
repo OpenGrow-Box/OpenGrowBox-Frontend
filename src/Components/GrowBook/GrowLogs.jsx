@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useMemo } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { SiApacheairflow } from "react-icons/si";
 import { MdOutlineWaterDrop, MdAir, MdTune, MdLightbulb, MdWindPower, MdCloud, MdWhatshot } from "react-icons/md";
@@ -1483,12 +1484,13 @@ const LogItem = ({ room, date, info }) => {
   const missingPumpsData = formatMissingPumpsData(parsedInfo);
 
   const roomColors = stringToColor(room);
+  const displayRoomName = getRoomDisplayName(room);
 
   return (
     <LogItemContainer $logType={logType}>
       <LogHeader $logType={logType}>
         <RoomInfo>
-          <RoomName $color={roomColors.bg}>{room}</RoomName>
+          <RoomName $color={roomColors.bg}>{displayRoomName}</RoomName>
           {parsedInfo.message && <MessageText>{parsedInfo.message}</MessageText>}
         </RoomInfo>
         <TimeStamp>{date}</TimeStamp>
@@ -1525,6 +1527,14 @@ const GrowLogs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedLogs, setExpandedLogs] = useState(new Set());
   const { connection } = useHomeAssistant();
+  const { HASS } = useGlobalState();
+
+  // Helper to get room display name (alias if available, otherwise room ID)
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId;
+  };
 
   // Filter logs based on search and type
   const filteredLogs = useMemo(() => {
@@ -1749,16 +1759,17 @@ const GrowLogs = () => {
                   <LoadingDots>No more logs to display</LoadingDots>
                 )}
               </NoLogsMessage>
-           ) : (
-             displayedLogs.map((log) => (
-               <ExpandableLogItem
-                 key={log.id}
-                 log={log}
-                 isExpanded={expandedLogs.has(log.id)}
-                 onToggle={() => toggleLogExpansion(log.id)}
-               />
-             ))
-           )}
+            ) : (
+              displayedLogs.map((log) => (
+                <ExpandableLogItem
+                  key={log.id}
+                  log={log}
+                  isExpanded={expandedLogs.has(log.id)}
+                  onToggle={() => toggleLogExpansion(log.id)}
+                  getRoomDisplayName={getRoomDisplayName}
+                />
+              ))
+            )}
          </ScrollableContent>
        </GrowLogContainer>
     </LogContainer>
@@ -1766,7 +1777,7 @@ const GrowLogs = () => {
 };
 
 // Expandable Log Item Component
-const ExpandableLogItem = ({ log, isExpanded, onToggle }) => {
+const ExpandableLogItem = ({ log, isExpanded, onToggle, getRoomDisplayName }) => {
   const parsedInfo = (() => {
     try {
       return typeof log.info === 'string' ? JSON.parse(log.info) : log.info;
@@ -1778,13 +1789,14 @@ const ExpandableLogItem = ({ log, isExpanded, onToggle }) => {
   const logType = getLogType(parsedInfo);
 
   const roomColors = stringToColor(log.room);
+  const displayRoomName = getRoomDisplayName ? getRoomDisplayName(log.room) : (log.room || 'Unknown');
 
   return (
     <LogItemContainer $logType={logType} $isExpanded={isExpanded}>
       <LogHeaderRow onClick={onToggle}>
         <LogSummary>
           <RoomBadge $bgColor={roomColors.bg} $textColor={roomColors.text} $borderColor={roomColors.border}>
-            {log.room || 'Unknown'}
+            {displayRoomName}
           </RoomBadge>
           <LogTypeIndicator $logType={logType}>
             {getLogTypeIcon(logType)}

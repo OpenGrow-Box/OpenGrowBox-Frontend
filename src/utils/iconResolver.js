@@ -92,7 +92,7 @@ const FALLBACK_ICONS = {
  */
 export function getIconComponent(iconName, context = 'default') {
   if (!iconName || typeof iconName !== 'string') {
-    console.warn('IconResolver: Invalid icon name provided:', iconName);
+    // console.warn('IconResolver: Invalid icon name provided:', iconName);
     return FALLBACK_ICONS[context] || FALLBACK_ICONS.default;
   }
 
@@ -100,7 +100,7 @@ export function getIconComponent(iconName, context = 'default') {
   const iconComponent = ICON_REGISTRY[iconName];
 
   if (!iconComponent) {
-    console.warn('IconResolver: Icon not found in registry:', iconName);
+    // console.warn('IconResolver: Icon not found in registry:', iconName);
     return FALLBACK_ICONS[context] || FALLBACK_ICONS.default;
   }
 
@@ -127,7 +127,7 @@ export function getIconWithProps(iconName, props = {}, context = 'default') {
  */
 export function resolveIcons(iconNames, context = 'default') {
   if (!Array.isArray(iconNames)) {
-    console.warn('IconResolver: resolveIcons expects an array, got:', typeof iconNames);
+    // console.warn('IconResolver: resolveIcons expects an array, got:', typeof iconNames);
     return [];
   }
 

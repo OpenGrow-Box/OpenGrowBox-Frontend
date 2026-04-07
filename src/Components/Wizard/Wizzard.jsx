@@ -787,7 +787,7 @@ const Wizzard = ({ onComplete }) => {
       }
 
       const targetStep = toolStepMap[wizardData.selectedSetupTool]
-      console.log('[Wizard] Tool selected:', wizardData.selectedSetupTool, 'targetStep:', targetStep, 'currentStep:', currentStep)
+      // console.log('[Wizard] Tool selected:', wizardData.selectedSetupTool, 'targetStep:', targetStep, 'currentStep:', currentStep)
 
       // Only jump if we're not already on the target step
       if (targetStep !== undefined && currentStep !== targetStep) {

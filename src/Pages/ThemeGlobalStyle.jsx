@@ -11,7 +11,7 @@ function ThemeGlobalStyle() {
     const context = useContext(GlobalStateContext);
     theme = context?.state?.Design?.theme || 'Main';
   } catch (error) {
-    console.warn('ThemeGlobalStyle context error:', error);
+    // console.warn('ThemeGlobalStyle context error:', error);
     theme = 'Main';
   }
 

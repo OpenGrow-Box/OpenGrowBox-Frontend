@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { Shield, ChevronDown, ChevronUp, Palette, Zap, Crown, ArrowRight } from 'lucide-react';
+import { Shield, ChevronDown, ChevronUp, Palette, Zap, Crown, ArrowRight, Lock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useGlobalState } from '../Context/GlobalContext';
@@ -9,12 +9,22 @@ import ControlMode from './ControlMode';
 const MainContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.3rem;
+  gap: 1rem;
   min-height: 75vh;
-  padding: 1rem;
+  padding: 1.5rem;
   border-radius: 25px;
   background: var(--main-bg-card-color);
   box-shadow: var(--main-shadow-art);
+`;
+
+const TopRow = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+  
+  @media (max-width: 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const Title = styled.h4`
@@ -23,7 +33,7 @@ const Title = styled.h4`
 `;
 
 const ThemeSection = styled.div`
-  margin-bottom: 1.5rem;
+  margin-bottom: 0;
 `;
 
 const ThemeSectionHeader = styled.div`
@@ -204,22 +214,25 @@ const MenuFooter = styled.div`
 `;
 
 const SafeModeSection = styled.div`
-  margin-top: 2rem;
-  padding: 1.5rem;
+  margin-top: 0;
+  padding: 1rem;
   background: var(--glass-bg-primary);
   border: 1px solid var(--glass-border);
-  border-radius: 12px;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
 `;
 
 const SafeModeHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 `;
 
 const SafeModeIcon = styled.div`
-  font-size: 24px;
+  font-size: 20px;
+  color: var(--primary-accent);
   filter: drop-shadow(0 0 8px var(--primary-accent));
 `;
 
@@ -231,69 +244,108 @@ const SafeModeTitle = styled.h4`
 `;
 
 const SafeModeDescription = styled.p`
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.75rem 0;
   color: var(--placeholder-text-color);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  flex: 1;
 `;
 
 const SafeModeToggle = styled.div`
   display: flex;
   align-items: center;
-  gap: 12px;
+  justify-content: space-between;
+  padding: 0.75rem 1rem;
+  background: ${props => props.$enabled ? 'rgba(34, 197, 94, 0.1)' : 'var(--glass-bg-secondary)'};
+  border: 2px solid ${props => props.$enabled ? 'rgba(34, 197, 94, 0.5)' : 'var(--glass-border)'};
+  border-radius: 12px;
   cursor: pointer;
-  padding: 12px;
-  background: ${props => props.$enabled ? 'var(--active-bg-color)' : 'var(--disabled-bg-color)'};
-  border-radius: 8px;
-  transition: background 0.3s ease;
+  transition: all 0.3s ease;
+  min-height: 72px;
 
   &:hover {
-    background: ${props => props.$enabled ? 'var(--pressed-bg-color)' : 'var(--border-hover-color)'};
+    background: ${props => props.$enabled ? 'rgba(34, 197, 94, 0.2)' : 'var(--active-bg-color)'};
+    border-color: ${props => props.$enabled ? 'rgba(34, 197, 94, 0.8)' : 'var(--primary-accent)'};
+    transform: translateY(-2px);
+    box-shadow: var(--main-shadow-art);
   }
+`;
+
+const SafeModeToggleContent = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+const SafeModeIconBox = styled.div`
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+  background: ${props => props.$enabled 
+    ? 'linear-gradient(135deg, #22c55e, #16a34a)' 
+    : 'linear-gradient(135deg, #6b7280, #4b5563)'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 1.5rem;
+  box-shadow: 0 4px 12px ${props => props.$enabled ? 'rgba(34, 197, 94, 0.3)' : 'rgba(107, 114, 128, 0.3)'};
+  transition: all 0.3s ease;
+`;
+
+const SafeModeToggleText = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+const SafeModeToggleLabel = styled.span`
+  color: var(--main-text-color);
+  font-size: 1.05rem;
+  font-weight: 600;
+`;
+
+const SafeModeToggleSublabel = styled.span`
+  color: var(--placeholder-text-color);
+  font-size: 0.8rem;
 `;
 
 const SafeModeToggleSlider = styled.div`
   position: relative;
-  width: 56px;
-  height: 28px;
-  background: ${props => props.$enabled ? 'linear-gradient(135deg, var(--primary-accent), var(--secondary-accent))' : 'var(--disabled-text-color)'};
-  border-radius: 14px;
+  width: 48px;
+  height: 24px;
+  background: ${props => props.$enabled ? 'linear-gradient(135deg, #22c55e, #16a34a)' : 'var(--disabled-text-color)'};
+  border-radius: 12px;
   transition: background 0.3s ease;
-  box-shadow: ${props => props.$enabled ? '0 4px 12px var(--primary-accent)' : 'none'};
+  box-shadow: ${props => props.$enabled ? '0 4px 12px rgba(34, 197, 94, 0.4)' : 'none'};
 `;
 
 const SafeModeToggleCircle = styled.div`
   position: absolute;
-  top: 3px;
-  left: ${props => props.$enabled ? '31px' : '3px'};
-  width: 22px;
-  height: 22px;
+  top: 2px;
+  left: ${props => props.$enabled ? '26px' : '2px'};
+  width: 20px;
+  height: 20px;
   background: white;
   border-radius: 50%;
   transition: left 0.3s ease;
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 `;
 
-const SafeModeToggleLabel = styled.span`
-  color: var(--main-text-color);
-  font-size: 0.9rem;
-  font-weight: 500;
-  flex: 1;
-`;
-
 const InterfaceModeSection = styled.div`
-  margin-bottom: 2rem;
-  padding: 1.5rem;
+  margin-bottom: 0;
+  padding: 1rem;
   background: var(--glass-bg-primary);
   border: 1px solid var(--glass-border);
   border-radius: 16px;
+  display: flex;
+  flex-direction: column;
 `;
 
 const InterfaceModeHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 12px;
-  margin-bottom: 12px;
+  margin-bottom: 8px;
 `;
 
 const InterfaceModeIcon = styled.div`
@@ -309,20 +361,21 @@ const InterfaceModeTitle = styled.h4`
 `;
 
 const InterfaceModeDescription = styled.p`
-  margin: 0 0 1rem 0;
+  margin: 0 0 0.75rem 0;
   color: var(--placeholder-text-color);
-  font-size: 0.85rem;
-  line-height: 1.5;
+  font-size: 0.8rem;
+  line-height: 1.4;
+  flex: 1;
 `;
 
 const InterfaceModeCard = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
+  padding: 0.75rem 1rem;
   background: var(--glass-bg-secondary);
   border: 2px solid ${props => props.$isPro ? 'var(--primary-accent)' : 'var(--glass-border)'};
-  border-radius: 16px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
 
@@ -345,13 +398,13 @@ const InterfaceModeIconBox = styled.div`
   height: 48px;
   border-radius: 14px;
   background: ${props => props.$isPro 
-    ? 'linear-gradient(135deg, #FF6B6B, #4ECDC4)' 
-    : 'linear-gradient(135deg, #4ECDC4, #44A08D)'};
+    ? 'linear-gradient(135deg, #f59e0b, #f97316)' 
+    : 'linear-gradient(135deg, #4ade80, #22c55e)'};
   display: flex;
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  box-shadow: 0 4px 12px ${props => props.$isPro ? 'rgba(255, 107, 107, 0.3)' : 'rgba(78, 205, 196, 0.3)'};
+  box-shadow: 0 4px 12px ${props => props.$isPro ? 'rgba(245, 158, 11, 0.3)' : 'rgba(74, 222, 128, 0.3)'};
 `;
 
 const InterfaceModeText = styled.div`
@@ -473,37 +526,66 @@ const SettingsPanel = () => {
   
   return (
     <MainContainer>
-      <InterfaceModeSection>
-        <InterfaceModeHeader>
-          <InterfaceModeIcon>
-            <Zap size={20} />
-          </InterfaceModeIcon>
-          <InterfaceModeTitle>Interface Mode</InterfaceModeTitle>
-        </InterfaceModeHeader>
-        <InterfaceModeDescription>
-          Switch between LITE (simple) and PRO (full-featured) interface.
-        </InterfaceModeDescription>
-        <InterfaceModeCard onClick={toggleSiteView} $isPro={siteView === 'pro'}>
-          <InterfaceModeContent>
-            <InterfaceModeIconBox $isPro={siteView === 'pro'}>
-              {siteView === 'pro' ? <Crown size={24} /> : <Zap size={24} />}
-            </InterfaceModeIconBox>
-            <InterfaceModeText>
-              <InterfaceModeLabel>
-                {siteView === 'pro' ? 'PRO Mode' : 'LITE Mode'}
-              </InterfaceModeLabel>
-              <InterfaceModeSublabel>
-                {siteView === 'pro' ? 'Full featured interface' : 'Simple interface'}
-              </InterfaceModeSublabel>
-            </InterfaceModeText>
-          </InterfaceModeContent>
-          <InterfaceModeArrow>
-            <ArrowRight size={20} />
-          </InterfaceModeArrow>
-        </InterfaceModeCard>
-      </InterfaceModeSection>
+      <TopRow>
+        <InterfaceModeSection>
+          <InterfaceModeHeader>
+            <InterfaceModeIcon>
+              <Zap size={20} />
+            </InterfaceModeIcon>
+            <InterfaceModeTitle>Interface Mode</InterfaceModeTitle>
+          </InterfaceModeHeader>
+          <InterfaceModeDescription>
+            Switch between LITE (simple) and PRO (full-featured) interface modes.
+          </InterfaceModeDescription>
+          <InterfaceModeCard onClick={toggleSiteView} $isPro={siteView === 'pro'}>
+            <InterfaceModeContent>
+              <InterfaceModeIconBox $isPro={siteView === 'pro'}>
+                {siteView === 'pro' ? <Crown size={24} /> : <Zap size={24} />}
+              </InterfaceModeIconBox>
+              <InterfaceModeText>
+                <InterfaceModeLabel>
+                  {siteView === 'pro' ? 'PRO Mode' : 'LITE Mode'}
+                </InterfaceModeLabel>
+                <InterfaceModeSublabel>
+                  {siteView === 'pro' ? 'Full featured' : 'Simple interface'}
+                </InterfaceModeSublabel>
+              </InterfaceModeText>
+            </InterfaceModeContent>
+            <InterfaceModeArrow>
+              <ArrowRight size={20} />
+            </InterfaceModeArrow>
+          </InterfaceModeCard>
+        </InterfaceModeSection>
 
-      <Title>Color Theme 🎨</Title>
+        <SafeModeSection>
+          <SafeModeHeader>
+            <SafeModeIcon><Shield size={20} /></SafeModeIcon>
+            <SafeModeTitle>Safe Mode</SafeModeTitle>
+          </SafeModeHeader>
+          <SafeModeDescription>
+            Prevents accidental changes by requiring confirmation before applying changes.
+          </SafeModeDescription>
+          <SafeModeToggle onClick={toggleSafeMode} $enabled={safeModeEnabled}>
+            <SafeModeToggleContent>
+              <SafeModeIconBox $enabled={safeModeEnabled}>
+                <Lock size={24} />
+              </SafeModeIconBox>
+              <SafeModeToggleText>
+                <SafeModeToggleLabel>
+                  {safeModeEnabled ? 'Enabled' : 'Disabled'}
+                </SafeModeToggleLabel>
+                <SafeModeToggleSublabel>
+                  {safeModeEnabled ? 'Changes require confirmation' : 'Direct changes allowed'}
+                </SafeModeToggleSublabel>
+              </SafeModeToggleText>
+            </SafeModeToggleContent>
+            <SafeModeToggleSlider $enabled={safeModeEnabled}>
+              <SafeModeToggleCircle $enabled={safeModeEnabled} />
+            </SafeModeToggleSlider>
+          </SafeModeToggle>
+        </SafeModeSection>
+      </TopRow>
+
       <ThemeSection>
         <ThemeSectionHeader onClick={() => setThemesExpanded(!themesExpanded)}>
           <ThemeSectionHeaderContent>
@@ -536,25 +618,6 @@ const SettingsPanel = () => {
           })}
         </ThemeList>
       </ThemeSection>
-
-      <SafeModeSection>
-        <SafeModeHeader>
-          <SafeModeIcon><Shield size={16} /></SafeModeIcon>
-          <SafeModeTitle>Safe Mode</SafeModeTitle>
-        </SafeModeHeader>
-        <SafeModeDescription>
-          Prevents accidental changes to controls by requiring confirmation before applying changes. 
-          Recommended for mobile devices to avoid unintended taps.
-        </SafeModeDescription>
-        <SafeModeToggle onClick={toggleSafeMode} $enabled={safeModeEnabled}>
-          <SafeModeToggleSlider $enabled={safeModeEnabled}>
-            <SafeModeToggleCircle $enabled={safeModeEnabled} />
-          </SafeModeToggleSlider>
-          <SafeModeToggleLabel>
-            {safeModeEnabled ? 'Enabled (Recommended)' : 'Disabled'}
-          </SafeModeToggleLabel>
-        </SafeModeToggle>
-      </SafeModeSection>
 
       <MenuControl>
         <ControlMode/>

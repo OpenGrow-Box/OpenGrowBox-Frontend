@@ -246,22 +246,22 @@ const AICareChat = () => {
       try {
         const parsedMessages = JSON.parse(savedMessages);
         setMessages(parsedMessages);
-        console.log('Loaded conversation history:', parsedMessages.length, 'messages');
+        // console.log('Loaded conversation history:', parsedMessages.length, 'messages');
       } catch (error) {
-        console.error('Error loading conversation history:', error);
+        // console.error('Error loading conversation history:', error);
       }
     }
   }, []);
 
   // Check for available LLMs on mount and when entities change
   useEffect(() => {
-    console.log('Entities changed, checking LLMs...');
+    // console.log('Entities changed, checking LLMs...');
     checkAvailableLlms();
   }, [connection, entities]);
 
   // Check for available LLM providers on mount and when entities/connection changes
   useEffect(() => {
-    console.log('Entities changed, checking LLMs...');
+    // console.log('Entities changed, checking LLMs...');
     checkAvailableLlms();
   }, [connection, entities]);
 
@@ -293,8 +293,8 @@ const AICareChat = () => {
         models = await listLMStudioModels();
       }
 
-      console.log('Available models for', apiProvider, ':', models);
-      console.log('First model capabilities:', models[0]?.capabilities);
+      // console.log('Available models for', apiProvider, ':', models);
+      // console.log('First model capabilities:', models[0]?.capabilities);
       setAvailableModels(models);
 
       // Set default model if current one not in list
@@ -309,7 +309,7 @@ const AICareChat = () => {
         }
       }
     } catch (error) {
-      console.error('Error loading models:', error);
+      // console.error('Error loading models:', error);
       setAvailableModels([]);
 
       // Show user-friendly error for connection issues
@@ -371,7 +371,7 @@ Make sure ${apiProvider} is running and accessible from this device.
       const hasOllama = localStorage.getItem('plantbuddy_ollama_base_url');
       const hasLMStudio = localStorage.getItem('plantbuddy_lmstudio_base_url');
       if (!hasAnyApiKey() && availableLlms.length === 0 && !hasOllama && !hasLMStudio) {
-        console.log('No LLM configured - showing API settings');
+        // console.log('No LLM configured - showing API settings');
         setShowApiSettings(true);
         setShowNoLlmMessage(true);
       } else {
@@ -384,10 +384,10 @@ Make sure ${apiProvider} is running and accessible from this device.
   }, [availableLlms]);
 
   const checkAvailableLlms = () => {
-    console.log('=== Checking for LLMs ===');
-    console.log('Connection:', !!connection);
-    console.log('Entities:', entities ? Object.keys(entities).length : 0);
-    console.log('Has API Keys:', hasAnyApiKey());
+    // console.log('=== Checking for LLMs ===');
+    // console.log('Connection:', !!connection);
+    // console.log('Entities:', entities ? Object.keys(entities).length : 0);
+    // console.log('Has API Keys:', hasAnyApiKey());
 
     // Check for direct API keys first
     const hasOpenAI = getApiKey('openai');
@@ -396,14 +396,14 @@ Make sure ${apiProvider} is running and accessible from this device.
     const hasLMStudio = localStorage.getItem('plantbuddy_lmstudio_base_url');
     const providers = getConfiguredProviders();
 
-    console.log('OpenAI Key configured:', !!hasOpenAI);
-    console.log('Anthropic Key configured:', !!hasAnthropic);
-    console.log('Ollama configured:', !!hasOllama);
-    console.log('LM Studio configured:', !!hasLMStudio);
-    console.log('Configured providers:', providers);
+    // console.log('OpenAI Key configured:', !!hasOpenAI);
+    // console.log('Anthropic Key configured:', !!hasAnthropic);
+    // console.log('Ollama configured:', !!hasOllama);
+    // console.log('LM Studio configured:', !!hasLMStudio);
+    // console.log('Configured providers:', providers);
 
     if (!hasAnyApiKey() && !hasOllama && !hasLMStudio) {
-      console.log('NO LLM configured - showing API settings modal');
+      // console.log('NO LLM configured - showing API settings modal');
       setShowNoLlmMessage(true);
       setShowApiSettings(true);
       return;
@@ -411,7 +411,7 @@ Make sure ${apiProvider} is running and accessible from this device.
 
     // Check if HA has LLMs as backup
     if (!entities) {
-      console.log('No entities available, using direct API');
+      // console.log('No entities available, using direct API');
       setShowNoLlmMessage(false);
       setShowSetupModal(false);
       return;
@@ -438,7 +438,7 @@ Make sure ${apiProvider} is running and accessible from this device.
       }
     });
 
-    console.log('Total HA LLMs found:', haLlms.length);
+    // console.log('Total HA LLMs found:', haLlms.length);
 
     setAvailableLlms(haLlms);
     setShowNoLlmMessage(false);
@@ -447,7 +447,7 @@ Make sure ${apiProvider} is running and accessible from this device.
     // If HA LLMs exist, we could show a selector
     if (haLlms.length > 0) {
       // For now, prefer direct API if keys are configured
-      console.log('Using direct API, HA LLMs available as backup');
+      // console.log('Using direct API, HA LLMs available as backup');
     }
   };
 
@@ -460,7 +460,7 @@ Make sure ${apiProvider} is running and accessible from this device.
       try {
         setMessages(JSON.parse(savedMessages));
       } catch (e) {
-        console.error('Failed to load messages:', e);
+        // console.error('Failed to load messages:', e);
       }
     }
     if (savedConversationId) {
@@ -528,7 +528,7 @@ Make sure ${apiProvider} is running and accessible from this device.
 
     const now = Date.now();
     if (handleSendMessage.lastCall && (now - handleSendMessage.lastCall) < 1000) {
-      console.log('Throttled - call too soon');
+      // console.log('Throttled - call too soon');
       return;
     }
     handleSendMessage.lastCall = now;
@@ -581,7 +581,7 @@ Make sure ${apiProvider} is running and accessible from this device.
           const needsWebSearch = detectNeedForWebSearch(text, messages);
 
           if (needsWebSearch) {
-            console.log('Performing web search for additional context...');
+            // console.log('Performing web search for additional context...');
 
             // Add a "searching" message
             const searchingMessage = {
@@ -597,7 +597,7 @@ Make sure ${apiProvider} is running and accessible from this device.
               const searchQuery = extractSearchQuery(text);
               const searchResults = await fetchBothSources(searchQuery);
 
-              console.log('Search results:', searchResults);
+              // console.log('Search results:', searchResults);
 
               // Create a tool call context message
               const toolCallMessage = {
@@ -615,7 +615,7 @@ Make sure ${apiProvider} is running and accessible from this device.
               // Add format tool call response
               responseResult.content = formatToolCallResponse(searchResults) + responseResult.content;
             } catch (searchError) {
-              console.error('Web search failed:', searchError);
+              // console.error('Web search failed:', searchError);
               // Fall back to normal processing without search results
               responseResult = await processWithDirectApiText(text, messages);
             }
@@ -669,7 +669,7 @@ Make sure ${apiProvider} is running and accessible from this device.
       const messagesToSave = [...messages, newMessage, aiMessage].filter(m => !m.isSystemMessage);
       localStorage.setItem('plantbuddy_messages', JSON.stringify(messagesToSave));
     } catch (error) {
-      console.error('Error processing message:', error);
+      // console.error('Error processing message:', error);
       const errorMessage = {
         id: Date.now() + 1,
         role: 'assistant',
@@ -748,7 +748,7 @@ Make sure ${apiProvider} is running and accessible from this device.
 
       return result;
     } catch (error) {
-      console.error('Direct API error:', error);
+      // console.error('Direct API error:', error);
       throw error;
     }
   };
@@ -825,17 +825,17 @@ Make sure ${apiProvider} is running and accessible from this device.
     try {
       return await processWithDirectApi(text, image);
     } catch (error) {
-      console.error('Image analysis failed:', error);
+      // console.error('Image analysis failed:', error);
       throw error;
     }
   };
 
   // Text-only direct API call with conversation history
   const processWithDirectApiText = async (text, conversationHistory = []) => {
-    console.log('=== processWithDirectApiText ===');
-    console.log('Provider:', apiProvider);
-    console.log('Text:', text);
-    console.log('Conversation history length:', conversationHistory.length);
+    // console.log('=== processWithDirectApiText ===');
+    // console.log('Provider:', apiProvider);
+    // console.log('Text:', text);
+    // console.log('Conversation history length:', conversationHistory.length);
 
     // Build messages with system prompt and conversation history
     // Get last 10 messages to avoid context overflow (adjust based on model)
@@ -858,35 +858,35 @@ Make sure ${apiProvider} is running and accessible from this device.
       }
     ];
 
-    console.log('Total messages to send:', apiMessages.length);
-    console.log('Sending to', apiProvider, '...');
+    // console.log('Total messages to send:', apiMessages.length);
+    // console.log('Sending to', apiProvider, '...');
 
     try {
       let result;
 
       if (apiProvider === 'openai') {
-        console.log('Calling sendToOpenAI...');
+        // console.log('Calling sendToOpenAI...');
         result = await sendToOpenAI(apiMessages, selectedModel);
-        console.log('OpenAI response:', result);
+        // console.log('OpenAI response:', result);
       } else if (apiProvider === 'anthropic') {
-        console.log('Calling sendToAnthropic...');
+        // console.log('Calling sendToAnthropic...');
         result = await sendToAnthropic(apiMessages, selectedModel);
-        console.log('Anthropic response:', result);
+        // console.log('Anthropic response:', result);
       } else if (apiProvider === 'ollama') {
-        console.log('Calling sendToOllama...');
+        // console.log('Calling sendToOllama...');
         result = await sendToOllama(apiMessages, selectedModel);
-        console.log('Ollama response:', result);
+        // console.log('Ollama response:', result);
       } else if (apiProvider === 'lmstudio') {
-        console.log('Calling sendToLMStudio...');
+        // console.log('Calling sendToLMStudio...');
         result = await sendToLMStudio(apiMessages, selectedModel);
-        console.log('LM Studio response:', result);
+        // console.log('LM Studio response:', result);
       } else {
         throw new Error('Invalid API provider');
       }
 
       return result;
     } catch (error) {
-      console.error('Direct API error:', error);
+      // console.error('Direct API error:', error);
       throw error;
     }
   };
@@ -928,8 +928,10 @@ Make sure ${apiProvider} is running and accessible from this device.
     setInputText(template.prompt);
     setShowTemplates(false);
     
-    // Check if API key is configured before allowing templates
-    if (!hasAnyApiKey()) {
+    // Check if any provider is configured (API keys or local providers)
+    const hasOllama = localStorage.getItem('plantbuddy_ollama_base_url');
+    const hasLMStudio = localStorage.getItem('plantbuddy_lmstudio_base_url');
+    if (!hasAnyApiKey() && !hasOllama && !hasLMStudio) {
       setShowApiSettings(true);
     }
   };
@@ -1066,7 +1068,7 @@ Make sure ${apiProvider} is running and accessible from this device.
       reader.readAsDataURL(blob);
       
     } catch (error) {
-      console.error('Camera capture error:', error);
+      // console.error('Camera capture error:', error);
       setErrorMessage(`Failed to capture image from camera: ${error.message}`);
       setShowErrorModal(true);
       setIsProcessing(false);

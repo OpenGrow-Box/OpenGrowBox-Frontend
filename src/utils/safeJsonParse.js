@@ -15,7 +15,7 @@ export const safeJsonParse = (str, fallback = {}) => {
 
   // Check for potentially dangerous patterns
   if (str.includes('<script') || str.includes('javascript:') || str.includes('on\w+\s*=')) {
-    console.warn('Potentially dangerous content detected in JSON string');
+    // console.warn('Potentially dangerous content detected in JSON string');
     return fallback;
   }
 
@@ -27,10 +27,10 @@ export const safeJsonParse = (str, fallback = {}) => {
       return parsed;
     }
 
-    console.warn('Parsed JSON is not a valid object');
+    // console.warn('Parsed JSON is not a valid object');
     return fallback;
   } catch (error) {
-    console.warn('JSON parsing failed:', error.message);
+    // console.warn('JSON parsing failed:', error.message);
     return fallback;
   }
 };
@@ -45,7 +45,7 @@ export const safeJsonStringify = (obj, fallback = '{}') => {
   try {
     return JSON.stringify(obj);
   } catch (error) {
-    console.warn('JSON stringification failed:', error.message);
+    // console.warn('JSON stringification failed:', error.message);
     return fallback;
   }
 };

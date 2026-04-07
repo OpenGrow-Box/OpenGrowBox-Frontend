@@ -1,5 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
+import formatRoomName from '../../misc/formatRoomName';
 import styled from 'styled-components';
 import { FaSave } from "react-icons/fa";
 
@@ -26,6 +28,14 @@ const textChange = async (entity, value, connection, isValid) => {
 
 const OGBNotes = () => {
   const { connection, entities, currentRoom, isConnectionValid } = useHomeAssistant();
+  const { HASS } = useGlobalState();
+
+  // Helper to get room display name (alias if available, otherwise room ID)
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId;
+  };
 
   const [ogbNoteEntity, setOGBNoteEntity] = useState(null);
   const [noteText, setNoteText] = useState('');
@@ -101,7 +111,7 @@ const OGBNotes = () => {
   return (
     <NotesContainer>
        <Header>
-          <Title>{currentRoom}&apos; Notes</Title>
+           <Title>{getRoomDisplayName(currentRoom)}&apos; Notes</Title>
           <InfoText $charCount={noteText.length}>{noteText.length}/{MAX_LENGTH} Chars</InfoText>
        </Header>
 

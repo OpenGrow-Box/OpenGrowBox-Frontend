@@ -18,7 +18,7 @@ class TokenEncryptor {
       const salted = token + ENCRYPTION_KEY;
       return btoa(salted);
     } catch (error) {
-      console.error('Token encryption failed:', error);
+      // console.error('Token encryption failed:', error);
       return token; // Fallback to plain token
     }
   }
@@ -29,7 +29,7 @@ class TokenEncryptor {
       const token = decoded.replace(ENCRYPTION_KEY, '');
       return token;
     } catch (error) {
-      console.error('Token decryption failed:', error);
+      // console.error('Token decryption failed:', error);
       return encryptedToken; // Fallback to encrypted token
     }
   }
@@ -45,22 +45,22 @@ class SecureTokenStorage {
    */
   static storeToken(token) {
     if (!token || typeof token !== 'string') {
-      console.error('Invalid token provided to storeToken');
+      // console.error('Invalid token provided to storeToken');
       return;
     }
 
     try {
       const encrypted = TokenEncryptor.encrypt(token);
       sessionStorage.setItem(STORAGE_KEY, encrypted);
-      console.log('Token stored securely');
+      // console.log('Token stored securely');
     } catch (error) {
-      console.error('Failed to store token securely:', error);
+      // console.error('Failed to store token securely:', error);
       // Fallback to localStorage for critical functionality
       try {
         localStorage.setItem(STORAGE_KEY, token);
-        console.warn('Fallback: Token stored in localStorage');
+        // console.warn('Fallback: Token stored in localStorage');
       } catch (fallbackError) {
-        console.error('Critical: Unable to store token anywhere:', fallbackError);
+        // console.error('Critical: Unable to store token anywhere:', fallbackError);
       }
     }
   }
@@ -78,7 +78,7 @@ class SecureTokenStorage {
       if (!encrypted) {
         encrypted = localStorage.getItem(STORAGE_KEY);
         if (encrypted) {
-          console.warn('Token found in insecure localStorage, migrating...');
+          // console.warn('Token found in insecure localStorage, migrating...');
           // Migrate to sessionStorage
           this.storeToken(encrypted);
           localStorage.removeItem(STORAGE_KEY);
@@ -96,10 +96,10 @@ class SecureTokenStorage {
         return token;
       }
 
-      console.warn('Retrieved token appears invalid');
+      // console.warn('Retrieved token appears invalid');
       return null;
     } catch (error) {
-      console.error('Failed to retrieve token:', error);
+      // console.error('Failed to retrieve token:', error);
       return null;
     }
   }
@@ -111,9 +111,9 @@ class SecureTokenStorage {
     try {
       sessionStorage.removeItem(STORAGE_KEY);
       localStorage.removeItem(STORAGE_KEY);
-      console.log('Token cleared from all storage');
+      // console.log('Token cleared from all storage');
     } catch (error) {
-      console.error('Failed to clear token:', error);
+      // console.error('Failed to clear token:', error);
     }
   }
 

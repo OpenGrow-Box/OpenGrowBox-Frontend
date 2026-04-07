@@ -37,7 +37,7 @@ export const energyHistoryStorage = {
       localStorage.setItem(HISTORY_STORAGE_KEY, JSON.stringify(sortedHistory));
       return sortedHistory;
     } catch (error) {
-      console.error('Error saving energy history snapshot:', error);
+      // console.error('Error saving energy history snapshot:', error);
       return [];
     }
   },

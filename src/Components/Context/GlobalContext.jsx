@@ -29,7 +29,7 @@ const initialState = {
   },
   Settings: {
     safeModeEnabled: true, // Enable safe mode by default to prevent accidental mobile changes
-    siteView: 'lite', // 'lite' or 'pro' - default is lite
+    siteView: null, // 'lite' or 'pro' - null means user needs to select
   },
 };
 
@@ -57,7 +57,7 @@ export const GlobalStateProvider = ({ children }) => {
         };
       }
     } catch (error) {
-      console.warn('Failed to load state from localStorage:', error);
+       console.warn('Failed to load state from localStorage:', error);
     }
     return initialState;
   });
@@ -91,20 +91,6 @@ export const GlobalStateProvider = ({ children }) => {
       setHASS(hassObject)
     }
   }
-
-  useEffect(() => {
-    if (!HASS?.states) return;
-
-    const roomEntity = HASS.states['select.ogb_rooms'];
-
-    if (roomEntity && roomEntity.state !== currentRoom) {
-      setCurrentRoom(roomEntity.state || '');
-
-      if (roomEntity.attributes?.options) {
-        setRoomOptions(roomEntity.attributes.options);
-      }
-    }
-  }, [HASS, currentRoom]);
 
   useEffect(() => {
   console.log(`
@@ -197,7 +183,7 @@ export const GlobalStateProvider = ({ children }) => {
             const hass = document.querySelector('home-assistant')?.hass;
             return hass
         }else{
-            console.error("NO HASS Object in Dev-Mode")
+            // console.error("NO HASS Object in Dev-Mode")
             return {noHASS:"IN-DEV"}
         }
 

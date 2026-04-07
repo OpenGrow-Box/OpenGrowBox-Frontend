@@ -31,7 +31,7 @@ export const fetchContributorsFromRepo = async (repo) => {
       repo: repo
     }));
   } catch (error) {
-    console.warn(`Error fetching contributors from ${repo}:`, error);
+    // console.warn(`Error fetching contributors from ${repo}:`, error);
     return [];
   }
 };
@@ -57,7 +57,7 @@ export const fetchAllContributors = async () => {
       const login = contributor.login.toLowerCase();
       const shouldInclude = login !== 'secusolve';
       if (!shouldInclude) {
-        console.log('Filtering out contributor:', contributor.login);
+        // console.log('Filtering out contributor:', contributor.login);
       }
       return shouldInclude;
     });
@@ -84,7 +84,7 @@ export const fetchAllContributors = async () => {
 
     return sorted;
   } catch (error) {
-    console.error('Error fetching contributors:', error);
+    // console.error('Error fetching contributors:', error);
     return FALLBACK_CONTRIBUTORS;
   }
 };
@@ -140,7 +140,7 @@ const getCachedContributors = () => {
 
     return data;
   } catch (error) {
-    console.warn('Error reading cached contributors:', error);
+    // console.warn('Error reading cached contributors:', error);
     return null;
   }
 };
@@ -153,7 +153,7 @@ const setCachedContributors = (contributors) => {
     };
     localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
   } catch (error) {
-    console.warn('Error caching contributors:', error);
+    // console.warn('Error caching contributors:', error);
   }
 };
 

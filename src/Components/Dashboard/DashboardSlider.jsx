@@ -16,7 +16,6 @@ import DutyCycleCard from '../Cards/SliderCards/DutyCycleCard'
 import LightIntensity from '../Cards/SliderCards/LightIntensity'
 import { SliderContext } from '../../misc/SliderContext'
 import PPFDCard from '../Cards/SliderCards/PPFD_DLI';
-import TankLevelCard from '../Cards/SliderCards/TankLevelCard';
 import AllTemps from '../Cards/SliderCards/AllTempsCard';
 import AllHums from '../Cards/SliderCards/AllHumsCard';
 
@@ -105,12 +104,9 @@ const DashboardSlider = () => {
       <PPFDCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
     <SlideContent key="slide11">
-      <TankLevelCard pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
-    </SlideContent>,
-    <SlideContent key="slide12">
       <AllTemps pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
-      <SlideContent key="slide13">
+      <SlideContent key="slide12">
       <AllHums pause={pause} resume={resume} isPlaying={isPlaying}  filterByRoom={filterByRoom}/>
     </SlideContent>,
   ];

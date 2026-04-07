@@ -11,10 +11,10 @@ if (supabaseUrl && supabaseAnonKey) {
   try {
     supabaseClient = createClient(supabaseUrl, supabaseAnonKey);
   } catch (error) {
-    console.warn('Failed to initialize Supabase client:', error);
+    // console.warn('Failed to initialize Supabase client:', error);
   }
 } else {
-  console.info('Supabase not configured. Some features may be limited.');
+  // console.info('Supabase not configured. Some features may be limited.');
 }
 
 export const supabase = supabaseClient;

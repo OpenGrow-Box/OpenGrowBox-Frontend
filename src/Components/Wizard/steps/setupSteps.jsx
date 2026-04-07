@@ -634,7 +634,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating device:', deviceId, 'to:', newName, 'via WebSocket')
+    // console.log('[Setup] Updating device:', deviceId, 'to:', newName, 'via WebSocket')
 
     // Try WebSocket device registry update first
     try {
@@ -644,10 +644,10 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
         name_by_user: newName
       })
 
-      console.log('[Setup] Device updated via WebSocket:', response)
+      // console.log('[Setup] Device updated via WebSocket:', response)
       return response
     } catch (wsErr) {
-      console.log('[Setup] WebSocket update failed:', wsErr.message)
+      // console.log('[Setup] WebSocket update failed:', wsErr.message)
       throw new Error(`Device rename failed: ${wsErr.message || 'Unknown error'}`)
     }
   }
@@ -657,7 +657,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating entity:', entityId, 'to:', newName, 'via WebSocket')
+    // console.log('[Setup] Updating entity:', entityId, 'to:', newName, 'via WebSocket')
 
     const response = await connection.sendMessagePromise({
       type: 'config/entity_registry/update',
@@ -665,7 +665,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       name: newName
     })
 
-    console.log('[Setup] Entity updated:', response)
+    // console.log('[Setup] Entity updated:', response)
     return response
   }
 
@@ -674,7 +674,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating labels for:', entityId, 'labels:', labels, 'via WebSocket')
+    // console.log('[Setup] Updating labels for:', entityId, 'labels:', labels, 'via WebSocket')
 
     const response = await connection.sendMessagePromise({
       type: 'config/entity_registry/update',
@@ -682,7 +682,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       labels: labels
     })
 
-    console.log('[Setup] Labels updated:', response)
+    // console.log('[Setup] Labels updated:', response)
     return response
   }
 
@@ -691,7 +691,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       throw new Error('No Home Assistant connection available')
     }
 
-    console.log('[Setup] Updating device labels for:', deviceId, 'labels:', labels, 'via WebSocket')
+    // console.log('[Setup] Updating device labels for:', deviceId, 'labels:', labels, 'via WebSocket')
 
     const response = await connection.sendMessagePromise({
       type: 'config/device_registry/update',
@@ -699,7 +699,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       labels: labels
     })
 
-    console.log('[Setup] Device labels updated:', response)
+    // console.log('[Setup] Device labels updated:', response)
     return response
   }
 
@@ -742,7 +742,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const HASS = document.querySelector('home-assistant')?.hass
     if (!HASS?.devices) return []
 
-    console.log('[Setup] Room:', room, 'Total devices:', Object.keys(HASS.devices).length)
+    // console.log('[Setup] Room:', room, 'Total devices:', Object.keys(HASS.devices).length)
 
     const filtered = Object.entries(HASS.devices)
       .filter(([_, device]) => {
@@ -752,17 +752,17 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
 
         if (!inRoom) return false
         if (!includeOGB && isOGB) {
-          console.log('[Setup] Filtered (OpenGrowBox):', device.name_by_user || device.name)
+          // console.log('[Setup] Filtered (OpenGrowBox):', device.name_by_user || device.name)
           return false
         }
         return true
       })
       .map(([id, device]) => {
-        console.log('[Setup] Device found:', id, device.name_by_user || device.name, 'ID type:', typeof id)
+        // console.log('[Setup] Device found:', id, device.name_by_user || device.name, 'ID type:', typeof id)
         return { id, ...device }
       })
 
-    console.log('[Setup] Found devices:', filtered.length)
+    // console.log('[Setup] Found devices:', filtered.length)
     return filtered
   }
 
@@ -770,7 +770,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const HASS = document.querySelector('home-assistant')?.hass
     if (!HASS?.devices || !HASS?.entities) return []
 
-    console.log('[Setup] Getting entities for room:', room)
+    // console.log('[Setup] Getting entities for room:', room)
 
     const roomDeviceIds = Object.entries(HASS.devices)
       .filter(([_, device]) => {
@@ -784,18 +784,18 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       })
       .map(([id]) => id)
 
-    console.log('[Setup] Room device IDs:', roomDeviceIds.length)
+    // console.log('[Setup] Room device IDs:', roomDeviceIds.length)
 
     const entities = Object.entries(HASS.entities)
       .filter(([_, entity]) => roomDeviceIds.includes(entity.device_id))
       .map(([id, entity]) => {
         const sourceDevice = HASS.devices[entity.device_id]
         const deviceName = sourceDevice?.name_by_user || sourceDevice?.name || entity.device_id || 'Unknown device'
-        console.log('[Setup] Entity found:', id, entity.attributes?.friendly_name || entity.entity_id, 'device_id:', entity.device_id, 'device_name:', deviceName)
+        // console.log('[Setup] Entity found:', id, entity.attributes?.friendly_name || entity.entity_id, 'device_id:', entity.device_id, 'device_name:', deviceName)
         return { id, ...entity, device_name: deviceName }
       })
 
-    console.log('[Setup] Found entities:', entities.length)
+    // console.log('[Setup] Found entities:', entities.length)
     return entities
   }
 
@@ -1368,7 +1368,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
         setEntities(fallbackEntities)
         setLabels(computeLabelCounts(fallbackEntities, fallbackDevices))
       } catch (loadError) {
-        console.error('[Setup] Label manager load failed:', loadError)
+        // console.error('[Setup] Label manager load failed:', loadError)
         setError(loadError.message)
       } finally {
         setIsLoading(false)

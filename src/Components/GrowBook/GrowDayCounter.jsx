@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { useMedium } from '../Context/MediumContext';
 import {
   FaCheck, FaTimes, FaEdit, FaSeedling,
@@ -10,6 +11,7 @@ import {
 
 const GrowDayCounter = () => {
   const { connection, currentRoom, isConnectionValid } = useHomeAssistant();
+  const { HASS } = useGlobalState();
   const { 
     currentMedium, 
     currentMediumIndex, 
@@ -18,6 +20,13 @@ const GrowDayCounter = () => {
     stopEditing,
     isFieldEditing, 
   } = useMedium();
+
+  // Helper to get room display name (alias if available, otherwise room ID)
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId;
+  };
 
   // States for editing
   const [isEditingPlant, setIsEditingPlant] = useState(false);
@@ -323,7 +332,7 @@ const GrowDayCounter = () => {
           </PlantTitleContainer>
           
           <PhaseIndicator $phase={phase}>{phase}</PhaseIndicator>
-           <CardTitle><FaSeedling size={20} /> Grow Day Counter - <Highlight>{currentRoom}</Highlight></CardTitle>
+            <CardTitle><FaSeedling size={20} /> Grow Day Counter - <Highlight>{getRoomDisplayName(currentRoom)}</Highlight></CardTitle>
         </CardHeader>
 
         <ProgressSection>

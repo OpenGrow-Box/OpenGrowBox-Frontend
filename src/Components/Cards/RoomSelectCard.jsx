@@ -4,76 +4,21 @@ import { FaChevronDown } from 'react-icons/fa';
 import { motion } from 'framer-motion';
 
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 
 const RoomSelectCard = ({title}) => {
-  const { entities, currentRoom, connection, areas } = useHomeAssistant();
+  const { entities, currentRoom, connection } = useHomeAssistant();
+  const { HASS } = useGlobalState();
   const [roomOptions, setRoomOptions] = useState([]);
   const [selectedRoom, setSelectedRoom] = useState(currentRoom);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef(null);
 
-  // Debug: log areas when they change
-  useEffect(() => {
-    console.log('=== RoomSelectCard Debug ===');
-    console.log('Areas object:', areas);
-    if (areas) {
-      console.log('Areas keys:', Object.keys(areas));
-      Object.entries(areas).forEach(([id, area]) => {
-        console.log(`  Area "${id}":`, {
-          name: area.name,
-          aliases: area.aliases,
-          friendly_name: area.friendly_name,
-        });
-      });
-    }
-  }, [areas]);
-
-  // Get friendly name/alias for a room - with priority: area aliases → options_with_alias → area name → fallback
+  // Helper to get room display name (alias if available, otherwise room ID)
   const getRoomDisplayName = (roomId) => {
     if (!roomId) return '';
-    
-    console.log('Looking for room:', roomId);
-    console.log('Available areas:', Object.keys(areas || {}));
-    
-    // 1. Try to get alias from select.ogb_rooms entity's options_with_alias attribute
-    const roomEntity = Object.entries(entities).find(([key]) =>
-      key.startsWith('select.ogb_rooms')
-    )?.[1];
-    
-    if (roomEntity?.attributes?.options_with_alias) {
-      const aliases = roomEntity.attributes.options_with_alias;
-      console.log('options_with_alias:', aliases);
-      if (aliases[roomId]) {
-        console.log('Found in options_with_alias:', aliases[roomId]);
-        return aliases[roomId];
-      }
-    }
-    
-    // 2. Direct area lookup by room ID
-    const area = areas ? areas[roomId] : null;
-    console.log('Found area:', area);
-    
-    if (area) {
-      // Use alias if available (array of strings)
-      if (area.aliases && Array.isArray(area.aliases) && area.aliases.length > 0) {
-        console.log('Using area.aliases:', area.aliases);
-        return area.aliases[0];
-      }
-      // Fallback to area name if different from ID
-      if (area.name && area.name !== area.area_id) {
-        console.log('Using area.name:', area.name);
-        return area.name;
-      }
-      // Fallback to friendly_name if different
-      if (area.friendly_name && area.friendly_name !== area.area_id) {
-        console.log('Using area.friendly_name:', area.friendly_name);
-        return area.friendly_name;
-      }
-    }
-    
-    // 3. Fallback: return the raw room ID
-    console.log('Using fallback (room ID):', roomId);
-    return roomId;
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
   };
 
   useEffect(() => {
@@ -116,7 +61,7 @@ const RoomSelectCard = ({title}) => {
         setSelectedRoom(selectedRoom);
         setIsOpen(false);
       } catch (error) {
-        console.error('Error updating room:', error);
+        // console.error('Error updating room:', error);
       }
     }
   };

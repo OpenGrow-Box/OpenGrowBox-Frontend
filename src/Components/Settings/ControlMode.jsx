@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react';
 import styled, { keyframes, css } from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import LoginModal from '../Premium/LoginModal';
 import { FaRocket, FaGift } from 'react-icons/fa';
 
@@ -168,9 +169,17 @@ const ControlMode = ({ onSelectChange }) => {
   const {subscription, ogbSessions, activeSessionCount, ogbMaxSessions, logout, 
     canAddNewRoom, switchPremiumRoom, 
     getPremiumRooms, isLoggedIn, userEmail, isRoomSwitching } = usePremium();
+  const { HASS } = useGlobalState();
 
   // Show loading indicator while room switching is in progress
   const isSwitchingInProgress = isRoomSwitching || false;
+
+  // Helper to get room display name (alias if available, otherwise room ID)
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId.replace(/_/g, ' ').replace(/\b\w/g, l => l.toUpperCase());
+  };
 
   const activeRoomsCount = Array.isArray(subscription?.usage?.activeRooms)
     ? subscription.usage.activeRooms.length
@@ -350,7 +359,7 @@ const ControlMode = ({ onSelectChange }) => {
         // Check if this room is already in Premium mode
         const currentRoomControl = controlMapping[selectedRoom];
         if (currentRoomControl === 'Premium') {
-          console.log(`Room ${selectedRoom} is already in Premium mode`);
+          // console.log(`Room ${selectedRoom} is already in Premium mode`);
           return;
         }
 
@@ -358,12 +367,12 @@ const ControlMode = ({ onSelectChange }) => {
         try {
           await loadUserProfile(true);
         } catch (error) {
-          console.warn('Failed to refresh profile before Premium check:', error);
+          // console.warn('Failed to refresh profile before Premium check:', error);
         }
 
         // Step 2: Check if any room is already in Premium mode
         const premiumRooms = getPremiumRooms();
-        console.log("Premium rooms currently active:", premiumRooms);
+        // console.log("Premium rooms currently active:", premiumRooms);
 
         // Step 3: NOW check if we have room for another Premium room (after profile is loaded)
         const canAdd = canAddNewRoom();
@@ -392,7 +401,7 @@ const ControlMode = ({ onSelectChange }) => {
       callService('maincontrol', option);
       onSelectChange?.(selectedRoom, option, notificationMapping[selectedRoom]);
     } catch (error) {
-      console.error('Error in selectControl:', error);
+      // console.error('Error in selectControl:', error);
     }
   };
 
@@ -413,7 +422,7 @@ const ControlMode = ({ onSelectChange }) => {
         // switchPremiumRoom now handles everything including waiting for Premium state
         await switchPremiumRoom(switchFromRoom, switchToRoom);
       } catch (error) {
-        console.error('Failed to switch Premium room:', error);
+        // console.error('Failed to switch Premium room:', error);
       }
     }
     
@@ -442,7 +451,7 @@ const ControlMode = ({ onSelectChange }) => {
         service_data: { entity_id, option },
       });
     } catch (err) {
-      console.error('Error calling service:', err);
+      // console.error('Error calling service:', err);
     }
   };
 
@@ -459,7 +468,7 @@ const ControlMode = ({ onSelectChange }) => {
       logout();
       window.location.reload(); // ⬅ Hard refresh nach Logout
     } catch (error) {
-      console.error("Logout failed:", error);
+      // console.error("Logout failed:", error);
     }
   };
 
@@ -470,12 +479,12 @@ const ControlMode = ({ onSelectChange }) => {
       <TagsContainer>
         {filteredRooms.map(room => (
           <Tag key={room} selected={room === selectedRoom} onClick={() => setSelectedRoom(room)}>
-            {room}
+            {getRoomDisplayName(room)}
           </Tag>
         ))}
       </TagsContainer>
 
-      <InfoTitle>Control Options - {selectedRoom}</InfoTitle>
+      <InfoTitle>Control Options - {getRoomDisplayName(selectedRoom)}</InfoTitle>
       
       {/* CRITICAL: Show loading state while room switching is in progress */}
       {isSwitchingInProgress && (
@@ -520,7 +529,7 @@ const ControlMode = ({ onSelectChange }) => {
                 <>
                   You have another room already in Premium mode.
                   <br /><br />
-                  Do you want to switch from <RoomHighlight>{switchFromRoom.charAt(0).toUpperCase() + switchFromRoom.slice(1)}</RoomHighlight> to <RoomHighlight>{switchToRoom.charAt(0).toUpperCase() + switchToRoom.slice(1)}</RoomHighlight>?
+                  Do you want to switch from <RoomHighlight>{getRoomDisplayName(switchFromRoom)}</RoomHighlight> to <RoomHighlight>{getRoomDisplayName(switchToRoom)}</RoomHighlight>?
                 </>
               ) : (
                 <>
@@ -546,7 +555,7 @@ const ControlMode = ({ onSelectChange }) => {
         </ModalOverlay>
       )}
 
-      <InfoTitle>Notifications - {selectedRoom}</InfoTitle>
+      <InfoTitle>Notifications - {getRoomDisplayName(selectedRoom)}</InfoTitle>
       <TagsContainer>
         {notificationOptions.map(opt => (
           <Tag

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useMedium } from '../Context/MediumContext';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { 
   FaSeedling, FaChevronDown, FaChevronUp, FaLeaf, FaClock,
   FaCalendarAlt, FaFlask, FaSpinner
@@ -11,7 +12,15 @@ import {
 const MediumSelector = () => {
   const { mediums, currentMediumIndex, setCurrentMediumIndex, loading, error } = useMedium();
   const { currentRoom } = useHomeAssistant();
+  const { HASS } = useGlobalState();
   const [isExpanded, setIsExpanded] = useState(false);
+
+  // Helper to get room display name (alias if available, otherwise room ID)
+  const getRoomDisplayName = (roomId) => {
+    if (!roomId) return '';
+    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    return alias || roomId;
+  };
 
   if (loading) {
     return (
@@ -37,7 +46,7 @@ const MediumSelector = () => {
     return (
       <NoMediumsContainer>
         <NoMediumsIcon><FaSeedling size={32} /></NoMediumsIcon>
-        <NoMediumsText>No mediums configured for {currentRoom}</NoMediumsText>
+        <NoMediumsText>No mediums configured for {getRoomDisplayName(currentRoom)}</NoMediumsText>
         <NoMediumsHint>Configure mediums in the settings to start tracking plants</NoMediumsHint>
       </NoMediumsContainer>
     );

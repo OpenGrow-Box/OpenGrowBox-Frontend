@@ -17,7 +17,7 @@ export const getThemeColor = (variableName) => {
 
     return colorValue;
   } catch (error) {
-    console.error(`Error resolving theme color ${variableName}:`, error);
+    // console.error(`Error resolving theme color ${variableName}:`, error);
     return getFallbackColor(variableName);
   }
 };

@@ -123,7 +123,7 @@ export const MediumProvider = ({ children }) => {
 
     const setupListeners = async () => {
       try {
-        console.log(`[MediumContext] Setting up listeners for room: ${currentRoom}`);
+        //console.log(`[MediumContext] Setting up listeners for room: ${currentRoom}`);
         
         // Listen for all plants update
         unsubscribePlants = await connection.subscribeEvents(
@@ -131,7 +131,7 @@ export const MediumProvider = ({ children }) => {
             const data = event.data;
             
             if (data.Name === currentRoom && data.plants && Array.isArray(data.plants)) {
-              console.log(`[MediumContext] MediumPlantsUpdate: ${data.plants.length} mediums for ${currentRoom}`);
+              //console.log(`[MediumContext] MediumPlantsUpdate: ${data.plants.length} mediums for ${currentRoom}`);
               
               // Use refs to check editing state without causing re-renders
               const isEditing = editingFieldsRef.current.size > 0;
@@ -191,11 +191,11 @@ export const MediumProvider = ({ children }) => {
                 
                 // Skip if editing this medium
                 if (isEditing && index === editingIdx) {
-                  console.log('[MediumContext] Ignoring update for medium being edited');
+                  //console.log('[MediumContext] Ignoring update for medium being edited');
                   return prev;
                 }
                 
-                console.log(`[MediumContext] MediumPlantUpdate: ${data.medium_name}`);
+                //console.log(`[MediumContext] MediumPlantUpdate: ${data.medium_name}`);
                 const updated = [...prev];
                 
                 if (index !== -1) {
@@ -211,7 +211,7 @@ export const MediumProvider = ({ children }) => {
           'MediumPlantUpdate'
         );
         
-        console.log('[MediumContext] Event listeners registered successfully');
+        //console.log('[MediumContext] Event listeners registered successfully');
 
         // Request initial data
         try {
@@ -314,7 +314,7 @@ export const MediumProvider = ({ children }) => {
         Object.keys(updates).forEach(field => stopEditing(field));
       }
       
-      console.log('[MediumContext] Update successful:', updates);
+      //console.log('[MediumContext] Update successful:', updates);
       
     } catch (error) {
       console.error('Failed to update medium plant dates:', error);

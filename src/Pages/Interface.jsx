@@ -61,7 +61,7 @@ const Interface = () => {
     if (!isLoading) {
       // If configuration is invalid, show setup page
       if (!isConfigurationValid()) {
-        console.log('Configuration invalid, showing setup page');
+        // console.log('Configuration invalid, showing setup page');
         return; // Stay on current page to show SetupPage
       }
 
@@ -70,12 +70,12 @@ const Interface = () => {
         const siteView = state.Settings?.siteView;
         if (!siteView) {
           // No siteView selected, show setup page with interface selection
-          console.log('No siteView selected, showing setup page');
+          // console.log('No siteView selected, showing setup page');
           return;
         }
         // Ensure siteView is valid (lite or pro)
         if (siteView !== 'lite' && siteView !== 'pro') {
-          console.log('Invalid siteView, showing setup page');
+          // console.log('Invalid siteView, showing setup page');
           return;
         }
         // Only navigate to home if we're on the root path (/)

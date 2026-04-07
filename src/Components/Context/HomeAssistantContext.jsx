@@ -15,7 +15,6 @@ export const HomeAssistantProvider = ({ children }) => {
 
   // State declarations
   const [entities, setEntities] = useState({});
-  const [areas, setAreas] = useState({});
   const [loading, setLoading] = useState(true);
   const [currentRoom, setCurrentRoom] = useState('');
   const [accessToken, setAccessToken] = useState('');
@@ -250,16 +249,6 @@ export const HomeAssistantProvider = ({ children }) => {
               {}
             );
             setEntities(entitiesObj);
-            
-            // Fetch areas from connection.areas instead of REST API
-            if (connection && connection.areas) {
-              const areasObj = connection.areas.reduce(
-                (acc, area) => ({ ...acc, [area.area_id]: area }),
-                {}
-              );
-              setAreas(areasObj);
-              console.log('Loaded areas from connection.areas:', Object.keys(areasObj));
-            }
             
             // Extract room and token information
             const roomEntity = initialEntities.find(e => e.entity_id === 'select.ogb_rooms');
@@ -611,7 +600,6 @@ export const HomeAssistantProvider = ({ children }) => {
         setError,
         connectionState,
         entities,
-        areas,
         currentRoom,
         setCurrentRoom,
         roomOptions,

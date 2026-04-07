@@ -9,6 +9,7 @@ import formatLabel from '../../../misc/formatLabel';
 const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
   const [waterSensors, setWaterensors] = useState([]);
+  const [tankLevelSensor, setTankLevelSensor] = useState(null);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
@@ -42,14 +43,53 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
     }
 
     setWaterensors(combinedSensors);
+
+    // Detect tank level / reservoir sensors
+    const tankSensors = Object.entries(entities)
+      .filter(([key, entity]) => {
+        const rawValue = parseFloat(entity.state);
+        const id = key.toLowerCase();
+        
+        const patterns = [
+          /tank_level($|[^a-zA-Z])/,
+          /water_level($|[^a-zA-Z])/,
+          /reservoir_level($|[^a-zA-Z])/,
+        ];
+
+        const matchesSensorType = patterns.some((pattern) => pattern.test(id));
+
+        return (
+          key.startsWith('sensor.') &&
+          matchesSensorType &&
+          !id.includes('phone') &&
+          !id.includes('mqtt') &&
+          !id.includes('connect') &&
+          !isNaN(rawValue)
+        );
+      })
+      .map(([key, entity]) => {
+        const rawValue = parseFloat(entity.state);
+        const unit = entity.attributes?.unit_of_measurement || '%';
+        return {
+          id: key,
+          value: rawValue,
+          unit: unit,
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
+        };
+      });
+
+    if (filterByRoom && currentRoom) {
+      const filteredTanks = filterSensorsByRoom(tankSensors, currentRoom);
+      setTankLevelSensor(filteredTanks.length > 0 ? filteredTanks[0] : null);
+    } else {
+      setTankLevelSensor(tankSensors.length > 0 ? tankSensors[0] : null);
+    }
   }, [entities, filterByRoom, currentRoom]);
 
 
   const getColorForValue = (value, unit) => {
     const unitLower = (unit || '').toLowerCase();
     let normalizedValue = value;
-
-    console.log('Getting color for:', value, unit, unitLower);
 
     // Einheitskonvertierung für EC/Leitfähigkeit
     if (unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('ms/us')) {
@@ -103,8 +143,24 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
       if (normalizedValue > 25) return getThemeColor('--warning-accent-color');
     }
 
-    // Default color - use main unit color
-    console.log('Using default color for unit:', unitLower);
+    // Farben für Tank Level / Reservoir (Prozent)
+    if (unitLower.includes('%')) {
+      if (value <= 10) return getThemeColor('--chart-error-color');
+      if (value > 10 && value <= 25) return getThemeColor('--warning-accent-color');
+      if (value > 25 && value <= 50) return getThemeColor('--chart-warning-color');
+      if (value > 50 && value <= 75) return getThemeColor('--warning-text-color');
+      return getThemeColor('--chart-success-color');
+    }
+
+    // Farben für Liter-Werte
+    if (unitLower.includes('l') || unitLower.includes('liter')) {
+      if (value <= 50) return getThemeColor('--chart-error-color');
+      if (value > 50 && value <= 150) return getThemeColor('--warning-accent-color');
+      if (value > 150 && value <= 300) return getThemeColor('--chart-warning-color');
+      if (value > 300 && value <= 500) return getThemeColor('--warning-text-color');
+      return getThemeColor('--chart-success-color');
+    }
+
     return getThemeColor('--main-unit-color');
   };
 
@@ -142,6 +198,22 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
     <CardContainer>
       <Header><h4>WATER</h4></Header>
       <Content>
+        {/* Reservoir / Tank Level - First entry with separator */}
+        {tankLevelSensor && (
+          <>
+            <ReservoirBox onClick={() => handleDataBoxClick(tankLevelSensor.id)}>
+              <ReservoirLabel>{tankLevelSensor.friendlyName}</ReservoirLabel>
+              <ValueWrapper>
+                <Value style={{ color: getColorForValue(tankLevelSensor.value, tankLevelSensor.unit) }}>
+                  {tankLevelSensor.value % 1 === 0 ? tankLevelSensor.value.toFixed(0) : tankLevelSensor.value.toFixed(1)}
+                </Value>
+                <Unit>{tankLevelSensor.unit}</Unit>
+              </ValueWrapper>
+            </ReservoirBox>
+            <WaterSeparator />
+          </>
+        )}
+        
         {waterSensors.map((sensor) => {
           const formatted = getFormattedValueWithUnit(sensor.value, sensor.unit);
           return (
@@ -156,7 +228,7 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
             </DataBox>
           );
         })}
-        {waterSensors.length === 0 && <NoData>No Water sensors found.</NoData>}
+        {waterSensors.length === 0 && !tankLevelSensor && <NoData>No Water sensors found.</NoData>}
       </Content>
 
       {/* Bedingtes Rendern des Modals */}
@@ -188,6 +260,51 @@ const Header = styled.div`
 `;
 
 const Content = styled.div``;
+
+const ReservoirBox = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem;
+  min-width: 100%;
+  flex-direction: row;
+  background: var(--main-bg-card-color);
+  border: 1px solid var(--chart-info-color);
+  border-radius: 12px;
+  margin-top: 0.5rem;
+  color: var(--main-text-color);
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 4px;
+    background: var(--chart-info-color);
+  }
+  
+  &:hover {
+    border-color: var(--primary-accent);
+    transform: translateY(-1px);
+    box-shadow: var(--main-shadow-art);
+  }
+`;
+
+const ReservoirLabel = styled.div`
+  font-weight: 600;
+  font-size: 0.85rem;
+  color: var(--main-text-color);
+`;
+
+const WaterSeparator = styled.div`
+  height: 1px;
+  background: var(--glass-border);
+  margin: 0.5rem 0;
+`;
 
 const DataBox = styled.div`
   display: flex;

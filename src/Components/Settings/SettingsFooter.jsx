@@ -47,7 +47,7 @@ const SettingsFooter = () => {
           setAppVersion(ogbversions.frontend);
         }
       } catch (error) {
-        console.error('Fehler beim Abrufen der neuesten Version:', error);
+        // console.error('Fehler beim Abrufen der neuesten Version:', error);
         setAppVersion(ogbversions.frontend); // Fallback to local version on error
       }
     };

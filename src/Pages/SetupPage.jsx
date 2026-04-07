@@ -5,19 +5,8 @@ import { useNavigate } from 'react-router-dom';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import SecureTokenStorage from '../utils/secureTokenStorage';
 import isValidToken from '../misc/isValidJWT';
-
-// Define the blue-green gradient
-const GradientDefs = () => (
-  <svg width="0" height="0">
-    <defs>
-      <linearGradient id="blueGreenGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-        <stop offset="0%" style={{ stopColor: '#2A9D8F', stopOpacity: 1 }} />
-        <stop offset="50%" style={{ stopColor: '#264653', stopOpacity: 1 }} />
-        <stop offset="100%" style={{ stopColor: '#48CAE4', stopOpacity: 1 }} />
-      </linearGradient>
-    </defs>
-  </svg>
-);
+import { Leaf, Zap, Key, Server, ArrowRight, Check } from 'lucide-react';
+import OGBIcon from '../misc/OGBIcon';
 
 const SetupPage = ({ forceTokenEntry = false }) => {
   const [inputToken, setInputToken] = useState('');
@@ -26,6 +15,7 @@ const SetupPage = ({ forceTokenEntry = false }) => {
   const [pendingToken, setPendingToken] = useState(null);
   const [showInterfaceSelection, setShowInterfaceSelection] = useState(false);
   const [isCheckingExistingToken, setIsCheckingExistingToken] = useState(true);
+  const [currentStep, setCurrentStep] = useState(1);
   const { setDeep, state } = useGlobalState();
   const navigate = useNavigate();
   const { connection, reconnect, loading, error, connectionState, setError } = useHomeAssistant();
@@ -35,9 +25,7 @@ const SetupPage = ({ forceTokenEntry = false }) => {
   // Check for existing token on mount
   useEffect(() => {
     const checkExistingToken = async () => {
-      // If forceTokenEntry is true, always show token input
       if (forceTokenEntry) {
-        console.log('Force token entry mode - showing token input');
         setIsCheckingExistingToken(false);
         return;
       }
@@ -47,18 +35,13 @@ const SetupPage = ({ forceTokenEntry = false }) => {
         localStorage.getItem('haToken') ||
         localStorage.getItem('devToken');
 
-      // If we have a valid token and configuration is valid, skip to interface selection
       if (isValidToken(existingToken)) {
-        console.log('Existing token found, checking configuration...');
-        // Check if siteView is already selected
         if (state.Settings?.siteView) {
-          // Everything is configured, go to home
           navigate('/home');
           return;
         } else {
-          // Token exists but no siteView selected, show interface selection directly
-          console.log('Token exists, showing interface selection');
           setShowInterfaceSelection(true);
+          setCurrentStep(2);
         }
       }
       setIsCheckingExistingToken(false);
@@ -70,10 +53,9 @@ const SetupPage = ({ forceTokenEntry = false }) => {
   // Watch for connection after token is set
   useEffect(() => {
     if (pendingToken && connection && !loading && connectionState === 'connected') {
-      // Connection established with the new token
       const completeSetup = async () => {
         try {
-          setError(null);  // Clear error to ensure clean state
+          setError(null);
           await handleTokenChange("text.ogb_accesstoken", pendingToken);
           localStorage.setItem('haToken', pendingToken);
           if (import.meta.env.DEV) {
@@ -82,14 +64,14 @@ const SetupPage = ({ forceTokenEntry = false }) => {
           SecureTokenStorage.storeToken(pendingToken);
           setPendingToken(null);
           setIsConnecting(false);
-          // Check if siteView is already selected
           if (state.Settings?.siteView) {
             navigate("/home");
           } else {
             setShowInterfaceSelection(true);
+            setCurrentStep(2);
           }
         } catch (err) {
-          console.error('Error completing setup:', err);
+          // console.error('Error completing setup:', err);
           setIsConnecting(false);
           setPendingToken(null);
           navigate("/home");
@@ -97,14 +79,10 @@ const SetupPage = ({ forceTokenEntry = false }) => {
       };
       completeSetup();
     } else if (pendingToken && error && !loading && connectionState === 'auth_error') {
-      // Connection failed due to invalid token - clear everything
       alert('Invalid token! Please enter a valid Token.');
       setIsConnecting(false);
       setPendingToken(null);
       setError(null);
-    } else if (pendingToken && error && !loading) {
-      // Other error - don't clear pendingToken, let reconnect retry
-      console.warn('Connection error, retrying...', error);
     }
   }, [connection, loading, error, pendingToken, navigate, connectionState, state.Settings?.siteView]);
 
@@ -122,13 +100,11 @@ const SetupPage = ({ forceTokenEntry = false }) => {
       return;
     }
 
-    // In dev mode, require server URL
     if (isDev && !inputServerUrl) {
       alert('Please enter your Home Assistant server URL!');
       return;
     }
 
-    // Save the configuration
     setDeep('Conf.haToken', inputToken);
     if (isDev) {
       setDeep('Conf.hassServer', inputServerUrl);
@@ -140,26 +116,23 @@ const SetupPage = ({ forceTokenEntry = false }) => {
     }
     SecureTokenStorage.storeToken(inputToken);
     
-    // If already connected, complete immediately
     if (connection) {
       try {
         await handleTokenChange("text.ogb_accesstoken", inputToken);
-        // Check if siteView is already selected
         if (state.Settings?.siteView) {
           navigate("/home");
         } else {
           setShowInterfaceSelection(true);
+          setCurrentStep(2);
         }
       } catch (err) {
-        console.error('Error updating token:', err);
+        // console.error('Error updating token:', err);
         alert('Error saving token. Please try again.');
       }
     } else {
-      // Set pending token and wait for connection
       setIsConnecting(true);
       setPendingToken(inputToken);
       setError(null);
-      // Use reconnect which sets isManualConnectRef to avoid race with useEffect
       setTimeout(() => reconnect(), 100);
     }
   };
@@ -169,440 +142,546 @@ const SetupPage = ({ forceTokenEntry = false }) => {
     navigate("/home");
   };
 
-  const handleReenterToken = () => {
-    // Clear the existing token and show token input
-    setShowInterfaceSelection(false);
-    setInputToken('');
-    // Optionally clear stored tokens
-    // localStorage.removeItem('haToken');
-    // localStorage.removeItem('devToken');
-    // SecureTokenStorage.clearToken();
-  };
-
   const handleTokenChange = async (entity, value) => {
-    console.log(entity, value);
     if (connection) {
       try {
         await connection.sendMessagePromise({
           type: 'call_service',
           domain: 'opengrowbox',
           service: 'update_text',
-          service_data: {
-            entity_id: entity,
-            text: value,
-          },
+          service_data: { entity_id: entity, text: value },
         });
-        console.log('Token written to HA successfully');
       } catch (error) {
-        console.error('Error updating entity:', error);
-        console.warn('Make sure OpenGrowBox integration is installed in Home Assistant');
+        // console.error('Error updating entity:', error);
       }
     }
   };
 
   return (
     <Wrapper>
-      <GradientDefs />
-      {showInterfaceSelection ? (
-        <InterfaceSelectionWrapper>
-          <InterfaceHeader>
-            Choose Your Interface
-          </InterfaceHeader>
-          <InterfaceSubText>
-            Select the interface that best fits your needs
-          </InterfaceSubText>
-          <InterfaceCards>
-            <InterfaceCard onClick={() => handleInterfaceSelection('lite')}>
-              <CardIcon>🌱</CardIcon>
-              <CardTitle>LITE</CardTitle>
-              <CardDescription>
-                Simple and clean interface
-              </CardDescription>
-              <CardFeatures>
-                <CardFeature>• Sensor values only</CardFeature>
-                <CardFeature>• Basic controls</CardFeature>
-                <CardFeature>• Easy to use</CardFeature>
-              </CardFeatures>
-            </InterfaceCard>
-            <InterfaceCard onClick={() => handleInterfaceSelection('pro')}>
-              <CardIcon>⚡</CardIcon>
-              <CardTitle>PRO</CardTitle>
-              <CardDescription>
-                Full-featured experience
-              </CardDescription>
-              <CardFeatures>
-                <CardFeature>• All features included</CardFeature>
-                <CardFeature>• AI Assistant</CardFeature>
-                <CardFeature>• Advanced analytics</CardFeature>
-              </CardFeatures>
-            </InterfaceCard>
-          </InterfaceCards>
-          <ReenterTokenButton onClick={handleReenterToken}>
-            ↻ Re-enter Token
-          </ReenterTokenButton>
-        </InterfaceSelectionWrapper>
-      ) : (
-        <>
-          <Header>
-            Welcome to OpenGrowBox
-          </Header>
-          <SubText>
-            {isDev 
-              ? 'Please enter your Home Assistant server URL and Long-Lived Access Token to proceed.'
-              : 'Please enter your Home Assistant Long-Lived Access Token to proceed.'
-            }
-          </SubText>
-          <InputWrapper>
-            {isDev && (
-              <Input
-                type="url"
-                placeholder="Home Assistant Server URL (e.g., http://homeassistant.local:8123)"
-                value={inputServerUrl}
-                onChange={handleServerUrlChange}
-              />
-            )}
-            <Input
-              type="text"
-              placeholder="Enter Assistant Long-Lived Token..."
-              value={inputToken}
-              onChange={handleInputChange}
-            />
-            <SubmitButton onClick={handleSubmit} disabled={isConnecting}>
-              {isConnecting ? 'Connecting...' : 'Save Token'}
-            </SubmitButton>
-          </InputWrapper>
-          <Footer>
-            🪴 Grow smarter with OpenGrowBox! 🪴 Harvest Better
-          </Footer>
-        </>
-      )}
+      <BackgroundGradient />
+      <ContentContainer>
+        <LogoSection>
+          <LogoIcon>
+            <OGBIcon style={{ width: '80px', height: '80px' }} />
+          </LogoIcon>
+          <LogoText>OpenGrowBox</LogoText>
+          <Tagline>Smart Growing, Simplified</Tagline>
+        </LogoSection>
+
+        <StepIndicator>
+          <Step $active={currentStep === 1} $completed={currentStep > 1}>
+            <StepNumber>{currentStep > 1 ? <Check size={16} /> : 1}</StepNumber>
+            <StepLabel>Connect</StepLabel>
+          </Step>
+          <StepLine $completed={currentStep > 1} />
+          <Step $active={currentStep === 2}>
+            <StepNumber>2</StepNumber>
+            <StepLabel>Interface</StepLabel>
+          </Step>
+        </StepIndicator>
+
+        {showInterfaceSelection ? (
+          <InterfaceSection>
+            <SectionTitle>Choose Your Experience</SectionTitle>
+            <SectionSubtitle>Select the interface that fits your growing style</SectionSubtitle>
+            
+            <InterfaceCards>
+              <InterfaceCard onClick={() => handleInterfaceSelection('lite')}>
+                <CardHeader>
+                  <CardIconWrapper $color="#4ade80">
+                    <Leaf size={32} />
+                  </CardIconWrapper>
+                  <CardTitle>LITE</CardTitle>
+                  <CardBadge>Simple</CardBadge>
+                </CardHeader>
+                <CardDescription>
+                  Perfect for beginners. Clean interface with essential controls and sensor monitoring.
+                </CardDescription>
+                <FeatureList>
+                  <Feature><Check size={14} /> Real-time sensor values</Feature>
+                  <Feature><Check size={14} /> Basic environment controls</Feature>
+                  <Feature><Check size={14} /> Quick device toggles</Feature>
+                  <Feature><Check size={14} /> Camera monitoring</Feature>
+                </FeatureList>
+                <SelectButton>
+                  Select LITE <ArrowRight size={16} />
+                </SelectButton>
+              </InterfaceCard>
+
+              <InterfaceCard onClick={() => handleInterfaceSelection('pro')}>
+                <CardHeader>
+                  <CardIconWrapper $color="#f59e0b">
+                    <Zap size={32} />
+                  </CardIconWrapper>
+                  <CardTitle>PRO</CardTitle>
+                  <CardBadge $pro>Advanced</CardBadge>
+                </CardHeader>
+                <CardDescription>
+                  Full control for experienced growers. Advanced automation and detailed analytics.
+                </CardDescription>
+                <FeatureList>
+                  <Feature><Check size={14} /> All LITE features</Feature>
+                  <Feature><Check size={14} /> Advanced automation</Feature>
+                  <Feature><Check size={14} /> AI-powered insights</Feature>
+                  <Feature><Check size={14} /> Detailed analytics</Feature>
+                </FeatureList>
+                <SelectButton $pro>
+                  Select PRO <ArrowRight size={16} />
+                </SelectButton>
+              </InterfaceCard>
+            </InterfaceCards>
+          </InterfaceSection>
+        ) : (
+          <TokenSection>
+            <SectionTitle>Connect to Home Assistant</SectionTitle>
+            <SectionSubtitle>Enter your Home Assistant Long-Lived Access Token to connect</SectionSubtitle>
+            
+            <InputContainer>
+              {isDev && (
+                <InputGroup>
+                  <InputIcon>
+                    <Server size={20} />
+                  </InputIcon>
+                  <Input
+                    type="url"
+                    placeholder="Home Assistant URL (e.g., http://homeassistant.local:8123)"
+                    value={inputServerUrl}
+                    onChange={handleServerUrlChange}
+                  />
+                </InputGroup>
+              )}
+              
+              <InputGroup>
+                <InputIcon>
+                  <Key size={20} />
+                </InputIcon>
+                <Input
+                  type="password"
+                  placeholder="Home Assistant Long-Lived Access Token"
+                  value={inputToken}
+                  onChange={handleInputChange}
+                />
+              </InputGroup>
+
+              <SubmitButton onClick={handleSubmit} disabled={isConnecting}>
+                {isConnecting ? (
+                  <>
+                    <Spinner /> Connecting...
+                  </>
+                ) : (
+                  <>
+                    Continue <ArrowRight size={18} />
+                  </>
+                )}
+              </SubmitButton>
+            </InputContainer>
+
+            <HelpText>
+              <strong>Where to find your token:</strong> In Home Assistant, go to your Profile → Security → scroll to bottom → Create Token
+            </HelpText>
+          </TokenSection>
+        )}
+      </ContentContainer>
     </Wrapper>
   );
 };
 
 export default SetupPage;
 
-// === Styles ===
-
+// Animations
 const fadeIn = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-20px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(20px); }
+  to { opacity: 1; transform: translateY(0); }
+`;
+
+const slideIn = keyframes`
+  from { opacity: 0; transform: translateX(-20px); }
+  to { opacity: 1; transform: translateX(0); }
 `;
 
 const pulse = keyframes`
-  0% {
-    box-shadow: 0 0 0 0 rgba(72, 202, 228, 0.4);
-  }
-  70% {
-    box-shadow: 0 0 0 10px rgba(72, 202, 228, 0);
-  }
-  100% {
-    box-shadow: 0 0 0 0 rgba(72, 202, 228, 0);
-  }
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
 `;
 
+const spin = keyframes`
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+`;
+
+const float = keyframes`
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+`;
+
+// Styled Components
 const Wrapper = styled.div`
-  position: relative;
+  min-height: 100vh;
+  width: 100%;
   display: flex;
-  width: 100vw;
-  height: 100vh;
-  flex-direction: column;
   align-items: center;
   justify-content: center;
-  background: linear-gradient(135deg, #264653 0%, #2A9D8F 100%);
-  animation: ${fadeIn} 1s ease-in-out;
+  background: var(--main-bg-color);
+  position: relative;
   overflow: hidden;
-  z-index: 1;
-
-  &::before {
-    content: '';
-    position: absolute;
-    background: url('/ogb_logo.svg') no-repeat center;
-    background-size: 50%;
-    filter: blur(4px);
-    top: 0;
-    left: 0;
-    width: 100%;
-    height: 100%;
-    z-index: 0;
-    opacity: 0.05;
-  }
+  padding: 2rem;
 
   @media (max-width: 768px) {
-    padding: 20px;
-    &::before {
-      background-size: 80%;
-    }
+    padding: 1rem;
   }
 `;
 
-const Header = styled.h1`
+const BackgroundGradient = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: 
+    radial-gradient(ellipse at 20% 20%, rgba(20, 184, 166, 0.15) 0%, transparent 50%),
+    radial-gradient(ellipse at 80% 80%, rgba(72, 202, 228, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at 50% 50%, rgba(16, 185, 129, 0.05) 0%, transparent 70%);
+  pointer-events: none;
+`;
+
+const ContentContainer = styled.div`
+  width: 100%;
+  max-width: 900px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2rem;
+  animation: ${fadeIn} 0.6s ease-out;
+  z-index: 1;
+`;
+
+const LogoSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+`;
+
+const LogoIcon = styled.div`
+  color: var(--primary-accent);
+  animation: ${float} 3s ease-in-out infinite;
+  
+  svg {
+    width: 64px;
+    height: 64px;
+    stroke-width: 1.5;
+  }
+`;
+
+const LogoText = styled.h1`
   font-size: 2.5rem;
-  color: #E9F5DB;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  margin-bottom: 1.5rem;
   font-weight: 700;
-  letter-spacing: 1px;
-  animation: ${fadeIn} 1.2s ease-in-out;
+  background: linear-gradient(135deg, var(--primary-accent), var(--secondary-accent));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  letter-spacing: -0.5px;
 
   @media (max-width: 768px) {
     font-size: 2rem;
   }
 `;
 
-const SubText = styled.p`
+const Tagline = styled.p`
   font-size: 1.1rem;
-  color: #F4F1DE;
-  margin-bottom: 2rem;
-  text-align: center;
-  max-width: 500px;
-  line-height: 1.5;
-  animation: ${fadeIn} 1.4s ease-in-out;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
-    max-width: 90%;
-  }
+  color: var(--placeholder-text-color);
+  font-weight: 500;
 `;
 
-const InputWrapper = styled.div`
+const StepIndicator = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 1rem;
+`;
+
+const Step = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 20px;
-  width: 100%;
-  max-width: 400px;
-  backdrop-filter: blur(8px);
-  background: rgba(42, 157, 143, 0.2);
-  padding: 30px;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
-  animation: ${fadeIn} 1.6s ease-in-out;
+  gap: 0.5rem;
+  opacity: ${props => props.$active || props.$completed ? 1 : 0.4};
+  transition: opacity 0.3s ease;
+`;
 
-  @media (max-width: 768px) {
-    padding: 20px;
-    max-width: 90%;
-  }
+const StepNumber = styled.div`
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 0.9rem;
+  background: ${props => props.children?.type === Check 
+    ? 'linear-gradient(135deg, #22c55e, #16a34a)' 
+    : 'var(--glass-bg-primary)'};
+  color: ${props => props.children?.type === Check ? 'white' : 'var(--main-text-color)'};
+  border: 2px solid ${props => props.$active ? 'var(--primary-accent)' : 'var(--glass-border)'};
+`;
+
+const StepLabel = styled.span`
+  font-size: 0.8rem;
+  color: var(--main-text-color);
+  font-weight: 500;
+`;
+
+const StepLine = styled.div`
+  width: 60px;
+  height: 2px;
+  background: ${props => props.$completed 
+    ? 'linear-gradient(90deg, #22c55e, var(--primary-accent))' 
+    : 'var(--glass-border)'};
+  transition: background 0.3s ease;
+`;
+
+const TokenSection = styled.div`
+  width: 100%;
+  max-width: 480px;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: ${slideIn} 0.5s ease-out;
+`;
+
+const InterfaceSection = styled.div`
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  animation: ${slideIn} 0.5s ease-out;
+`;
+
+const SectionTitle = styled.h2`
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+  text-align: center;
+`;
+
+const SectionSubtitle = styled.p`
+  font-size: 1rem;
+  color: var(--placeholder-text-color);
+  text-align: center;
+  margin-top: -1rem;
+`;
+
+const InputContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin-top: 1rem;
+`;
+
+const InputGroup = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+`;
+
+const InputIcon = styled.div`
+  position: absolute;
+  left: 1rem;
+  color: var(--placeholder-text-color);
+  display: flex;
+  align-items: center;
+  pointer-events: none;
 `;
 
 const Input = styled.input`
   width: 100%;
-  padding: 12px;
+  padding: 1rem 1rem 1rem 3rem;
   font-size: 1rem;
-  border-radius: 10px;
-  border: 2px solid #48CAE4;
-  background: rgba(38, 70, 83, 0.8);
-  color: #F4F1DE;
+  border-radius: 12px;
+  border: 2px solid var(--glass-border);
+  background: var(--glass-bg-primary);
+  color: var(--main-text-color);
   outline: none;
   transition: all 0.3s ease;
 
   &:focus {
-    border-color: #90E0EF;
-    box-shadow: 0 0 12px rgba(144, 224, 239, 0.5);
+    border-color: var(--primary-accent);
+    box-shadow: 0 0 0 3px rgba(20, 184, 166, 0.1);
+    background: var(--glass-bg-secondary);
   }
 
   &::placeholder {
-    color: #A3BFFA;
-    opacity: 0.7;
+    color: var(--placeholder-text-color);
   }
 `;
 
 const SubmitButton = styled.button`
-  background: url('#blueGreenGradient');
-  color: #F4F1DE;
-  padding: 12px 24px;
-  font-size: 1.2rem;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1rem 2rem;
+  font-size: 1.1rem;
   font-weight: 600;
+  color: white;
+  background: linear-gradient(135deg, var(--primary-accent), var(--secondary-accent));
   border: none;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   transition: all 0.3s ease;
-  animation: ${pulse} 2s infinite;
+  margin-top: 0.5rem;
 
   &:hover:not(:disabled) {
-    background: #48CAE4;
     transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(72, 202, 228, 0.5);
+    box-shadow: 0 8px 25px rgba(20, 184, 166, 0.3);
   }
 
   &:active:not(:disabled) {
     transform: translateY(0);
-    box-shadow: none;
   }
 
   &:disabled {
-    opacity: 0.6;
+    opacity: 0.7;
     cursor: not-allowed;
-    animation: none;
-  }
-
-  @media (max-width: 768px) {
-    padding: 10px 20px;
-    font-size: 1rem;
   }
 `;
 
-const Footer = styled.div`
-  margin-top: 2.5rem;
-  font-size: 1rem;
-  color: #E9F5DB;
-  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.2);
-  animation: ${fadeIn} 1.8s ease-in-out;
-
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-  }
+const Spinner = styled.div`
+  width: 18px;
+  height: 18px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: white;
+  border-radius: 50%;
+  animation: ${spin} 0.8s linear infinite;
 `;
 
-const InterfaceSelectionWrapper = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  width: 100%;
-  max-width: 800px;
-  animation: ${fadeIn} 0.5s ease-in-out;
-`;
-
-const InterfaceHeader = styled.h1`
-  font-size: 2.5rem;
-  color: #E9F5DB;
-  text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
-  margin-bottom: 1rem;
-  font-weight: 700;
-  letter-spacing: 1px;
-
-  @media (max-width: 768px) {
-    font-size: 2rem;
-  }
-`;
-
-const InterfaceSubText = styled.p`
-  font-size: 1.1rem;
-  color: #F4F1DE;
-  margin-bottom: 2.5rem;
+const HelpText = styled.p`
+  font-size: 0.85rem;
+  color: var(--placeholder-text-color);
   text-align: center;
-  max-width: 600px;
-  line-height: 1.5;
-
-  @media (max-width: 768px) {
-    font-size: 1rem;
-    max-width: 90%;
-  }
+  margin-top: 1rem;
 `;
 
 const InterfaceCards = styled.div`
-  display: flex;
-  gap: 2rem;
-  width: 100%;
-  justify-content: center;
-  flex-wrap: wrap;
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1.5rem;
+  margin-top: 1rem;
 
   @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 1.5rem;
+    grid-template-columns: 1fr;
   }
 `;
 
 const InterfaceCard = styled.div`
-  flex: 1;
-  min-width: 280px;
-  max-width: 350px;
-  padding: 2.5rem;
-  background: rgba(42, 157, 143, 0.2);
-  backdrop-filter: blur(8px);
-  border: 2px solid rgba(255, 255, 255, 0.1);
+  background: var(--glass-bg-primary);
+  border: 2px solid var(--glass-border);
   border-radius: 20px;
+  padding: 2rem;
   cursor: pointer;
   transition: all 0.3s ease;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
 
   &:hover {
-    background: rgba(42, 157, 143, 0.3);
-    border-color: #48CAE4;
-    transform: translateY(-5px);
-    box-shadow: 0 8px 30px rgba(72, 202, 228, 0.3);
-  }
-
-  @media (max-width: 768px) {
-    min-width: 100%;
-    max-width: 100%;
-    padding: 2rem;
+    border-color: var(--primary-accent);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 40px rgba(0, 0, 0, 0.15);
+    background: var(--glass-bg-secondary);
   }
 `;
 
-const CardIcon = styled.div`
-  font-size: 3rem;
-  text-align: center;
-  margin-bottom: 1rem;
+const CardHeader = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
 `;
 
-const CardTitle = styled.h2`
-  font-size: 1.8rem;
-  color: #E9F5DB;
-  text-align: center;
-  margin-bottom: 0.5rem;
+const CardIconWrapper = styled.div`
+  width: 64px;
+  height: 64px;
+  border-radius: 16px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${props => `linear-gradient(135deg, ${props.$color}20, ${props.$color}40)`};
+  color: ${props => props.$color};
+  
+  svg {
+    stroke-width: 2;
+  }
+`;
+
+const CardTitle = styled.h3`
+  font-size: 1.5rem;
   font-weight: 700;
+  color: var(--main-text-color);
+`;
 
-  @media (max-width: 768px) {
-    font-size: 1.5rem;
-  }
+const CardBadge = styled.span`
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 20px;
+  background: ${props => props.$pro 
+    ? 'linear-gradient(135deg, #f59e0b20, #f59e0b40)' 
+    : 'linear-gradient(135deg, #4ade8020, #4ade8040)'};
+  color: ${props => props.$pro ? '#f59e0b' : '#4ade80'};
+  border: 1px solid ${props => props.$pro ? '#f59e0b40' : '#4ade8040'};
 `;
 
 const CardDescription = styled.p`
-  font-size: 1rem;
-  color: #F4F1DE;
+  font-size: 0.95rem;
+  color: var(--placeholder-text-color);
   text-align: center;
-  margin-bottom: 1.5rem;
-  opacity: 0.9;
-
-  @media (max-width: 768px) {
-    font-size: 0.9rem;
-  }
+  line-height: 1.5;
 `;
 
-const CardFeatures = styled.div`
+const FeatureList = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.5rem;
 `;
 
-const CardFeature = styled.div`
+const Feature = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   font-size: 0.9rem;
-  color: #F4F1DE;
-  padding: 0.5rem;
-  background: rgba(38, 70, 83, 0.4);
-  border-radius: 8px;
-  text-align: left;
+  color: var(--main-text-color);
+
+  svg {
+    color: var(--primary-accent);
+    flex-shrink: 0;
+  }
 `;
 
-const ReenterTokenButton = styled.button`
-  margin-top: 2rem;
-  padding: 0.75rem 1.5rem;
-  font-size: 0.9rem;
-  color: #F4F1DE;
-  background: rgba(38, 70, 83, 0.4);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 8px;
-  cursor: pointer;
+const SelectButton = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 0.875rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: ${props => props.$pro ? '#f59e0b' : '#4ade80'};
+  background: ${props => props.$pro 
+    ? 'linear-gradient(135deg, #f59e0b10, #f59e0b20)' 
+    : 'linear-gradient(135deg, #4ade8010, #4ade8020)'};
+  border: 2px solid ${props => props.$pro ? '#f59e0b40' : '#4ade8040'};
+  border-radius: 12px;
+  margin-top: auto;
   transition: all 0.3s ease;
 
-  &:hover {
-    background: rgba(38, 70, 83, 0.6);
-    border-color: #48CAE4;
-    transform: translateY(-2px);
-  }
-
-  @media (max-width: 768px) {
-    margin-top: 1.5rem;
-    padding: 0.6rem 1.2rem;
-    font-size: 0.85rem;
+  ${InterfaceCard}:hover & {
+    background: ${props => props.$pro 
+      ? 'linear-gradient(135deg, #f59e0b, #f97316)' 
+      : 'linear-gradient(135deg, #4ade80, #22c55e)'};
+    color: white;
+    border-color: transparent;
   }
 `;

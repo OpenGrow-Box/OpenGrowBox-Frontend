@@ -107,25 +107,26 @@ export const OGBPremiumProvider = ({ children }) => {
   const getActualRoom = () => {
     // First try currentRoom from context
     if (currentRoom) {
-      console.log('📍 Using currentRoom from context:', currentRoom);
+      // console.log('📍 Using currentRoom from context:', currentRoom);
       return currentRoom;
     }
     
     // Fallback: Read directly from entities
     const roomEntity = entities?.['select.ogb_rooms'];
     if (roomEntity?.state) {
-      console.log('📍 Using room from entities:', roomEntity.state);
-      return roomEntity.state;
+      // Use alias if available, otherwise use raw state
+      let roomState = roomEntity.state;
+      const optionsWithAlias = roomEntity.attributes?.options_with_alias;
+      if (optionsWithAlias && optionsWithAlias[roomState]) {
+        roomState = optionsWithAlias[roomState];
+      }
+      // console.log('📍 Using room from entities:', roomState);
+      return roomState;
     }
     
     // Last resort: Check if there's a room in the data response
     // This can happen during login before entities are populated
-    console.warn('⚠️ No room available from context or entities - auto-switch will be skipped');
-    console.debug('Debug info:', {
-      currentRoom,
-      entities: entities ? Object.keys(entities) : 'undefined',
-      roomEntity: roomEntity?.state
-    });
+    // console.warn('⚠️ No room available from context or entities - auto-switch will be skipped');
     return null;
   };
 
@@ -152,8 +153,8 @@ export const OGBPremiumProvider = ({ children }) => {
       if (!connection) throw new Error("No Home Assistant connection available");
 
       isLoadingProfileRef.current = true;
-      console.log('Lade Benutzerprofil über HA Event...');
-      logCurrentRoom('loadUserProfile');
+      //console.log('Lade Benutzerprofil über HA Event...');
+      //logCurrentRoom('loadUserProfile');
       
       const roomToUse = getActualRoom();
               
@@ -200,7 +201,7 @@ export const OGBPremiumProvider = ({ children }) => {
 
   // Zentraler Event-Handler - behandelt ALLE Events einheitlich
   const handleAuthResponse = async (event) => {
-    console.log("Received auth response event:", event);
+    //console.log("Received auth response event:", event);
     const { event_id, status, message, data } = event.data;
     
     // Prüfe ob es einen spezifischen Callback für diese event_id gibt
@@ -486,17 +487,17 @@ export const OGBPremiumProvider = ({ children }) => {
       try {
         operationLockRef.current = true;
 
-        console.log('Load Profils from Server...');
-        logCurrentRoom('initializeSession');
+        //console.log('Load Profils from Server...');
+        //logCurrentRoom('initializeSession');
         await loadUserProfile(true);
         await getGrowPlans()
-        console.log('Load Grow Plans from Server...');
+        //console.log('Load Grow Plans from Server...');
         //await getGrowPlans();
         console.log('Session successfull loaded');
 
       } catch (error) {
         console.error('Fehler beim Laden des Profils während der Initialisierung:', error);
-        console.log('Initialisierung fehlgeschlagen, setze loading auf false');
+        //console.log('Initialisierung fehlgeschlagen, setze loading auf false');
       } finally {
         setLoading(false);
         operationLockRef.current = false;
@@ -523,7 +524,7 @@ export const OGBPremiumProvider = ({ children }) => {
           "ogb_premium_auth_response"
         );
         responseListenerRef.current = unsubscribe;
-        console.log("Successfully subscribed to auth response events");
+        //console.log("Successfully subscribed to auth response events");
       } catch (e) {
         console.error("Subscription to auth response failed:", e);
       }
@@ -606,7 +607,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           "api_usage_update"
         );
-        console.log("Successfully subscribed to api_usage_update events");
+        //console.log("Successfully subscribed to api_usage_update events");
       } catch (e) {
         console.error("Subscription to api_usage_update failed:", e);
       }
@@ -665,7 +666,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           'ogb_premium_subscription_changed'
         );
-        console.log('Successfully subscribed to ogb_premium_subscription_changed events');
+        //console.log('Successfully subscribed to ogb_premium_subscription_changed events');
       } catch (e) {
         console.error('Subscription to ogb_premium_subscription_changed failed:', e);
       }
@@ -724,7 +725,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           "session_update"
         );
-        console.log("Successfully subscribed to session_update events");
+        //console.log("Successfully subscribed to session_update events");
       } catch (e) {
         console.error("Subscription to session_update failed:", e);
       }
@@ -807,7 +808,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           "isAuthenticated"
         );
-        console.log("Successfully subscribed to isAuthenticated events");
+        //console.log("Successfully subscribed to isAuthenticated events");
       } catch (e) {
         console.error("Subscription to isAuthenticated failed:", e);
       }
@@ -856,7 +857,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           "room_limit_reached"
         );
-        console.log("Successfully subscribed to room_limit_reached events");
+        //console.log("Successfully subscribed to room_limit_reached events");
 
         // Subscribe to ui_to_many_rooms_message event (WebSocket rejection)
         unsubscribeUIRoomLimit = await connection.subscribeEvents(
@@ -866,7 +867,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           "ui_to_many_rooms_message"
         );
-        console.log("Successfully subscribed to ui_to_many_rooms_message events");
+        //console.log("Successfully subscribed to ui_to_many_rooms_message events");
 
         // Subscribe to ogb_main_control_changed event (backend reset mainControl)
         unsubscribeMainControlChanged = await connection.subscribeEvents(
@@ -881,7 +882,7 @@ export const OGBPremiumProvider = ({ children }) => {
           },
           "ogb_main_control_changed"
         );
-        console.log("Successfully subscribed to ogb_main_control_changed events");
+        //console.log("Successfully subscribed to ogb_main_control_changed events");
 
       } catch (e) {
         console.error("Subscription to room limit events failed:", e);
@@ -923,10 +924,10 @@ export const OGBPremiumProvider = ({ children }) => {
 
     const interval = setInterval(async () => {
       try {
-        console.log('[INTERVAL] Lade Profil und GrowPlans...');
+        //console.log('[INTERVAL] Lade Profil und GrowPlans...');
         await loadUserProfile(true);
         await getGrowPlans();
-        console.log('[INTERVAL] Profil und GrowPlans aktualisiert');
+        //console.log('[INTERVAL] Profil und GrowPlans aktualisiert');
       } catch (err) {
         console.warn('[INTERVAL] Fehler beim regelmäßigen Abruf:', err.message);
       }

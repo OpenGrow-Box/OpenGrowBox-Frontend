@@ -78,7 +78,7 @@ export const createAdvancedStepComponents = ({ icons, styles }) => {
         setSaved(true)
         setTimeout(() => setSaved(false), 2000)
       } catch (e) {
-        console.error('Error saving notification settings:', e)
+        // console.error('Error saving notification settings:', e)
       }
       setSaving(false)
     }

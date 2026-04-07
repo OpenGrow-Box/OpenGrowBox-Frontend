@@ -1,1026 +1,606 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import styled, { keyframes } from 'styled-components';
 import ReactECharts from 'echarts-for-react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
-import { formatTime, formatDateTime } from '../../misc/formatDateTime';
+import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
-import { FaLeaf, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
+import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaExpand, FaCompress, FaChartBar, FaChartArea, FaDownload } from 'react-icons/fa';
+import { Maximize2, Minimize2, BarChart3, AreaChart, LineChart, Download } from 'lucide-react';
 
-// Sensor type detection and gradient functions
-const getSensorType = (sensorId) => {
-  const id = sensorId.toLowerCase();
-  if (id.includes('temp') || id.includes('temperature')) return 'temperature';
-  if (id.includes('humid') || id.includes('humidity')) return 'humidity';
-  if (id.includes('vpd')) return 'vpd';
-  if (id.includes('co2') || id.includes('carbon')) return 'co2';
-  return 'default';
-};
-
-const getSensorGradient = (sensorType) => {
-  // Clean, single-color gradients per sensor type
-  switch (sensorType) {
-    case 'temperature':
-      return [
-        { offset: 0, color: '#f97316' },  // Orange
-        { offset: 1, color: '#ea580c' }   // Darker orange
-      ];
-    case 'humidity':
-      return [
-        { offset: 0, color: '#3b82f6' },  // Blue
-        { offset: 1, color: '#2563eb' }   // Darker blue
-      ];
-    case 'vpd':
-      return [
-        { offset: 0, color: '#22c55e' },  // Green
-        { offset: 1, color: '#16a34a' }   // Darker green
-      ];
-    case 'co2':
-      return [
-        { offset: 0, color: '#a855f7' },  // Purple
-        { offset: 1, color: '#9333ea' }   // Darker purple
-      ];
-    default:
-      return [
-        { offset: 0, color: '#22c55e' },  // Green
-        { offset: 1, color: '#16a34a' }   // Darker green
-      ];
-  }
-};
-
+// Professional chart with advanced features
 const SensorChart = ({ 
   sensorId, 
   minThreshold = 0, 
   maxThreshold = 2500, 
-  title = 'Sensor Trends (24h)', 
+  title = 'Sensor Trends', 
   unit = '', 
-  priority = 'medium',
-  sensorOptions = null,
-  selectedSensorIndex = 0,
-  onSensorChange = null
+  priority = 'medium'
 }) => {
   const getDefaultDate = (offset = 0) => {
     const date = new Date(Date.now() + offset);
-    const localISOTime = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-      .toISOString()
-      .slice(0, 16);
-    return localISOTime;
+    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
+      .toISOString().slice(0, 16);
   };
 
   const { haApiBaseUrl, haToken: accessToken } = useHomeAssistant();
-
-  // In dev mode, use Vite proxy. In production, use full URL
   const isDev = import.meta.env.DEV;
-  
-  const apiBaseUrl = haApiBaseUrl || '';
   const HISTORY_FETCH_TIMEOUT_MS = 15000;
 
-  const [startDate, setStartDate] = useState(getDefaultDate());
+  const [startDate, setStartDate] = useState(getDefaultDate(-24 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState(getDefaultDate());
   const [chartOptions, setChartOptions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
-  const [selectedView, setSelectedView] = useState(() => localStorage.getItem('selectedView') || '12h');
+  const [selectedView, setSelectedView] = useState('24h');
+  const [stats, setStats] = useState({ current: '--', min: '--', max: '--', avg: '--', trend: 'stable' });
+  const [chartType, setChartType] = useState('line');
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const [showChartMenu, setShowChartMenu] = useState(false);
+  const chartRef = useRef(null);
 
-  // Handler für View-Änderung
   const handleViewChange = (view) => {
     setSelectedView(view);
-    localStorage.setItem('selectedView', view);
+    const hours = view === 'Live' ? 1 : view === '6h' ? 6 : view === '12h' ? 12 : view === '24h' ? 24 : 168;
+    setStartDate(getDefaultDate(-hours * 60 * 60 * 1000));
   };
 
-  // Aktualisiere startDate und endDate, wenn der View geändert wird.
-  useEffect(() => {
-    if (selectedView === 'Live') {
-      setStartDate(getDefaultDate());
-    } else if (selectedView === '12h') {
-      setStartDate(getDefaultDate(-12 * 60 * 60 * 1000));
-    } else if (selectedView === 'daily') {
-      setStartDate(getDefaultDate(-24 * 60 * 60 * 1000));
-    } else if (selectedView === 'weekly') {
-      setStartDate(getDefaultDate(-7 * 24 * 60 * 60 * 1000));
-    }
-    setEndDate(getDefaultDate());
-  }, [selectedView]);
-
-  // Im Live-Modus: Aktualisiere endDate regelmäßig ohne den Ladezustand (wenn bereits Chart-Daten vorhanden sind).
-  useEffect(() => {
-    if (selectedView !== 'Live') return;
-
-    const interval = setInterval(() => {
-      setEndDate(getDefaultDate());
-    }, 5000); // Aktualisierung alle 5 Sekunden, anpassbar.
-
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [selectedView]);
-
-  // Hole die historischen Daten.
   useEffect(() => {
     const fetchHistoryData = async () => {
-      // Validate required parameters - in dev mode we don't need apiBaseUrl (using proxy)
-      if ((!isDev && !apiBaseUrl) || !accessToken || !sensorId) {
-        setError('Home Assistant connection not configured or sensor ID missing');
-        setLoading(false);
+      if ((!isDev && !haApiBaseUrl) || !accessToken || !sensorId) {
+        setError('Connection not configured');
         return;
       }
 
-      // Nur laden anzeigen, wenn nicht im Live-Modus mit bereits geladenen Daten.
-      if (selectedView !== 'Live' || !chartOptions) {
-        setLoading(true);
-      }
+      setLoading(true);
       setError(null);
       let timeoutId;
+
       try {
-        // Build URL - in dev mode, use relative path for proxy
-        const baseUrlPart = apiBaseUrl ? apiBaseUrl : '';
-        const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startDate)}?filter_entity_id=${sensorId}&end_time=${encodeURIComponent(endDate)}&minimal_response&no_attributes&significant_changes_only`;
-        console.log('Fetching history data from:', url, 'isDev:', isDev, 'apiBaseUrl:', apiBaseUrl);
+        const url = `${haApiBaseUrl || ''}/api/history/period/${encodeURIComponent(startDate)}?filter_entity_id=${sensorId}&end_time=${encodeURIComponent(endDate)}&minimal_response`;
+        
         const controller = new AbortController();
         timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
+        
         const response = await fetch(url, {
-          headers: {
-            'Authorization': `Bearer ${accessToken}`,
-            'Content-Type': 'application/json',
-          },
-          signal: controller.signal,
+          headers: { 'Authorization': `Bearer ${accessToken}` },
+          signal: controller.signal
         });
-        if (!response.ok) {
-          throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
+        
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
         
         const data = await response.json();
+        clearTimeout(timeoutId);
 
-        // Handle empty data gracefully - show "No Data Available" instead of error
-        if (!Array.isArray(data) || data.length === 0) {
-          setChartOptions(null); // Triggers "No Data Available" UI
+        if (!Array.isArray(data) || data.length === 0 || !data[0]?.length) {
+          setChartOptions(null);
+          setLoading(false);
           return;
         }
 
         const sensorData = data[0];
-        if (!Array.isArray(sensorData) || sensorData.length === 0) {
-          setChartOptions(null); // Triggers "No Data Available" UI
-          return;
-        }
-
-        // Validate data structure and filter out invalid entries
-        const validData = sensorData.filter(item =>
-          item && item.last_changed && typeof item.state !== 'undefined' && !isNaN(parseFloat(item.state))
-        );
-
-        if (validData.length === 0) {
-          setChartOptions(null); // Triggers "No Data Available" UI
-          return;
-        }
-
-        const xData = validData.map(item => new Date(item.last_changed).toISOString());
-        const yData = validData.map(item => parseFloat(item.state));
+        const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
         
-        // Detect sensor type for realistic color mapping
-        const sensorType = getSensorType(sensorId);
+        // Calculate stats
+        const current = values[values.length - 1];
+        const min = Math.min(...values);
+        const max = Math.max(...values);
+        const avg = values.reduce((a, b) => a + b, 0) / values.length;
+        
+        // Calculate trend
+        const firstHalf = values.slice(0, Math.floor(values.length / 2));
+        const secondHalf = values.slice(Math.floor(values.length / 2));
+        const firstAvg = firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length;
+        const secondAvg = secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length;
+        const trend = secondAvg > firstAvg * 1.05 ? 'up' : secondAvg < firstAvg * 0.95 ? 'down' : 'stable';
+        
+        setStats({
+          current: current.toFixed(1),
+          min: min.toFixed(1),
+          max: max.toFixed(1),
+          avg: avg.toFixed(1),
+          trend
+        });
+
+        // Prepare chart data
+        const xData = sensorData.map(item => item.last_changed);
+        const yData = sensorData.map(item => parseFloat(item.state));
+
+        // Get colors - different colors for different sensor types (using theme colors)
+        const textColor = getThemeColor('--main-text-color');
+        const secondaryTextColor = getThemeColor('--second-text-color');
+        const gridColor = getThemeColor('--glass-border');
+        
+        // Define sensor type colors - using theme CSS variables for consistency
+        const getSensorColor = (sensorTitle) => {
+          const titleLower = (sensorTitle || '').toLowerCase();
+          if (titleLower.includes('vpd') || titleLower.includes('temp') || titleLower.includes('temperature')) return getThemeColor('--chart-success-color');
+          if (titleLower.includes('hum') || titleLower.includes('humidity')) return getThemeColor('--chart-primary-color');
+          if (titleLower.includes('co2') || titleLower.includes('co₂')) return '#a855f7';
+          if (titleLower.includes('ph')) return getThemeColor('--chart-success-color');
+          if (titleLower.includes('ec') || titleLower.includes('tds')) return getThemeColor('--chart-secondary-color');
+          if (titleLower.includes('water') || titleLower.includes('tank') || titleLower.includes('reservoir')) return getThemeColor('--chart-primary-color');
+          return getThemeColor('--primary-accent');
+        };
+        
+        const accentColor = getSensorColor(title);
 
         setChartOptions({
           backgroundColor: 'transparent',
+          grid: { top: 40, right: 20, bottom: 60, left: 60 },
           tooltip: {
             trigger: 'axis',
-            backgroundColor: 'rgba(15, 23, 42, 0.95)',
-            borderColor: 'rgba(79, 195, 247, 0.3)',
+            backgroundColor: getThemeColor('--main-bg-card-color'),
+            borderColor: accentColor,
             borderWidth: 1,
-            borderRadius: 8,
-            textStyle: {
-              color: getThemeColor('--main-text-color'),
-              fontSize: 13,
-              fontWeight: 500
-            },
-            axisPointer: {
-              type: 'cross',
-              crossStyle: {
-                color: 'rgba(79, 195, 247, 0.5)',
-                width: 1
-              },
-              lineStyle: {
-                color: 'rgba(79, 195, 247, 0.3)',
-                width: 1
-              }
-            },
-            formatter: params => {
-              const point = params[0];
-              const time = formatTime(point.axisValue);
-              const value = point.data;
-
-              // Get realistic status based on sensor type
-              let status = 'Normal';
-              let statusColor = '#10b981';
-
-              switch (sensorType) {
-                case 'temperature':
-                  if (value <= 10) { status = 'Very Cold'; statusColor = '#2563eb'; } // Deep blue
-                  else if (value <= 15) { status = 'Cold'; statusColor = '#3b82f6'; } // Blue
-                  else if (value <= 20) { status = 'Cool'; statusColor = '#06b6d4'; } // Cyan
-                  else if (value <= 25) { status = 'Moderate'; statusColor = '#10b981'; } // Green
-                  else if (value <= 28) { status = 'Warm'; statusColor = '#eab308'; } // Yellow
-                  else if (value <= 32) { status = 'Hot'; statusColor = '#f59e0b'; } // Orange
-                  else { status = 'Very Hot'; statusColor = '#ef4444'; } // Red
-                  break;
-                case 'humidity':
-                  if (value <= 25) { status = 'Very Dry'; statusColor = '#ef4444'; }
-                  else if (value <= 40) { status = 'Dry'; statusColor = '#f97316'; }
-                  else if (value <= 55) { status = 'Moderate'; statusColor = '#eab308'; }
-                  else if (value <= 70) { status = 'Comfortable'; statusColor = '#84cc16'; }
-                  else if (value <= 85) { status = 'Humid'; statusColor = '#10b981'; }
-                  else { status = 'Very Humid'; statusColor = '#3b82f6'; }
-                  break;
-                case 'vpd':
-                  if (value <= 0.4) { status = 'Very Low'; statusColor = '#3b82f6'; }
-                  else if (value <= 0.8) { status = 'Low'; statusColor = '#06b6d4'; }
-                  else if (value <= 1.2) { status = 'Moderate'; statusColor = '#10b981'; }
-                  else if (value <= 1.6) { status = 'High'; statusColor = '#eab308'; }
-                  else if (value <= 2.0) { status = 'Very High'; statusColor = '#f59e0b'; }
-                  else { status = 'Extreme'; statusColor = '#ef4444'; }
-                  break;
-                case 'co2':
-                  if (value < 300) { status = 'Very Low'; statusColor = '#8b5cf6'; }
-                  else if (value < 400) { status = 'Low'; statusColor = '#3b82f6'; }
-                  else if (value < 600) { status = 'Moderate'; statusColor = '#06b6d4'; }
-                  else if (value < 800) { status = 'Good'; statusColor = '#10b981'; }
-                  else if (value < 1000) { status = 'High'; statusColor = '#eab308'; }
-                  else if (value < 1200) { status = 'Very High'; statusColor = '#f59e0b'; }
-                  else if (value < 1500) { status = 'Too High'; statusColor = '#ef4444'; }
-                  else { status = 'Critical'; statusColor = '#b91c1c'; }
-                  break;
-                default:
-                  status = 'Normal';
-                  statusColor = '#10b981';
-              }
-
+            padding: [12, 16],
+            textStyle: { color: textColor, fontSize: 13 },
+            formatter: (params) => {
+              const p = params[0];
+              const date = formatDateTime(p.axisValue);
               return `
-                <div style="color: ${getThemeColor('--main-text-color')}; font-size: 13px; line-height: 1.6;">
-                  <div style="color: ${getThemeColor('--chart-success-color')}; font-weight: 700; font-size: 14px; margin-bottom: 8px;">${time}</div>
-                  <div style="display: flex; align-items: center; gap: 12px; margin-bottom: 6px;">
-                    <span style="color: ${getThemeColor('--chart-secondary-color')}; font-size: 16px;">●</span>
-                    <span style="font-weight: 500;">${point.seriesName}:</span>
-                    <span style="color: ${getThemeColor('--chart-success-color')}; font-weight: 700; font-size: 14px;">${value}${unit}</span>
-                  </div>
-                  <div style="display: flex; align-items: center; gap: 8px;">
-                    <span style="color: ${getThemeColor('--placeholder-text-color')}; font-size: 12px;">Status:</span>
-                    <span style="color: ${statusColor}; font-weight: 600; font-size: 12px; background: var(--glass-bg-primary); padding: 2px 8px; border-radius: 10px;">${status}</span>
-                  </div>
+                <div style="font-weight:600;margin-bottom:4px">${date}</div>
+                <div style="display:flex;align-items:center;gap:8px">
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${accentColor}"></span>
+                  <span style="font-size:16px;font-weight:700">${p.value} ${unit}</span>
                 </div>
               `;
             }
           },
-          grid: {
-            left: '6%',
-            right: '4%',
-            bottom: '12%',
-            top: '10%',
-            containLabel: true,
-            backgroundColor: 'transparent',
-            borderWidth: 0
-          },
+          dataZoom: [{
+            type: 'inside',
+            start: 0,
+            end: 100
+          }],
           xAxis: {
             type: 'category',
             data: xData,
             boundaryGap: false,
-            axisLine: {
-              show: false
-            },
-            axisTick: {
-              show: false
-            },
+            axisLine: { lineStyle: { color: gridColor } },
             axisLabel: {
-              color: 'rgba(255, 255, 255, 0.8)',
+              color: secondaryTextColor,
               fontSize: 11,
-              fontWeight: 500,
-              margin: 12,
-              formatter: value => {
-                const date = formatDateTime(value);
-                return date;
+              formatter: (value) => {
+                const date = new Date(value);
+                const now = new Date();
+                const isToday = date.toDateString() === now.toDateString();
+                if (isToday) {
+                  return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                }
+                return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
               }
             },
-            splitLine: {
-              show: true,
-              lineStyle: {
-                color: 'var(--glass-bg-primary)',
-                type: 'solid',
-                width: 1
-              }
-            }
+            splitLine: { show: false }
           },
           yAxis: {
             type: 'value',
-            axisLine: {
-              show: false
-            },
-            axisTick: {
-              show: false
-            },
-            splitLine: {
-              lineStyle: {
-                color: 'var(--glass-bg-primary)',
-                type: 'solid',
-                width: 1
+            axisLine: { show: false },
+            axisLabel: { 
+              color: secondaryTextColor, 
+              fontSize: 11,
+              formatter: (value) => {
+                if (Math.abs(value) >= 1000) {
+                  return (value / 1000).toFixed(1) + 'k';
+                }
+                return value.toFixed(1);
               }
             },
-            axisLabel: {
-              color: 'rgba(255, 255, 255, 0.8)',
-              fontSize: 11,
-              fontWeight: 500
-            }
+            splitLine: { lineStyle: { color: gridColor + '30', type: 'dashed' } }
           },
           series: [{
-            name: title.replace(' (24h)', ''),
+            name: title,
             data: yData,
-            type: 'line',
-            smooth: true,
-            smoothMonotone: 'x',
-            animationDuration: 1500,
-            animationEasing: 'cubicOut',
-            lineStyle: {
-              width: 3,
+            type: chartType,
+            smooth: 0.3,
+            symbol: chartType === 'line' ? 'circle' : 'rect',
+            symbolSize: chartType === 'line' ? 4 : 8,
+            showSymbol: chartType === 'line' ? false : true,
+            sampling: 'lttb',
+            itemStyle: chartType === 'bar' ? {
               color: {
                 type: 'linear',
-                x: 0,
-                y: 0,
-                x2: 1,
-                y2: 0,
-                colorStops: getSensorGradient(sensorType)
+                x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: accentColor },
+                  { offset: 1, color: accentColor + '80' }
+                ]
               },
-              shadowColor: (sensorType === 'temperature' ? 'rgba(249, 115, 22, 0.5)' :
-                           sensorType === 'humidity' ? 'rgba(59, 130, 246, 0.5)' :
-                           sensorType === 'vpd' ? 'rgba(34, 197, 94, 0.5)' :
-                           sensorType === 'co2' ? 'rgba(168, 85, 247, 0.5)' :
-                           'rgba(34, 197, 94, 0.5)'),
-              shadowBlur: 12,
-              shadowOffsetY: 3
-            },
-            symbol: 'none',
-            areaStyle: {
-              color: (() => {
-                // Clean, single-color area fills matching the line color
-                switch (sensorType) {
-                  case 'temperature':
-                    return {
-                      type: 'linear',
-                      x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [
-                        { offset: 0, color: 'rgba(249, 115, 22, 0.3)' },
-                        { offset: 0.5, color: 'rgba(249, 115, 22, 0.15)' },
-                        { offset: 1, color: 'rgba(249, 115, 22, 0.02)' }
-                      ]
-                    };
-                  case 'humidity':
-                    return {
-                      type: 'linear',
-                      x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [
-                        { offset: 0, color: 'rgba(59, 130, 246, 0.3)' },
-                        { offset: 0.5, color: 'rgba(59, 130, 246, 0.15)' },
-                        { offset: 1, color: 'rgba(59, 130, 246, 0.02)' }
-                      ]
-                    };
-                  case 'vpd':
-                    return {
-                      type: 'linear',
-                      x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [
-                        { offset: 0, color: 'rgba(34, 197, 94, 0.3)' },
-                        { offset: 0.5, color: 'rgba(34, 197, 94, 0.15)' },
-                        { offset: 1, color: 'rgba(34, 197, 94, 0.02)' }
-                      ]
-                    };
-                  case 'co2':
-                    return {
-                      type: 'linear',
-                      x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [
-                        { offset: 0, color: 'rgba(168, 85, 247, 0.3)' },
-                        { offset: 0.5, color: 'rgba(168, 85, 247, 0.15)' },
-                        { offset: 1, color: 'rgba(168, 85, 247, 0.02)' }
-                      ]
-                    };
-                  default:
-                    return {
-                      type: 'linear',
-                      x: 0, y: 0, x2: 0, y2: 1,
-                      colorStops: [
-                        { offset: 0, color: 'rgba(34, 197, 94, 0.3)' },
-                        { offset: 0.5, color: 'rgba(34, 197, 94, 0.15)' },
-                        { offset: 1, color: 'rgba(34, 197, 94, 0.02)' }
-                      ]
-                    };
-                }
-              })()
-            },
-            emphasis: {
-              focus: 'series',
-              lineStyle: {
-                width: 4,
-                shadowBlur: 16,
-                shadowColor: (sensorType === 'temperature' ? 'rgba(249, 115, 22, 0.7)' :
-                             sensorType === 'humidity' ? 'rgba(59, 130, 246, 0.7)' :
-                             sensorType === 'vpd' ? 'rgba(34, 197, 94, 0.7)' :
-                             sensorType === 'co2' ? 'rgba(168, 85, 247, 0.7)' :
-                             'rgba(34, 197, 94, 0.7)')
-              },
-              areaStyle: {
-                opacity: 0.8
+              borderRadius: [4, 4, 0, 0]
+            } : { color: accentColor },
+            lineStyle: chartType !== 'bar' ? {
+              width: 3,
+              color: accentColor,
+              shadowColor: accentColor + '40',
+              shadowBlur: 10
+            } : { width: 0 },
+            areaStyle: chartType === 'area' ? {
+              color: {
+                type: 'linear',
+                x: 0, y: 0, x2: 0, y2: 1,
+                colorStops: [
+                  { offset: 0, color: accentColor + '50' },
+                  { offset: 0.5, color: accentColor + '20' },
+                  { offset: 1, color: accentColor + '05' }
+                ]
               }
-            },
-            markLine: minThreshold !== undefined || maxThreshold !== undefined ? {
+            } : null,
+            barWidth: chartType === 'bar' ? '60%' : undefined,
+            markLine: chartType !== 'bar' ? {
               silent: true,
-              lineStyle: {
-                color: '#ef4444',
-                width: 2,
-                type: 'dashed'
-              },
+              symbol: 'none',
+              lineStyle: { color: getThemeColor('--chart-error-color'), type: 'dashed', width: 2 },
               data: [
                 ...(minThreshold !== undefined ? [{
                   yAxis: minThreshold,
-                  label: {
-                    formatter: `Min: ${minThreshold}${unit}`,
-                    position: 'middle',
-                    color: '#ef4444',
-                    fontSize: 10,
-                    fontWeight: 'bold'
-                  }
+                  label: { formatter: `Min ${minThreshold}`, color: getThemeColor('--chart-error-color') }
                 }] : []),
                 ...(maxThreshold !== undefined ? [{
                   yAxis: maxThreshold,
-                  label: {
-                    formatter: `Max: ${maxThreshold}${unit}`,
-                    position: 'middle',
-                    color: '#ef4444',
-                    fontSize: 10,
-                    fontWeight: 'bold'
-                  }
+                  label: { formatter: `Max ${maxThreshold}`, color: getThemeColor('--chart-error-color') }
                 }] : [])
               ]
+            } : undefined,
+            markPoint: chartType !== 'bar' ? {
+              data: [
+                { type: 'max', name: 'Max', symbol: 'pin', symbolSize: 40, itemStyle: { color: getThemeColor('--chart-success-color') } },
+                { type: 'min', name: 'Min', symbol: 'pin', symbolSize: 40, itemStyle: { color: getThemeColor('--chart-error-color') } }
+              ],
+              label: { fontSize: 10, fontWeight: 'bold' }
             } : undefined
           }]
         });
       } catch (err) {
-        if (err?.name === 'AbortError') {
-          setError('Request timeout while loading chart data');
-          setChartOptions(null);
-          return;
-        }
-        console.error('Chart data fetch error:', err);
-        setError(err.message || 'Failed to load chart data');
+        // console.error('Chart error:', err);
+        setError(err.message);
       } finally {
-        if (timeoutId) clearTimeout(timeoutId);
         setLoading(false);
+        if (timeoutId) clearTimeout(timeoutId);
       }
     };
 
     fetchHistoryData();
-  }, [startDate, endDate, sensorId, apiBaseUrl, accessToken, minThreshold, maxThreshold, selectedView, title, unit]);
+  }, [startDate, endDate, sensorId, haApiBaseUrl, accessToken, minThreshold, maxThreshold, title, unit, chartType]);
 
-  // Loading state
-  if (loading && !chartOptions) {
-    return (
-      <ChartWrapper $priority={priority}>
-        <ChartHeader>
-          <ChartTitle>{title}</ChartTitle>
-          <ChartMenu>
-            {['Live', '12h', 'daily', 'weekly'].map(view => (
-              <ViewButton
-                key={view}
-                $isActive={selectedView === view}
-                onClick={() => handleViewChange(view)}
-                disabled={loading}
-              >
-                {view}
-              </ViewButton>
-            ))}
-          </ChartMenu>
-        </ChartHeader>
+  const getTrendIcon = () => {
+    if (stats.trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
+    if (stats.trend === 'down') return <FaArrowDown style={{ color: getThemeColor('--chart-error-color') }} />;
+    return <FaEquals style={{ color: getThemeColor('--second-text-color') }} />;
+  };
 
-        <Chart>
-          <LoadingWrapper>
-            <LoadingSpinner>
-              <FaSpinner className="fa-spin" />
-            </LoadingSpinner>
-            <LoadingText>Loading sensor data...</LoadingText>
-            <LoadingSubtext>Please wait while we fetch the latest readings</LoadingSubtext>
-          </LoadingWrapper>
-        </Chart>
-      </ChartWrapper>
-    );
-  }
-
-  // Error state
   if (error) {
     return (
-      <ChartWrapper $priority={priority}>
-        <ChartHeader>
-          <ChartTitle>{title}</ChartTitle>
-          <ChartMenu>
-            {['Live', '12h', 'daily', 'weekly'].map(view => (
-              <ViewButton
-                key={view}
-                $isActive={selectedView === view}
-                onClick={() => handleViewChange(view)}
-                disabled={true}
-              >
-                {view}
-              </ViewButton>
-            ))}
-          </ChartMenu>
-        </ChartHeader>
-
-        <Chart>
-          <ErrorWrapper>
-            <ErrorIcon>
-              <FaExclamationTriangle />
-            </ErrorIcon>
-            <ErrorTitle>Data Unavailable</ErrorTitle>
-            <ErrorMessage>Unable to load sensor data. Please check your connection.</ErrorMessage>
-          </ErrorWrapper>
-        </Chart>
-      </ChartWrapper>
-    );
-  }
-
-  // No data state
-  if (!chartOptions && !loading) {
-    return (
-      <ChartWrapper $priority={priority}>
-        <ChartHeader>
-          <ChartTitle>{title}</ChartTitle>
-          <ChartMenu>
-            {['Live', '12h', 'daily', 'weekly'].map(view => (
-              <ViewButton
-                key={view}
-                $isActive={selectedView === view}
-                onClick={() => handleViewChange(view)}
-              >
-                {view}
-              </ViewButton>
-            ))}
-          </ChartMenu>
-        </ChartHeader>
-
-        <Chart>
-          <EmptyWrapper>
-            <EmptyIcon><FaLeaf /></EmptyIcon>
-            <EmptyTitle>No Data Available</EmptyTitle>
-            <EmptyMessage>
-              Sensor data will appear here once {title.toLowerCase()} readings are available.
-            </EmptyMessage>
-          </EmptyWrapper>
-        </Chart>
-      </ChartWrapper>
+      <ChartCard>
+        <ErrorState>
+          <FaExclamationTriangle size={32} />
+          <div>Failed to load data</div>
+        </ErrorState>
+      </ChartCard>
     );
   }
 
   return (
-    <ChartWrapper $priority={priority}>
+    <ChartCard $fullscreen={isFullscreen}>
       <ChartHeader>
-        <ChartTitleRow>
-          <ChartTitle>{title}</ChartTitle>
-          {sensorOptions && sensorOptions.length > 1 && onSensorChange && (
-            <SensorSelect
-              value={selectedSensorIndex}
-              onChange={(e) => onSensorChange(parseInt(e.target.value))}
-            >
-              {sensorOptions.map((sensor, index) => (
-                <option key={sensor.id} value={index}>
-                  {sensor.friendly_name}
-                </option>
-              ))}
-            </SensorSelect>
+        <HeaderLeft>
+          <ChartTitleRow>
+            <ChartTitle>{title}</ChartTitle>
+            <ChartMenuButton onClick={() => setShowChartMenu(!showChartMenu)}>
+              <span style={{ fontSize: '1.2rem' }}>⋮</span>
+            </ChartMenuButton>
+          </ChartTitleRow>
+          {showChartMenu && (
+            <ChartMenu>
+              <ChartMenuSection>
+                <ChartMenuLabel>Chart Type</ChartMenuLabel>
+                <ChartTypeButtons>
+                  <ChartTypeBtn $active={chartType === 'line'} onClick={() => setChartType('line')} title="Line">
+                    <LineChart size={14} />
+                  </ChartTypeBtn>
+                  <ChartTypeBtn $active={chartType === 'area'} onClick={() => setChartType('area')} title="Area">
+                    <AreaChart size={14} />
+                  </ChartTypeBtn>
+                  <ChartTypeBtn $active={chartType === 'bar'} onClick={() => setChartType('bar')} title="Bar">
+                    <BarChart3 size={14} />
+                  </ChartTypeBtn>
+                </ChartTypeButtons>
+              </ChartMenuSection>
+            </ChartMenu>
           )}
-        </ChartTitleRow>
-        <ChartMenu>
-          {['Live', '12h', 'daily', 'weekly'].map(view => (
-            <ViewButton
-              key={view}
-              $isActive={selectedView === view}
-              onClick={() => handleViewChange(view)}
-              disabled={loading}
-            >
-              {view}
-            </ViewButton>
-          ))}
-        </ChartMenu>
+          <TimeSelector>
+            {['Live', '6h', '12h', '24h', '7d'].map(view => (
+              <TimeButton
+                key={view}
+                $active={selectedView === view}
+                onClick={() => handleViewChange(view)}
+              >
+                {view}
+              </TimeButton>
+            ))}
+          </TimeSelector>
+        </HeaderLeft>
+        <HeaderRight>
+          <CurrentValue>
+            <ValueNumber>{stats.current}</ValueNumber>
+            <ValueUnit>{unit}</ValueUnit>
+            <TrendIndicator>{getTrendIcon()}</TrendIndicator>
+          </CurrentValue>
+          <FullscreenBtn onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
+            {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
+          </FullscreenBtn>
+        </HeaderRight>
       </ChartHeader>
 
-      <Chart>
-        {loading && (
-          <LoadingOverlay>
-            <LoadingSpinner size="small">
-              <FaSpinner className="fa-spin" />
-            </LoadingSpinner>
-          </LoadingOverlay>
+      <StatsBar>
+        <StatBox>
+          <StatLabel>Min</StatLabel>
+          <StatValue style={{ color: getThemeColor('--chart-error-color') }}>{stats.min}{unit}</StatValue>
+        </StatBox>
+        <StatBox>
+          <StatLabel>Avg</StatLabel>
+          <StatValue style={{ color: getThemeColor('--chart-warning-color') }}>{stats.avg}{unit}</StatValue>
+        </StatBox>
+        <StatBox>
+          <StatLabel>Max</StatLabel>
+          <StatValue style={{ color: getThemeColor('--chart-success-color') }}>{stats.max}{unit}</StatValue>
+        </StatBox>
+      </StatsBar>
+
+      <ChartContainer $fullscreen={isFullscreen}>
+        {loading ? (
+          <LoadingState>
+            <FaSpinner className="spin" size={32} />
+            <span>Loading sensor data...</span>
+          </LoadingState>
+        ) : chartOptions ? (
+          <ReactECharts
+            ref={chartRef}
+            option={chartOptions}
+            style={{ height: isFullscreen ? '70vh' : '280px', width: '100%' }}
+            opts={{ renderer: 'canvas' }}
+          />
+        ) : (
+          <NoDataState>
+            <FaChartLine size={32} />
+            <span>No data available</span>
+          </NoDataState>
         )}
-        <ReactECharts
-          option={chartOptions}
-          style={{ height: '100%', width: '100%' }}
-          opts={{ renderer: 'canvas' }}
-        />
-      </Chart>
-    </ChartWrapper>
+      </ChartContainer>
+    </ChartCard>
   );
 };
 
 export default SensorChart;
 
-const ChartWrapper = styled.div`
+// Professional Styling
+const ChartCard = styled.div`
+  background: ${props => props.$fullscreen ? 'var(--main-bg-color)' : 'var(--glass-bg-primary)'};
+  border: 1px solid var(--glass-border);
+  border-radius: 20px;
+  padding: 1.5rem;
   display: flex;
   flex-direction: column;
-  padding: 1.5rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.1) 0%,
-    rgba(255, 255, 255, 0.05) 50%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  backdrop-filter: blur(20px);
-  border-radius: 20px;
-  box-shadow:
-    0 8px 32px rgba(0, 0, 0, 0.12),
-    0 2px 8px rgba(0, 0, 0, 0.08),
-    var(--glass-shadow-inset);
-  width: 100%;
-  height: 100%;
-  min-height: ${({ $priority }) => $priority === 'high' ? '16rem' : '14rem'};
-  position: relative;
-  overflow: hidden;
-  border: 1px solid var(--glass-border-light);
-
-  @media (max-width: 768px) {
-    padding: 1rem;
-    min-height: ${({ $priority }) => $priority === 'high' ? '14rem' : '12rem'};
-    border-radius: 16px;
-  }
-
-  @media (max-width: 480px) {
-    padding: 0.75rem;
-    min-height: ${({ $priority }) => $priority === 'high' ? '12rem' : '10rem'};
-    border-radius: 12px;
-  }
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: 0;
-    right: 0;
-    height: 2px;
-    background: linear-gradient(90deg,
-      transparent 0%,
-      rgba(79, 195, 247, 0.4) 20%,
-      rgba(156, 39, 176, 0.4) 50%,
-      rgba(63, 81, 181, 0.4) 80%,
-      transparent 100%
-    );
-    z-index: 1;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg,
-      transparent 0%,
-      rgba(79, 195, 247, 0.03) 50%,
-      transparent 100%
-    );
-    animation: chartShimmer 8s ease-in-out infinite;
-    pointer-events: none;
-    z-index: 0;
-  }
-
-  @keyframes chartShimmer {
-    0%, 100% { left: -100%; }
-    50% { left: 100%; }
-  }
-
-  @media (max-width: 768px) {
-    min-height: 24rem;
-    padding: 1.25rem;
-    border-radius: 16px;
-  }
-
-  @media (max-width: 640px) {
-    padding: 1rem;
-    min-height: 20rem;
-  }
+  gap: 1rem;
+  position: ${props => props.$fullscreen ? 'fixed' : 'relative'};
+  top: ${props => props.$fullscreen ? '0' : 'auto'};
+  left: ${props => props.$fullscreen ? '0' : 'auto'};
+  width: ${props => props.$fullscreen ? '100vw' : '100%'};
+  height: ${props => props.$fullscreen ? '100vh' : 'auto'};
+  z-index: ${props => props.$fullscreen ? '9999' : '1'};
+  padding: ${props => props.$fullscreen ? '2rem' : '1.5rem'};
+  overflow: auto;
 `;
 
 const ChartHeader = styled.div`
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
+  flex-wrap: wrap;
+  gap: 1rem;
+`;
+
+const HeaderLeft = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const HeaderRight = styled.div`
+  display: flex;
   align-items: center;
-  margin-bottom: 2rem;
-  position: relative;
-  z-index: 2;
-
-  @media (max-width: 768px) {
-    flex-direction: column;
-    gap: 1.5rem;
-    margin-bottom: 1.5rem;
-    align-items: flex-start;
-  }
-
-  @media (max-width: 640px) {
-    gap: 1.25rem;
-    margin-bottom: 1.25rem;
-  }
+  gap: 1rem;
 `;
 
 const ChartTitleRow = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.75rem;
+  gap: 0.5rem;
 `;
 
-const ChartTitle = styled.h3`
-  background: linear-gradient(135deg, ${getThemeColor('--chart-success-color')} 0%, ${getThemeColor('--main-arrow-up')} 50%, ${getThemeColor('--cannabis-active-color')} 100%);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-  font-size: 1.375rem;
-  font-weight: 700;
-  margin: 0;
-  letter-spacing: -0.025em;
-  line-height: 1.2;
-  position: relative;
-
-  &::after {
-    content: '';
-    position: absolute;
-    bottom: -2px;
-    left: 0;
-    width: 30%;
-    height: 2px;
-    background: linear-gradient(90deg, ${getThemeColor('--chart-success-color')}, ${getThemeColor('--main-arrow-up')});
-    border-radius: 1px;
-  }
-
-  @media (max-width: 640px) {
-    font-size: 1.25rem;
-
-    &::after {
-      width: 40%;
-    }
-  }
-`;
-
-const SensorSelect = styled.select`
-  padding: 0.375rem 0.625rem;
-  background: rgba(168, 85, 247, 0.15);
-  border: 1px solid rgba(168, 85, 247, 0.3);
-  border-radius: 8px;
-  color: var(--main-text-color);
-  font-size: 0.75rem;
-  font-weight: 500;
+const ChartMenuButton = styled.button`
+  background: var(--glass-bg-secondary);
+  border: none;
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
   cursor: pointer;
+  color: var(--placeholder-text-color);
   transition: all 0.2s ease;
-  max-width: 140px;
-
+  
   &:hover {
-    background: rgba(168, 85, 247, 0.25);
-    border-color: rgba(168, 85, 247, 0.5);
-  }
-
-  &:focus {
-    outline: none;
-    border-color: rgba(168, 85, 247, 0.6);
-  }
-
-  option {
-    background: rgba(15, 23, 42, 0.95);
+    background: var(--active-bg-color);
     color: var(--main-text-color);
-  }
-
-  @media (max-width: 640px) {
-    padding: 0.25rem 0.5rem;
-    font-size: 0.7rem;
-    max-width: 100px;
   }
 `;
 
 const ChartMenu = styled.div`
-  display: flex;
-  gap: 0.375rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  padding: 0.375rem;
+  background: var(--main-bg-card-color);
   border: 1px solid var(--glass-border);
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 12px;
+  padding: 0.75rem;
+  position: absolute;
+  top: 60px;
+  left: 10px;
+  z-index: 100;
+  box-shadow: var(--main-shadow-art);
+`;
 
-  @media (max-width: 640px) {
-    gap: 0.25rem;
-    padding: 0.25rem;
+const ChartMenuSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+const ChartMenuLabel = styled.span`
+  font-size: 0.7rem;
+  color: var(--placeholder-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const ChartTypeButtons = styled.div`
+  display: flex;
+  gap: 0.25rem;
+`;
+
+const ChartTypeBtn = styled.button`
+  padding: 0.5rem;
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  background: ${props => props.$active ? 'var(--primary-accent)' : 'var(--glass-bg-secondary)'};
+  color: ${props => props.$active ? 'white' : 'var(--main-text-color)'};
+  cursor: pointer;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background: ${props => props.$active ? 'var(--primary-accent)' : 'var(--active-bg-color)'};
   }
 `;
 
-const ViewButton = styled.button`
-  background: ${props => props.$isActive
-    ? `linear-gradient(135deg, ${getThemeColor('--chart-primary-color')} 0%, ${getThemeColor('--chart-primary-color')} 100%)`
-    : 'transparent'
-  };
-  color: ${props => props.$isActive ? 'white' : 'var(--main-text-color)'};
-  border: 1px solid ${props => props.$isActive
-    ? 'rgba(59, 130, 246, 0.3)'
-    : 'var(--button-hover-bg)'
-  };
+const FullscreenBtn = styled.button`
+  background: var(--glass-bg-secondary);
+  border: 1px solid var(--glass-border);
+  border-radius: 8px;
+  padding: 0.5rem;
   cursor: pointer;
-  padding: 0.625rem 1.25rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 600;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  position: relative;
-  overflow: hidden;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
-
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg,
-      transparent 0%,
-      var(--button-hover-bg) 50%,
-      transparent 100%
-    );
-    transition: left 0.5s ease;
+  color: var(--placeholder-text-color);
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  
+  &:hover {
+    background: var(--active-bg-color);
+    color: var(--primary-accent);
+    border-color: var(--primary-accent);
   }
+`;
+
+const ChartTitle = styled.h3`
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: var(--main-text-color);
+  margin: 0;
+`;
+
+const TimeSelector = styled.div`
+  display: flex;
+  gap: 0.25rem;
+  background: var(--glass-bg-secondary);
+  padding: 0.25rem;
+  border-radius: 10px;
+`;
+
+const TimeButton = styled.button`
+  padding: 0.375rem 0.875rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  background: ${props => props.$active ? 'var(--primary-accent)' : 'transparent'};
+  color: ${props => props.$active ? 'white' : 'var(--placeholder-text-color)'};
+  transition: all 0.2s ease;
 
   &:hover {
-    background: ${props => props.$isActive
-      ? `linear-gradient(135deg, ${getThemeColor('--chart-primary-color')} 0%, ${getThemeColor('--chart-primary-color')} 100%)`
-      : 'var(--glass-bg-primary)'
-    };
-    border-color: ${props => props.$isActive
-      ? 'rgba(37, 99, 235, 0.4)'
-      : 'var(--input-focus-border-color)'
-    };
-    transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
-
-    &::before {
-      left: 100%;
-    }
-  }
-
-  &:active {
-    transform: translateY(0);
-    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
-  }
-
-  @media (max-width: 640px) {
-    padding: 0.5rem 1rem;
-    font-size: 0.8125rem;
+    background: ${props => props.$active ? 'var(--primary-accent)' : 'var(--glass-bg-primary)'};
   }
 `;
 
-const Chart = styled.div`
-  flex: 1;
-  width: 100%;
-  position: relative;
-  z-index: 2;
-  border-radius: 16px;
-  overflow: hidden;
-  background: rgba(0, 0, 0, 0.02);
-  backdrop-filter: blur(8px);
-  border: 1px solid var(--glass-border);
-
-  .echarts-for-react {
-    min-height: 16rem;
-    border-radius: 16px;
-
-    @media (max-width: 768px) {
-      min-height: 14rem;
-    }
-
-    @media (max-width: 640px) {
-      min-height: 12rem;
-    }
-  }
-`;
-
-const Message = styled.div`
+const CurrentValue = styled.div`
   display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.7);
-  font-size: 1.125rem;
-  font-weight: 500;
-  margin: 3rem 0;
-  padding: 2rem;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.05) 0%,
-    rgba(255, 255, 255, 0.02) 100%
-  );
-  border-radius: 16px;
-  border: 1px solid var(--glass-border);
-  backdrop-filter: blur(8px);
-
-  /* Removed emoticon content */
-
-  @media (max-width: 640px) {
-    font-size: 1rem;
-    padding: 1.5rem;
-    margin: 2rem 0;
-  }
+  align-items: baseline;
+  gap: 0.5rem;
 `;
 
-const bounce = keyframes`
-  0%, 20%, 50%, 80%, 100% {
-    transform: translateY(0) rotate(0deg);
-  }
-  40% {
-    transform: translateY(-10px) rotate(10deg);
-  }
-  60% {
-    transform: translateY(-5px) rotate(-5deg);
-  }
-`;
-
-const glow = keyframes`
-  0%, 100% {
-    color: rgba(79, 195, 247, 0.8);
-    filter: drop-shadow(0 0 5px rgba(79, 195, 247, 0.5));
-  }
-  50% {
-    color: rgba(156, 39, 176, 0.8);
-    filter: drop-shadow(0 0 8px rgba(156, 39, 176, 0.6));
-  }
-`;
-
-const LoadingIcon = styled(FaLeaf)`
-  animation: ${bounce} 2s infinite, ${glow} 3s infinite;
-  margin-left: 0.5rem;
-  font-size: 1.5rem;
-`;
-
-const LoadingText = styled.span`
+const ValueNumber = styled.span`
+  font-size: 2.5rem;
+  font-weight: 800;
   color: var(--main-text-color);
-  font-size: 1.125rem;
-  font-weight: 600;
-  margin-bottom: 1rem;
-  letter-spacing: 0.025em;
-  text-transform: uppercase;
-  opacity: 0.9;
+  line-height: 1;
 `;
 
-const LoadingWrapper = styled.div`
+const ValueUnit = styled.span`
+  font-size: 1rem;
+  font-weight: 600;
+  color: var(--placeholder-text-color);
+`;
+
+const TrendIndicator = styled.div`
+  margin-left: 0.5rem;
+  font-size: 1.25rem;
+`;
+
+const StatsBar = styled.div`
+  display: flex;
+  gap: 1rem;
+  padding: 0.75rem 1rem;
+  background: var(--glass-bg-secondary);
+  border-radius: 12px;
+  flex-wrap: wrap;
+`;
+
+const StatBox = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  flex: 1;
+  min-width: 80px;
+`;
+
+const StatLabel = styled.span`
+  font-size: 0.7rem;
+  color: var(--placeholder-text-color);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+const StatValue = styled.span`
+  font-size: 1rem;
+  font-weight: 700;
+`;
+
+const ChartContainer = styled.div`
+  min-height: 280px;
+  background: var(--glass-bg-secondary);
+  border-radius: 12px;
+  overflow: hidden;
+  height: ${props => props.$fullscreen ? 'auto' : '280px'};
+  flex: ${props => props.$fullscreen ? '1' : 'none'};
+`;
+
+const LoadingState = styled.div`
+  height: ${props => props.$fullscreen ? '50vh' : '280px'};
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  width: 100%;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(12px);
-  border-radius: 16px;
-  border: 1px solid var(--glass-border);
-  position: relative;
-  overflow: hidden;
+  gap: 1rem;
+  color: var(--placeholder-text-color);
 
-  &::before {
-    content: '';
-    position: absolute;
-    top: 0;
-    left: -100%;
-    width: 100%;
-    height: 100%;
-    background: linear-gradient(90deg,
-      transparent 0%,
-      rgba(79, 195, 247, 0.1) 50%,
-      transparent 100%
-    );
-    animation: loadingShimmer 2s ease-in-out infinite;
+  .spin {
+    animation: spin 1s linear infinite;
   }
-
-  @keyframes loadingShimmer {
-    0%, 100% { left: -100%; }
-    50% { left: 100%; }
-  }
-`;
-
-// Enhanced Loading States
-const LoadingSpinner = styled.div`
-  font-size: ${({ size }) => size === 'small' ? '1.5rem' : '3rem'};
-  color: var(--primary-accent, #007AFF);
-  animation: spin 1s linear infinite;
 
   @keyframes spin {
     from { transform: rotate(0deg); }
@@ -1028,80 +608,22 @@ const LoadingSpinner = styled.div`
   }
 `;
 
-const LoadingOverlay = styled.div`
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
-  z-index: 10;
-  pointer-events: none;
-`;
-
-const LoadingSubtext = styled.p`
-  color: var(--second-text-color, #ccc);
-  margin: 0.5rem 0 0 0;
-  font-size: 0.875rem;
-  text-align: center;
-`;
-
-// Error States
-const ErrorWrapper = styled.div`
+const ErrorState = styled.div`
+  height: 280px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  text-align: center;
-  padding: 2rem;
+  gap: 1rem;
+  color: var(--chart-error-color);
 `;
 
-const ErrorIcon = styled.div`
-  font-size: 3rem;
-  color: var(--chart-error-color, #dc3545);
-  margin-bottom: 1rem;
-`;
-
-const ErrorTitle = styled.h3`
-  color: var(--main-text-color, #fff);
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 600;
-`;
-
-const ErrorMessage = styled.p`
-  color: var(--second-text-color, #ccc);
-  margin: 0;
-  font-size: 0.9rem;
-  max-width: 250px;
-`;
-
-// Empty States
-const EmptyWrapper = styled.div`
+const NoDataState = styled.div`
+  height: 280px;
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100%;
-  text-align: center;
-  padding: 2rem;
-`;
-
-const EmptyIcon = styled.div`
-  font-size: 3rem;
-  margin-bottom: 1rem;
-  opacity: 0.7;
-`;
-
-const EmptyTitle = styled.h3`
-  color: var(--main-text-color, #fff);
-  margin: 0 0 0.5rem 0;
-  font-size: 1.25rem;
-  font-weight: 500;
-`;
-
-const EmptyMessage = styled.p`
-  color: var(--second-text-color, #ccc);
-  margin: 0;
-  font-size: 0.9rem;
-  max-width: 250px;
+  gap: 1rem;
+  color: var(--placeholder-text-color);
 `;

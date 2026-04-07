@@ -1,5 +1,5 @@
 const tokenSetup = async (entity, value, connection) => {
-    console.log(entity,value)
+    // console.log(entity,value)
 
     if (connection) {
       try {
@@ -14,7 +14,7 @@ const tokenSetup = async (entity, value, connection) => {
         });
 
       } catch (error) {
-        console.error('Error updating entity:', error);
+        // console.error('Error updating entity:', error);
       }
     }
   };

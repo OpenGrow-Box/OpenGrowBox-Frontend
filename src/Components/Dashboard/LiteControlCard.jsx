@@ -178,7 +178,7 @@ const LiteControlCard = () => {
         service_data: serviceData,
       });
     } catch (error) {
-      console.error('Error calling service:', error);
+      // console.error('Error calling service:', error);
     }
   };
 
@@ -245,7 +245,7 @@ const LiteControlCard = () => {
         },
       });
     } catch (error) {
-      console.error('Error updating time:', error);
+      // console.error('Error updating time:', error);
     }
   };
 
@@ -495,32 +495,6 @@ const LiteControlCard = () => {
               <>
                 <Divider />
                 
-                {lightEntityId ? (
-                  <LightControl onClick={toggleLight}>
-                    <LightIcon $on={lightOn}>
-                      <Power size={32} />
-                    </LightIcon>
-                    <LightInfo>
-                      <LightLabel>Light</LightLabel>
-                      <LightSchedule>{lightOnTime} - {lightOffTime}</LightSchedule>
-                    </LightInfo>
-                    <LightStatus $on={lightOn}>
-                      {lightOn ? 'ON' : 'OFF'}
-                    </LightStatus>
-                  </LightControl>
-                ) : (
-                  <LightControlDisabled>
-                    <LightIcon $on={false}>
-                      <Power size={32} />
-                    </LightIcon>
-                    <LightInfo>
-                      <LightLabel>Light</LightLabel>
-                      <LightSchedule>Not configured</LightSchedule>
-                    </LightInfo>
-                    <LightStatus $on={false}>N/A</LightStatus>
-                  </LightControlDisabled>
-                )}
-
                 <TimeRow>
                   <TimeControl>
                     <Label>Light ON</Label>

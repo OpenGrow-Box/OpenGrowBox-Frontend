@@ -104,13 +104,13 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
     // Fetch historical logs from backend file
     const fetchHistoricalLogs = useCallback(async () => {
       if (!connection) {
-        console.log('[Wizard Debug] No connection, skipping fetch')
+        // console.log('[Wizard Debug] No connection, skipping fetch')
         return
       }
       
       // Cleanup previous subscription
       if (historyUnsubscribeRef.current) {
-        console.log('[Wizard Debug] Cleaning up previous subscription')
+        // console.log('[Wizard Debug] Cleaning up previous subscription')
         historyUnsubscribeRef.current.then((unsub) => {
           if (unsub) unsub()
         }).catch(() => {})
@@ -120,7 +120,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
       setLoading(true)
       setError(null)
       const requestId = `log_fetch_${Date.now()}`
-      console.log('[Wizard Debug] Fetching historical logs with requestId:', requestId, 'room:', currentRoom)
+      // console.log('[Wizard Debug] Fetching historical logs with requestId:', requestId, 'room:', currentRoom)
 
       // Store current request ID
       currentRequestIdRef.current = requestId
@@ -138,22 +138,22 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         // Subscribe to response FIRST, then send request
         const unsubscribePromise = connection.subscribeEvents(
           (event) => {
-            console.log('[Wizard Debug] Received ogbClientLogsResponse:', event?.data)
+            // console.log('[Wizard Debug] Received ogbClientLogsResponse:', event?.data)
             if (event?.event_type === 'ogbClientLogsResponse') {
               // CRITICAL: Check if this is our response
               const eventRequestId = event.data?.requestId || event.data?.request_id
 
               // Ignore if requestId doesn't match current request
               if (eventRequestId !== currentRequestIdRef.current) {
-                console.log('[Wizard Debug] Ignoring response - requestId mismatch:', eventRequestId, 'expected:', currentRequestIdRef.current)
+                // console.log('[Wizard Debug] Ignoring response - requestId mismatch:', eventRequestId, 'expected:', currentRequestIdRef.current)
                 return
               }
 
-              console.log('[Wizard Debug] Processing response for requestId:', requestId)
-              console.log('[Wizard Debug] Log response:', event.data)
+              // console.log('[Wizard Debug] Processing response for requestId:', requestId)
+              // console.log('[Wizard Debug] Log response:', event.data)
 
               if (event.data?.error) {
-                console.error('[Wizard Debug] Error response:', event.data.error)
+                // console.error('[Wizard Debug] Error response:', event.data.error)
                 setError(event.data.error)
               } else if (event.data?.logs) {
                 const historicalLogs = (event.data.logs || []).map((log, idx) => ({
@@ -167,7 +167,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
                   timestamp: log.timestamp,
                   isHistorical: true,
                 }))
-                console.log('[Wizard Debug] Parsed', historicalLogs.length, 'historical logs')
+                // console.log('[Wizard Debug] Parsed', historicalLogs.length, 'historical logs')
                 setLogs(prev => {
                   const realtime = prev.filter(l => !l.isHistorical)
                   const existingTimestamps = new Set(realtime.map(l => l.timestamp))
@@ -183,14 +183,14 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
                 setTimeout(() => {
                   const container = document.querySelector('[data-log-container="true"]')
                   if (container) {
-                    console.log('[Wizard Debug] Scrolling to top of log container')
+                    // console.log('[Wizard Debug] Scrolling to top of log container')
                     container.scrollTop = 0
                   }
                 }, 100)
 
                 hasLoadedRef.current = true
               } else {
-                console.log('[Wizard Debug] No logs in response, file might be empty')
+                // console.log('[Wizard Debug] No logs in response, file might be empty')
                 hasLoadedRef.current = true
               }
               setLoading(false)
@@ -201,7 +201,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
               }
             } else if (event.data?.error) {
               // Error response - still mark as loaded to avoid stuck "Loading"
-              console.error('[Wizard Debug] Error response:', event.data.error)
+              // console.error('[Wizard Debug] Error response:', event.data.error)
               setError(event.data.error)
               hasLoadedRef.current = true
               setLoading(false)
@@ -218,7 +218,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         historyUnsubscribeRef.current = unsubscribePromise
 
         // Send request 
-        console.log('[Wizard Debug] Sending getOGBClientLogs request')
+        // console.log('[Wizard Debug] Sending getOGBClientLogs request')
         connection.sendMessage({
           type: 'fire_event',
           event_type: 'getOGBClientLogs',
@@ -231,7 +231,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
 
         // Timeout after 15 seconds
         const timeoutId = setTimeout(() => {
-          console.log('[Wizard Debug] Timeout - stopping loading')
+          // console.log('[Wizard Debug] Timeout - stopping loading')
           setLoading(false)
           hasLoadedRef.current = true  // Mark as loaded even on timeout
           if (safeUnsubscribe()) {
@@ -248,7 +248,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         }
 
       } catch (e) {
-        console.error('[Wizard Debug] Fetch historical logs failed:', e)
+        // console.error('[Wizard Debug] Fetch historical logs failed:', e)
         setError(e.message || 'Failed to fetch logs')
         setLoading(false)
         hasLoadedRef.current = true  // Mark as loaded even on error
@@ -257,11 +257,11 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
 
     // Initial load - fetch historical logs (only once per component mount)
     useEffect(() => {
-      console.log('[Wizard Debug] Initial load check - connection:', !!connection, 'currentRoom:', currentRoom, 'hasLoaded:', hasLoadedRef.current)
+      // console.log('[Wizard Debug] Initial load check - connection:', !!connection, 'currentRoom:', currentRoom, 'hasLoaded:', hasLoadedRef.current)
 
       // Only fetch if: connection exists, room exists, and hasn't been loaded yet
       if (connection && currentRoom && !hasLoadedRef.current) {
-        console.log('[Wizard Debug] Starting historical log fetch...')
+        // console.log('[Wizard Debug] Starting historical log fetch...')
         fetchHistoricalLogs()
       }
 
@@ -317,7 +317,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
         'LogForClient'
       )
 
-      console.log('[Wizard Debug] Subscribed to realtime LogForClient')
+      // console.log('[Wizard Debug] Subscribed to realtime LogForClient')
 
       return () => {
         unsubscribePromise.then((unsubscribe) => {
