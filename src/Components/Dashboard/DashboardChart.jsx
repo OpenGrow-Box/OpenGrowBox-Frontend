@@ -778,6 +778,7 @@ const StatsBar = styled.div`
   border-radius: 8px;
   flex-wrap: wrap;
   margin-top: 0.5rem;
+  justify-content: center;
 `;
 
 const TimeSelectorBottom = styled.div`
@@ -796,6 +797,7 @@ const StatBox = styled.div`
   gap: 0.15rem;
   flex: 1;
   min-width: 60px;
+  align-items: center;
 `;
 
 const StatLabel = styled.span`
@@ -811,16 +813,16 @@ const StatValue = styled.span`
 `;
 
 const ChartContainer = styled.div`
-  min-height: 280px;
+  min-height: 240px;
   background: var(--glass-bg-secondary);
   border-radius: 12px;
   overflow: hidden;
-  height: ${props => props.$fullscreen ? 'auto' : '280px'};
+  height: ${props => props.$fullscreen ? 'auto' : '240px'};
   flex: ${props => props.$fullscreen ? '1' : 'none'};
 `;
 
 const LoadingState = styled.div`
-  height: ${props => props.$fullscreen ? '50vh' : '280px'};
+  height: ${props => props.$fullscreen ? '50vh' : '240px'};
   display: flex;
   flex-direction: column;
   align-items: center;
