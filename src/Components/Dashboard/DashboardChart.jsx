@@ -311,17 +311,17 @@ const SensorChart = ({
                 shadowColor: accentColor + '40',
                 shadowBlur: 10
               } : { width: 0 },
-              areaStyle: chartType === 'area' ? {
+              areaStyle: chartType === 'bar' ? undefined : {
                 color: {
                   type: 'linear',
                   x: 0, y: 0, x2: 0, y2: 1,
                   colorStops: [
-                    { offset: 0, color: accentColor + '50' },
-                    { offset: 0.5, color: accentColor + '20' },
+                    { offset: 0, color: accentColor + '60' },
+                    { offset: 0.5, color: accentColor + '30' },
                     { offset: 1, color: accentColor + '05' }
                   ]
                 }
-              } : (chartType === 'line' ? null : undefined),
+              },
               barWidth: chartType === 'bar' ? '60%' : undefined,
               markPoint: chartType !== 'bar' ? {
                 data: [
