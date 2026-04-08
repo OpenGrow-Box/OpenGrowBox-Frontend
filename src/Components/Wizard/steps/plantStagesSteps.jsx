@@ -197,7 +197,7 @@ export const createPlantStagesStepComponents = ({
                     <ParamRow><span>Temperature:</span><span>{config.minTemp}°C - {config.maxTemp}°C</span></ParamRow>
                     <ParamRow><span>Humidity:</span><span>{config.minHumidity}% - {config.maxHumidity}%</span></ParamRow>
                     <ParamRow><span>VPD:</span><span>{config.minVPD} - {config.maxVPD} kPa</span></ParamRow>
-                    <ParamRow><span>Light:</span><span>{config.minLight} - {config.maxLight} PPFD</span></ParamRow>
+                    <ParamRow><span>Light:</span><span>{config.minLight} - {config.maxLight}%</span></ParamRow>
                     <ParamRow><span>EC:</span><span>{config.minEC} - {config.maxEc} mS/cm</span></ParamRow>
                     <ParamRow><span>pH:</span><span>{config.minPh} - {config.maxPh}</span></ParamRow>
                     <ParamRow><span>CO₂:</span><span>{config.minCo2} - {config.maxCo2} ppm</span></ParamRow>
@@ -244,7 +244,7 @@ export const createPlantStagesStepComponents = ({
                 <ParamRow><span>Temperature:</span><span>{config.minTemp}°C - {config.maxTemp}°C</span></ParamRow>
                 <ParamRow><span>Humidity:</span><span>{config.minHumidity}% - {config.maxHumidity}%</span></ParamRow>
                 <ParamRow><span>VPD:</span><span>{config.minVPD} - {config.maxVPD} kPa</span></ParamRow>
-                <ParamRow><span>Light:</span><span>{config.minLight} - {config.maxLight} PPFD</span></ParamRow>
+                <ParamRow><span>Light:</span><span>{config.minLight} - {config.maxLight}%</span></ParamRow>
                 <ParamRow><span>EC:</span><span>{config.minEC} - {config.maxEc} mS/cm</span></ParamRow>
                 <ParamRow><span>pH:</span><span>{config.minPh} - {config.maxPh}</span></ParamRow>
                 <ParamRow><span>CO₂:</span><span>{config.minCo2} - {config.maxCo2} ppm</span></ParamRow>
