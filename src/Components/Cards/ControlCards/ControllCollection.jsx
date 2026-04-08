@@ -438,24 +438,24 @@ const dynamicFilters = {
     activeInGroups: ['Feed Settings'],
     conditions: {
       'Tank Feed': {
-        includeKeywords: ['feed', 'nutrient', 'ec', 'ph', 'tolerance', 'tank'],
-        excludeKeywords: ['plant', 'individual', 'hydro'],
+        includeKeywords: ['feed',  'ec', 'ph', 'tolerance', 'tank'],
+        excludeKeywords: ['plant','Nutrient', 'individual', 'hydro'],
         additionalTooltips: {
           'ogb_feed_ec_target_': 'EC target for tank feeding system',
           'ogb_feed_ph_target_': 'pH target for tank feeding system'
         }
       },
       'Plant Feed': {
-        includeKeywords: ['feed', 'nutrient', 'plant', 'individual'],
-        excludeKeywords: ['tank', 'ec', 'ph', 'hydro'],
+        includeKeywords: ['feed', 'plant', 'individual'],
+        excludeKeywords: ['tank','nutrient', 'ec', 'ph', 'hydro'],
         additionalTooltips: {
           'ogb_feed_nutrient_a_': 'Nutrient A dosing per plant',
           'ogb_feed_nutrient_b_': 'Nutrient B dosing per plant'
         }
       },
       'Custom Mix': {
-        includeKeywords: ['feed', 'nutrient', 'custom', 'mix', 'recipe'],
-        excludeKeywords: [],
+        includeKeywords: ['feed', 'custom', 'mix', 'recipe'],
+        excludeKeywords: ['nutrient',],
         additionalTooltips: {
           'ogb_feed_custom_recipe_': 'Define custom nutrient mixing recipe'
         }
@@ -467,7 +467,7 @@ const dynamicFilters = {
       },
       'Config': {
         includeKeywords: ['feed'],
-        excludeKeywords: [],
+        excludeKeywords: ['nutrient',],
         additionalTooltips: {}
       }
     }
@@ -493,8 +493,8 @@ const groupMappings = {
     excludeKeywords: ['Device','nutrient'],
   },
   'Feed Settings': {
-    includeKeywords: ['pump', 'feed', 'nutrient'],
-    excludeKeywords: ['Device', 'water', 'hydro'],
+    includeKeywords: ['pump', 'feed'],
+    excludeKeywords: ['Device', 'water', 'hydro','tolerance'],
   },
   'Special Settings': {
     includeKeywords: ['area','medium','console','planttype','season'],
