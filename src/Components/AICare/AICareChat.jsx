@@ -115,42 +115,97 @@ const PROMPT_TEMPLATES = [
     label: 'Health Check',
     prompt: 'Give me an honest health check of this plant. Tell me clearly what looks healthy, what looks wrong, how serious it is, and what I should do next.',
     description: 'Quick honest plant check',
-    icon: Sprout
+    icon: Sprout,
+    systemPrompt: `You are Plant-Buddy. Give a direct health check.
+
+Structure:
+1. Overall health (healthy / okay / concerning / critical)
+2. What looks good (short list)
+3. What looks wrong with severity
+4. What to do now
+
+Be honest and critical. Do not soften serious issues.`
   },
   {
     id: 'problem_diagnosis',
     label: 'Diagnose Issue',
     prompt: 'Diagnose the most likely problem with this plant and rank the top causes by probability. Be direct if something looks risky.',
     description: 'Most likely cause first',
-    icon: Search
+    icon: Search,
+    systemPrompt: `You are Plant-Buddy. Diagnose the most likely problem.
+
+Structure:
+1. Most likely cause (with confidence)
+2. Alternative causes in order of probability
+3. What confirms or rules out each cause
+4. Immediate corrective actions
+
+Be direct. If the problem could become serious quickly, say so.`
   },
   {
     id: 'environment_review',
     label: 'Environment Review',
     prompt: 'Review the current environment context for this room and tell me if temperature, humidity, and VPD look safe for plant health. Flag anything risky or off-target.',
     description: 'Check temp, humidity, VPD',
-    icon: BarChart3
+    icon: BarChart3,
+    systemPrompt: `You are Plant-Buddy. Review the provided environment values.
+
+Structure:
+1. Are temperature, humidity, and VPD within safe ranges for the growth stage?
+2. Anything off-target (too high / too low / risky for stress)
+3. What risks each value currently poses
+4. Immediate adjustments, if any
+
+Use the provided values. Do not guess. If values are missing, say so.`
   },
   {
     id: 'nutrient_check',
     label: 'Nutrient Check',
     prompt: 'Check this plant for likely nutrient deficiency or toxicity signs. Tell me what you can actually see and what cannot be confirmed from the image alone.',
     description: 'Deficiency or toxicity clues',
-    icon: Droplets
+    icon: Droplets,
+    systemPrompt: `You are Plant-Buddy. Look for nutrient issues visible in the image.
+
+Structure:
+1. Any visible deficiency or toxicity patterns (which element is most likely)
+2. Specific leaf symptoms supporting the diagnosis
+3. What cannot be confirmed from the image alone
+4. Next steps to confirm or correct the issue
+
+Be conservative: if the image is inconclusive, say which tests or next observations would clarify.`
   },
   {
     id: 'pest_disease',
     label: 'Pests Or Disease',
     prompt: 'Inspect this plant for pests, mold, mildew, rot, or disease signs. If there is a serious risk, say it clearly and tell me what to check immediately.',
     description: 'Find urgent biological risks',
-    icon: Bug
+    icon: Bug,
+    systemPrompt: `You are Plant-Buddy. Inspect for pests or disease.
+
+Structure:
+1. Any visible pests, eggs, webbing, feeding marks, frass, or mold/mildew/rot
+2. Likely pest/disease (if any) with confidence
+3. Immediate treatment steps
+4. What to monitor over the next 24–48 hours
+
+If you see something that could become serious quickly, say so plainly.`
   },
   {
-    id: 'action_plan',
-    label: 'Action Plan',
-    prompt: 'Based on the current plant and room context, give me the 3 most important actions to improve plant health right now. Keep it practical and prioritized.',
-    description: 'Top 3 next actions',
-    icon: Lightbulb
+    id: 'trichome_analysis',
+    label: 'Trichom Analysis',
+    prompt: 'Analyze the trichomes in this image. Count or estimate how many trichomes you see and describe their appearance: how many are clear, milky, amber, brown, or mixed. Tell me the approximate ratio and what harvest readiness this suggests.',
+    description: 'Estimate trichome color & count',
+    icon: Lightbulb,
+    systemPrompt: `You are Plant-Buddy. Analyze trichomes visible in the image.
+
+Structure:
+1. Trichome density (low / medium / high / very high)
+2. Color distribution: approximate % of clear, milky, amber, brown
+3. Overall appearance: which color dominates
+4. Harvest readiness based on trichome state
+5. If image quality is too low to see clearly, say what you cannot confirm
+
+Be honest about visibility limits. Do not guess what you cannot see.`
   }
 ];
 
@@ -250,6 +305,7 @@ const AICareChat = () => {
     totalTokens: 0,
     requestCount: 0
   });
+  const [templateSystemPrompt, setTemplateSystemPrompt] = useState(null);
   const environmentContext = buildEnvironmentContext(entities, currentRoom);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -591,6 +647,7 @@ Make sure ${apiProvider} is running and accessible from this device.
 
     setMessages(prev => [...prev, newMessage]);
     setInputText('');
+    setTemplateSystemPrompt(null);
     setSelectedImage(null);
     setIsProcessing(true);
     setHasAttemptedMessage(true);
@@ -739,7 +796,7 @@ Make sure ${apiProvider} is running and accessible from this device.
     // Use basic prompt for image-only analysis, detailed prompt when text is provided
     const isImageOnly = image && (!text || text.trim() === '');
     const basePrompt = isImageOnly ? getImageSystemPrompt(apiProvider) : getBaseSystemPrompt(apiProvider);
-    const systemPrompt = `${basePrompt}${environmentContext}`;
+    const systemPrompt = `${templateSystemPrompt || basePrompt}${environmentContext}`;
 
     const messages = [
       {
@@ -895,7 +952,7 @@ Make sure ${apiProvider} is running and accessible from this device.
     const apiMessages = [
       {
         role: 'system',
-        content: `${getBaseSystemPrompt(apiProvider)}${environmentContext}`
+        content: `${templateSystemPrompt || getBaseSystemPrompt(apiProvider)}${environmentContext}`
       },
       ...recentHistory.map(msg => ({
         role: msg.role,
@@ -979,8 +1036,9 @@ Make sure ${apiProvider} is running and accessible from this device.
 
   const handleTemplateClick = (template) => {
     setInputText(template.prompt);
+    setTemplateSystemPrompt(template.systemPrompt || null);
     setShowTemplates(false);
-    
+
     // Check if any provider is configured (API keys or local providers)
     const hasOllama = localStorage.getItem('plantbuddy_ollama_base_url');
     const hasLMStudio = localStorage.getItem('plantbuddy_lmstudio_base_url');
