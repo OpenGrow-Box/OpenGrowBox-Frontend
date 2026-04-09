@@ -46,6 +46,10 @@ export const GlobalStateProvider = ({ children }) => {
         return {
           ...initialState,
           ...parsedState,
+          Settings: {
+            ...initialState.Settings,
+            ...parsedState.Settings,
+          },
           Design: {
             ...initialState.Design,
             ...parsedState.Design,

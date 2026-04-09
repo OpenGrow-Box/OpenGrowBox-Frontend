@@ -49,7 +49,7 @@ export const sendToOllama = async (messages, model = 'llama3.2') => {
   }
 };
 
-export const sendToOllamaWithImage = async (text, image, model = 'llava') => {
+export const sendToOllamaWithImage = async (text, image, model = 'llava', systemPrompt = '') => {
   const baseUrl = getOllamaBaseUrl();
 
   try {
@@ -66,6 +66,14 @@ export const sendToOllamaWithImage = async (text, image, model = 'llava') => {
       message.images.push(base64Data);
     }
 
+    const messages = [];
+
+    if (systemPrompt) {
+      messages.push({ role: 'system', content: systemPrompt });
+    }
+
+    messages.push(message);
+
     const response = await fetch(`${baseUrl}/api/chat`, {
       method: 'POST',
       headers: {
@@ -73,7 +81,7 @@ export const sendToOllamaWithImage = async (text, image, model = 'llava') => {
       },
       body: JSON.stringify({
         model: model,
-        messages: [message],
+        messages,
         stream: false
       })
     });

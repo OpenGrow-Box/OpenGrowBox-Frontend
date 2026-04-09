@@ -1,7 +1,16 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
-import { Lightbulb, Thermometer, Droplets, Power, Sunrise, Sunset, Settings2, ChevronDown, ChevronUp, Clock, ToggleLeft, ToggleRight, Wind, Leaf } from 'lucide-react';
+import { Lightbulb, Thermometer, Droplets, Power, Sunrise, Sunset, Settings2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Wind, Leaf, Info } from 'lucide-react';
+
+const HelpTooltip = ({ text }) => (
+  <TooltipWrapper>
+    <TooltipButton type="button" aria-label={text}>
+      <Info size={14} />
+      <TooltipBubble>{text}</TooltipBubble>
+    </TooltipButton>
+  </TooltipWrapper>
+);
 
 const LiteControlCard = () => {
   const { currentRoom, entities, connection } = useHomeAssistant();
@@ -38,6 +47,8 @@ const LiteControlCard = () => {
   const [fanSpeed, setFanSpeed] = useState(50);
   const [plantStage, setPlantStage] = useState('');
   const [plantStageOptions, setPlantStageOptions] = useState([]);
+  const [plantSpecies, setPlantSpecies] = useState('');
+  const [plantSpeciesOptions, setPlantSpeciesOptions] = useState([]);
   
   // Ventilation
   const [exhaustMinMax, setExhaustMinMax] = useState({ min: 30, max: 100 });
@@ -53,10 +64,36 @@ const LiteControlCard = () => {
   const [co2Max, setCo2Max] = useState(1500);
   const [co2Target, setCo2Target] = useState(1200);
 
+  const room = currentRoom?.trim()?.toLowerCase() || 'default';
+
+  const tooltips = {
+    tentMode: 'Select a grow mode to activate automated control.',
+    plantStage: 'Set the current plant stage. Lights can adapt based on the selected stage.',
+    plantSpecies: 'Select the plant species used for this room, for example via ogb_plantspecies_dev_room.',
+    lightControl: 'Enable automatic light control via OpenGrowBox.',
+    lightOn: 'Set the time when lights switch on.',
+    lightOff: 'Set the time when lights switch off.',
+    sunrise: 'Set the sunrise transition duration.',
+    sunset: 'Set the sunset transition duration.',
+    co2Control: 'Enable CO2-based environmental control.',
+    co2Min: 'Set the minimum CO2 value.',
+    co2Max: 'Set the maximum CO2 value.',
+    co2Target: 'Set the target CO2 value.',
+    environment: 'Enable custom min/max values for temperature and humidity.',
+    tempMin: 'Set the custom minimum temperature.',
+    tempMax: 'Set the custom maximum temperature.',
+    humMin: 'Set the custom minimum humidity.',
+    humMax: 'Set the custom maximum humidity.',
+    fan: 'Control the detected fan entity for the current room.',
+    fanSpeed: 'Adjust the current fan speed in percent.',
+    ventilation: 'Configure custom min/max duty cycles for exhaust, intake and ventilation.',
+    ventMinMax: 'Enable custom min/max duty cycle limits.',
+    ventMin: 'Set the minimum duty cycle.',
+    ventMax: 'Set the maximum duty cycle.',
+  };
+
   useEffect(() => {
     if (!entities) return;
-    const room = currentRoom?.trim()?.toLowerCase() || 'default';
-    
     // Load current values from entities
     const lightOnEntity = entities[`input_datetime.ogb_lightontime_${room}`];
     const lightOffEntity = entities[`input_datetime.ogb_lightofftime_${room}`];
@@ -130,9 +167,21 @@ const LiteControlCard = () => {
     
     // Load Plant Stage
     const plantStageEntity = entities[`select.ogb_plantstage_${room}`];
+    const plantSpeciesEntity = entities[`select.ogb_plantspecies_${room}`];
     if (plantStageEntity) {
       setPlantStage(plantStageEntity.state);
       setPlantStageOptions(plantStageEntity.attributes?.options || []);
+    } else {
+      setPlantStage('');
+      setPlantStageOptions([]);
+    }
+
+    if (plantSpeciesEntity) {
+      setPlantSpecies(plantSpeciesEntity.state);
+      setPlantSpeciesOptions(plantSpeciesEntity.attributes?.options || []);
+    } else {
+      setPlantSpecies('');
+      setPlantSpeciesOptions([]);
     }
     
     // Load Ventilation Min/Max settings
@@ -290,11 +339,19 @@ const LiteControlCard = () => {
 
   const updatePlantStage = async (newStage) => {
     setPlantStage(newStage);
-    const room = currentRoom?.trim()?.toLowerCase() || 'default';
     const selectEntity = `select.ogb_plantstage_${room}`;
     await handleCallService('select', 'select_option', {
       entity_id: selectEntity,
       option: newStage,
+    });
+  };
+
+  const updatePlantSpecies = async (newSpecies) => {
+    setPlantSpecies(newSpecies);
+    const selectEntity = `select.ogb_plantspecies_${room}`;
+    await handleCallService('select', 'select_option', {
+      entity_id: selectEntity,
+      option: newSpecies,
     });
   };
 
@@ -406,18 +463,70 @@ const LiteControlCard = () => {
     }));
   };
 
+  const lightSchedule = lightControlEnabled ? `${lightOnTime} - ${lightOffTime}` : 'Disabled';
+  const plantSummary = [plantStage, plantSpecies].filter(Boolean).join(' • ') || 'Not configured';
+  const environmentSummary = minmaxEnabled
+    ? `${tempMin}-${tempMax}°C • ${humMin}-${humMax}%`
+    : 'Default automation';
+  const co2Summary = co2Enabled ? `${co2Target} ppm target` : 'Disabled';
+  const fanSummary = fanEntityId ? `${fanOn ? 'On' : 'Off'} • ${fanSpeed}%` : 'Not available';
+  const ventilationSummary = [
+    exhaustMinMaxEnabled && 'Exhaust',
+    intakeMinMaxEnabled && 'Intake',
+    ventilationMinMaxEnabled && 'Vent',
+  ].filter(Boolean).join(' • ') || 'All default';
+
   return (
     <Container>
+      <CardHeader>
+        <HeaderTextBlock>
+          <CardEyebrow>Eviorment Control</CardEyebrow>
+          <CardTitle>{currentRoom || 'Default Room'}</CardTitle>
+          <CardDescription>Fast access to the most important grow settings without opening the full control view.</CardDescription>
+        </HeaderTextBlock>
+        <HeaderStatusPill>{tentMode || 'No mode'}</HeaderStatusPill>
+      </CardHeader>
+
+      <OverviewGrid>
+        <OverviewCard>
+          <OverviewLabel>Plant</OverviewLabel>
+          <OverviewValue>{plantSummary}</OverviewValue>
+        </OverviewCard>
+        <OverviewCard>
+          <OverviewLabel>Lights</OverviewLabel>
+          <OverviewValue>{lightSchedule}</OverviewValue>
+        </OverviewCard>
+        <OverviewCard>
+          <OverviewLabel>Climate</OverviewLabel>
+          <OverviewValue>{environmentSummary}</OverviewValue>
+        </OverviewCard>
+        <OverviewCard>
+          <OverviewLabel>CO2</OverviewLabel>
+          <OverviewValue>{co2Summary}</OverviewValue>
+        </OverviewCard>
+      </OverviewGrid>
+
       {/* Tent Mode Accordion */}
       <AccordionSection>
-        <AccordionHeader onClick={() => toggleSection('tentMode')}>
-          <SectionInfo>
-            <Settings2 size={18} />
-            <SectionTitle>Tent Mode</SectionTitle>
-          </SectionInfo>
-          <AccordionArrow $expanded={expandedSections.tentMode}>
-            <ChevronDown size={20} />
-          </AccordionArrow>
+          <AccordionHeader onClick={() => toggleSection('tentMode')}>
+            <SectionInfo>
+              <SectionIconBadge>
+                <Settings2 size={16} />
+              </SectionIconBadge>
+              <SectionTextGroup>
+                <SectionTitleWithTooltip>
+                  <SectionTitle>Tent Mode</SectionTitle>
+                  <HelpTooltip text={tooltips.tentMode} />
+                </SectionTitleWithTooltip>
+                <SectionSummary>{tentMode || 'No mode selected'}</SectionSummary>
+              </SectionTextGroup>
+            </SectionInfo>
+            <HeaderActions>
+              <HeaderValuePill>{tentMode || 'Unset'}</HeaderValuePill>
+              <AccordionArrow $expanded={expandedSections.tentMode}>
+                <ChevronDown size={20} />
+              </AccordionArrow>
+            </HeaderActions>
         </AccordionHeader>
         {expandedSections.tentMode && (
           <AccordionContent>
@@ -436,29 +545,67 @@ const LiteControlCard = () => {
       </AccordionSection>
 
       {/* Plant Stage Accordion */}
-      {plantStageOptions.length > 0 && (
+      {(plantStageOptions.length > 0 || plantSpeciesOptions.length > 0) && (
         <AccordionSection>
           <AccordionHeader onClick={() => toggleSection('plantStage')}>
             <SectionInfo>
-              <Leaf size={18} />
-              <SectionTitle>Plant Stage</SectionTitle>
+              <SectionIconBadge>
+                <Leaf size={16} />
+              </SectionIconBadge>
+              <SectionTextGroup>
+                <SectionTitleWithTooltip>
+                  <SectionTitle>Plant Data</SectionTitle>
+                  <HelpTooltip text={tooltips.plantStage} />
+                </SectionTitleWithTooltip>
+                <SectionSummary>{plantSummary}</SectionSummary>
+              </SectionTextGroup>
             </SectionInfo>
-            <AccordionArrow $expanded={expandedSections.plantStage}>
-              <ChevronDown size={20} />
-            </AccordionArrow>
+            <HeaderActions>
+              <HeaderValuePill>{plantStage || plantSpecies || 'Unset'}</HeaderValuePill>
+              <AccordionArrow $expanded={expandedSections.plantStage}>
+                <ChevronDown size={20} />
+              </AccordionArrow>
+            </HeaderActions>
           </AccordionHeader>
           {expandedSections.plantStage && (
             <AccordionContent>
-              <TentModeSelect
-                value={plantStage}
-                onChange={(e) => updatePlantStage(e.target.value)}
-              >
-                {plantStageOptions.map((option, index) => (
-                  <TentModeOption key={index} value={option}>
-                    {option}
-                  </TentModeOption>
-                ))}
-              </TentModeSelect>
+              {plantStageOptions.length > 0 && (
+                <ControlGroup>
+                  <LabelWithTooltip>
+                    <Label>Plant Stage</Label>
+                    <HelpTooltip text={tooltips.plantStage} />
+                  </LabelWithTooltip>
+                  <TentModeSelect
+                    value={plantStage}
+                    onChange={(e) => updatePlantStage(e.target.value)}
+                  >
+                    {plantStageOptions.map((option, index) => (
+                      <TentModeOption key={index} value={option}>
+                        {option}
+                      </TentModeOption>
+                    ))}
+                  </TentModeSelect>
+                </ControlGroup>
+              )}
+
+              {plantSpeciesOptions.length > 0 && (
+                <ControlGroup>
+                  <LabelWithTooltip>
+                    <Label>Plant Species</Label>
+                    <HelpTooltip text={tooltips.plantSpecies} />
+                  </LabelWithTooltip>
+                  <TentModeSelect
+                    value={plantSpecies}
+                    onChange={(e) => updatePlantSpecies(e.target.value)}
+                  >
+                    {plantSpeciesOptions.map((option, index) => (
+                      <TentModeOption key={index} value={option}>
+                        {option}
+                      </TentModeOption>
+                    ))}
+                  </TentModeSelect>
+                </ControlGroup>
+              )}
             </AccordionContent>
           )}
         </AccordionSection>
@@ -468,17 +615,31 @@ const LiteControlCard = () => {
       <AccordionSection>
         <AccordionHeader onClick={() => toggleSection('lightControl')}>
           <SectionInfo>
-            <Lightbulb size={18} />
-            <SectionTitle>Light Control</SectionTitle>
+            <SectionIconBadge>
+              <Lightbulb size={16} />
+            </SectionIconBadge>
+            <SectionTextGroup>
+              <SectionTitleWithTooltip>
+                <SectionTitle>Light Control</SectionTitle>
+                <HelpTooltip text={tooltips.lightControl} />
+              </SectionTitleWithTooltip>
+              <SectionSummary>{lightSchedule}</SectionSummary>
+            </SectionTextGroup>
           </SectionInfo>
-          <AccordionArrow $expanded={expandedSections.lightControl}>
-            <ChevronDown size={20} />
-          </AccordionArrow>
+          <HeaderActions>
+            <HeaderValuePill $active={lightControlEnabled}>{lightControlEnabled ? 'Active' : 'Off'}</HeaderValuePill>
+            <AccordionArrow $expanded={expandedSections.lightControl}>
+              <ChevronDown size={20} />
+            </AccordionArrow>
+          </HeaderActions>
         </AccordionHeader>
         {expandedSections.lightControl && (
           <AccordionContent>
             <MinMaxToggleRow>
-              <MinMaxLabel>Enable Light Control</MinMaxLabel>
+              <LabelWithTooltip>
+                <MinMaxLabel>Enable Light Control</MinMaxLabel>
+                <HelpTooltip text={tooltips.lightControl} />
+              </LabelWithTooltip>
               <MinMaxToggle onClick={toggleLightControl}>
                 <MinMaxToggleSlider $enabled={lightControlEnabled}>
                   <MinMaxToggleCircle $enabled={lightControlEnabled}>
@@ -497,7 +658,10 @@ const LiteControlCard = () => {
                 
                 <TimeRow>
                   <TimeControl>
-                    <Label>Light ON</Label>
+                    <LabelWithTooltip>
+                      <Label>Light ON</Label>
+                      <HelpTooltip text={tooltips.lightOn} />
+                    </LabelWithTooltip>
                     <TimeInput
                       type="time"
                       value={lightOnTime}
@@ -509,7 +673,10 @@ const LiteControlCard = () => {
                     />
                   </TimeControl>
                   <TimeControl>
-                    <Label>Light OFF</Label>
+                    <LabelWithTooltip>
+                      <Label>Light OFF</Label>
+                      <HelpTooltip text={tooltips.lightOff} />
+                    </LabelWithTooltip>
                     <TimeInput
                       type="time"
                       value={lightOffTime}
@@ -526,7 +693,10 @@ const LiteControlCard = () => {
                     <SunIcon>
                       <Sunrise size={18} />
                     </SunIcon>
-                    <SunLabel>Sunrise</SunLabel>
+                    <LabelWithTooltip>
+                      <SunLabel>Sunrise</SunLabel>
+                      <HelpTooltip text={tooltips.sunrise} />
+                    </LabelWithTooltip>
                     <SunTimeInput
                       type="time"
                       step="1"
@@ -542,7 +712,10 @@ const LiteControlCard = () => {
                     <SunIcon>
                       <Sunset size={18} />
                     </SunIcon>
-                    <SunLabel>Sunset</SunLabel>
+                    <LabelWithTooltip>
+                      <SunLabel>Sunset</SunLabel>
+                      <HelpTooltip text={tooltips.sunset} />
+                    </LabelWithTooltip>
                     <SunTimeInput
                       type="time"
                       step="1"
@@ -565,17 +738,31 @@ const LiteControlCard = () => {
       <AccordionSection>
         <AccordionHeader onClick={() => toggleSection('co2Control')}>
           <SectionInfo>
-            <Wind size={18} />
-            <SectionTitle>CO2 Control</SectionTitle>
+            <SectionIconBadge>
+              <Wind size={16} />
+            </SectionIconBadge>
+            <SectionTextGroup>
+              <SectionTitleWithTooltip>
+                <SectionTitle>CO2 Control</SectionTitle>
+                <HelpTooltip text={tooltips.co2Control} />
+              </SectionTitleWithTooltip>
+              <SectionSummary>{co2Summary}</SectionSummary>
+            </SectionTextGroup>
           </SectionInfo>
-          <AccordionArrow $expanded={expandedSections.co2Control}>
-            <ChevronDown size={20} />
-          </AccordionArrow>
+          <HeaderActions>
+            <HeaderValuePill $active={co2Enabled}>{co2Enabled ? 'Active' : 'Off'}</HeaderValuePill>
+            <AccordionArrow $expanded={expandedSections.co2Control}>
+              <ChevronDown size={20} />
+            </AccordionArrow>
+          </HeaderActions>
         </AccordionHeader>
         {expandedSections.co2Control && (
           <AccordionContent>
             <MinMaxToggleRow>
-              <MinMaxLabel>Enable CO2 Control</MinMaxLabel>
+              <LabelWithTooltip>
+                <MinMaxLabel>Enable CO2 Control</MinMaxLabel>
+                <HelpTooltip text={tooltips.co2Control} />
+              </LabelWithTooltip>
               <MinMaxToggle onClick={toggleCo2Control}>
                 <MinMaxToggleSlider $enabled={co2Enabled}>
                   <MinMaxToggleCircle $enabled={co2Enabled}>
@@ -593,7 +780,10 @@ const LiteControlCard = () => {
                 <Divider />
                 <ControlRow>
                   <ControlGroup>
-                    <Label>CO2 Min (ppm)</Label>
+                    <LabelWithTooltip>
+                      <Label>CO2 Min (ppm)</Label>
+                      <HelpTooltip text={tooltips.co2Min} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(co2Min, -50, 300, 1000, updateCo2Min)}>
                         <ChevronDown size={16} />
@@ -605,7 +795,10 @@ const LiteControlCard = () => {
                     </ValueControl>
                   </ControlGroup>
                   <ControlGroup>
-                    <Label>CO2 Max (ppm)</Label>
+                    <LabelWithTooltip>
+                      <Label>CO2 Max (ppm)</Label>
+                      <HelpTooltip text={tooltips.co2Max} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(co2Max, -50, 1000, 2000, updateCo2Max)}>
                         <ChevronDown size={16} />
@@ -619,7 +812,10 @@ const LiteControlCard = () => {
                 </ControlRow>
                 <ControlRow>
                   <ControlGroup>
-                    <Label>CO2 Target (ppm)</Label>
+                    <LabelWithTooltip>
+                      <Label>CO2 Target (ppm)</Label>
+                      <HelpTooltip text={tooltips.co2Target} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(co2Target, -50, 400, 1500, updateCo2Target)}>
                         <ChevronDown size={16} />
@@ -641,17 +837,31 @@ const LiteControlCard = () => {
       <AccordionSection>
         <AccordionHeader onClick={() => toggleSection('temperature')}>
           <SectionInfo>
-            <Thermometer size={18} />
-            <SectionTitle>Environment (Temp + Humidity)</SectionTitle>
+            <SectionIconBadge>
+              <Thermometer size={16} />
+            </SectionIconBadge>
+            <SectionTextGroup>
+              <SectionTitleWithTooltip>
+                <SectionTitle>Environment (Temp + Humidity)</SectionTitle>
+                <HelpTooltip text={tooltips.environment} />
+              </SectionTitleWithTooltip>
+              <SectionSummary>{environmentSummary}</SectionSummary>
+            </SectionTextGroup>
           </SectionInfo>
-          <AccordionArrow $expanded={expandedSections.temperature}>
-            <ChevronDown size={20} />
-          </AccordionArrow>
+          <HeaderActions>
+            <HeaderValuePill $active={minmaxEnabled}>{minmaxEnabled ? 'Custom' : 'Auto'}</HeaderValuePill>
+            <AccordionArrow $expanded={expandedSections.temperature}>
+              <ChevronDown size={20} />
+            </AccordionArrow>
+          </HeaderActions>
         </AccordionHeader>
         {expandedSections.temperature && (
           <AccordionContent>
             <MinMaxToggleRow>
-              <MinMaxLabel>Min/Max Control</MinMaxLabel>
+              <LabelWithTooltip>
+                <MinMaxLabel>Min/Max Control</MinMaxLabel>
+                <HelpTooltip text={tooltips.environment} />
+              </LabelWithTooltip>
               <MinMaxToggle onClick={toggleMinMax}>
                 <MinMaxToggleSlider $enabled={minmaxEnabled}>
                   <MinMaxToggleCircle $enabled={minmaxEnabled}>
@@ -669,7 +879,10 @@ const LiteControlCard = () => {
                 <Divider />
                 <ControlRow>
                   <ControlGroup>
-                    <Label><Thermometer size={14} /> Temp Min</Label>
+                    <LabelWithTooltip>
+                      <Label><Thermometer size={14} /> Temp Min</Label>
+                      <HelpTooltip text={tooltips.tempMin} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(tempMin, -1, 15, 35, updateTempMin)}>
                         <ChevronDown size={16} />
@@ -681,7 +894,10 @@ const LiteControlCard = () => {
                     </ValueControl>
                   </ControlGroup>
                   <ControlGroup>
-                    <Label><Thermometer size={14} /> Temp Max</Label>
+                    <LabelWithTooltip>
+                      <Label><Thermometer size={14} /> Temp Max</Label>
+                      <HelpTooltip text={tooltips.tempMax} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(tempMax, -1, 20, 40, updateTempMax)}>
                         <ChevronDown size={16} />
@@ -695,7 +911,10 @@ const LiteControlCard = () => {
                 </ControlRow>
                 <ControlRow>
                   <ControlGroup>
-                    <Label><Droplets size={14} /> Hum Min</Label>
+                    <LabelWithTooltip>
+                      <Label><Droplets size={14} /> Hum Min</Label>
+                      <HelpTooltip text={tooltips.humMin} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(humMin, -1, 20, 60, updateHumMin)}>
                         <ChevronDown size={16} />
@@ -707,7 +926,10 @@ const LiteControlCard = () => {
                     </ValueControl>
                   </ControlGroup>
                   <ControlGroup>
-                    <Label><Droplets size={14} /> Hum Max</Label>
+                    <LabelWithTooltip>
+                      <Label><Droplets size={14} /> Hum Max</Label>
+                      <HelpTooltip text={tooltips.humMax} />
+                    </LabelWithTooltip>
                     <ValueControl>
                       <ValueButton onClick={() => adjustValue(humMax, -1, 40, 90, updateHumMax)}>
                         <ChevronDown size={16} />
@@ -730,12 +952,23 @@ const LiteControlCard = () => {
         <AccordionSection>
           <AccordionHeader onClick={() => toggleSection('fan')}>
             <SectionInfo>
-              <Wind size={18} />
-              <SectionTitle>Fan</SectionTitle>
+              <SectionIconBadge>
+                <Wind size={16} />
+              </SectionIconBadge>
+              <SectionTextGroup>
+                <SectionTitleWithTooltip>
+                  <SectionTitle>Fan</SectionTitle>
+                  <HelpTooltip text={tooltips.fan} />
+                </SectionTitleWithTooltip>
+                <SectionSummary>{fanSummary}</SectionSummary>
+              </SectionTextGroup>
             </SectionInfo>
-            <AccordionArrow $expanded={expandedSections.fan}>
-              <ChevronDown size={20} />
-            </AccordionArrow>
+            <HeaderActions>
+              <HeaderValuePill $active={fanOn}>{fanOn ? 'On' : 'Off'}</HeaderValuePill>
+              <AccordionArrow $expanded={expandedSections.fan}>
+                <ChevronDown size={20} />
+              </AccordionArrow>
+            </HeaderActions>
           </AccordionHeader>
           {expandedSections.fan && (
             <AccordionContent>
@@ -745,7 +978,10 @@ const LiteControlCard = () => {
                   <FanLabel>{fanOn ? 'ON' : 'OFF'}</FanLabel>
                 </FanToggle>
                 <FanSpeedControl>
-                  <Label>Speed: {fanSpeed}%</Label>
+                  <LabelWithTooltip>
+                    <Label>Speed: {fanSpeed}%</Label>
+                    <HelpTooltip text={tooltips.fanSpeed} />
+                  </LabelWithTooltip>
                   <VentSlider 
                     type="range" 
                     min="0" 
@@ -764,12 +1000,23 @@ const LiteControlCard = () => {
       <AccordionSection>
         <AccordionHeader onClick={() => toggleSection('ventilation')}>
           <SectionInfo>
-            <Wind size={18} />
-            <SectionTitle>Ventilation (Exhaust/Intake)</SectionTitle>
+            <SectionIconBadge>
+              <Wind size={16} />
+            </SectionIconBadge>
+            <SectionTextGroup>
+              <SectionTitleWithTooltip>
+                <SectionTitle>Ventilation (Exhaust/Intake)</SectionTitle>
+                <HelpTooltip text={tooltips.ventilation} />
+              </SectionTitleWithTooltip>
+              <SectionSummary>{ventilationSummary}</SectionSummary>
+            </SectionTextGroup>
           </SectionInfo>
-          <AccordionArrow $expanded={expandedSections.ventilation}>
-            <ChevronDown size={20} />
-          </AccordionArrow>
+          <HeaderActions>
+            <HeaderValuePill $active={ventilationSummary !== 'All default'}>{ventilationSummary !== 'All default' ? 'Custom' : 'Auto'}</HeaderValuePill>
+            <AccordionArrow $expanded={expandedSections.ventilation}>
+              <ChevronDown size={20} />
+            </AccordionArrow>
+          </HeaderActions>
         </AccordionHeader>
           {expandedSections.ventilation && (
             <AccordionContent>
@@ -777,7 +1024,10 @@ const LiteControlCard = () => {
                 <VentilationCard>
                   <VentTitle>Exhaust</VentTitle>
                   <VentToggleRow>
-                    <VentLabel>Min/Max Control</VentLabel>
+                    <LabelWithTooltip>
+                      <VentLabel>Min/Max Control</VentLabel>
+                      <HelpTooltip text={tooltips.ventMinMax} />
+                    </LabelWithTooltip>
                     <VentToggle onClick={toggleExhaustMinMax} $enabled={exhaustMinMaxEnabled}>
                       <VentToggleSlider $enabled={exhaustMinMaxEnabled}>
                         <VentToggleCircle $enabled={exhaustMinMaxEnabled}>
@@ -792,7 +1042,10 @@ const LiteControlCard = () => {
                   {exhaustMinMaxEnabled && (
                     <>
                       <VentRow>
-                        <VentLabel>Min:</VentLabel>
+                        <LabelWithTooltip>
+                          <VentLabel>Min:</VentLabel>
+                          <HelpTooltip text={tooltips.ventMin} />
+                        </LabelWithTooltip>
                         <VentValue>{exhaustMinMax.min}%</VentValue>
                       </VentRow>
                       <VentSlider 
@@ -804,7 +1057,10 @@ const LiteControlCard = () => {
                         disabled={!exhaustMinMaxEnabled}
                       />
                       <VentRow>
-                        <VentLabel>Max:</VentLabel>
+                        <LabelWithTooltip>
+                          <VentLabel>Max:</VentLabel>
+                          <HelpTooltip text={tooltips.ventMax} />
+                        </LabelWithTooltip>
                         <VentValue>{exhaustMinMax.max}%</VentValue>
                       </VentRow>
                       <VentSlider 
@@ -821,7 +1077,10 @@ const LiteControlCard = () => {
                 <VentilationCard>
                   <VentTitle>Intake</VentTitle>
                   <VentToggleRow>
-                    <VentLabel>Min/Max Control</VentLabel>
+                    <LabelWithTooltip>
+                      <VentLabel>Min/Max Control</VentLabel>
+                      <HelpTooltip text={tooltips.ventMinMax} />
+                    </LabelWithTooltip>
                     <VentToggle onClick={toggleIntakeMinMax} $enabled={intakeMinMaxEnabled}>
                       <VentToggleSlider $enabled={intakeMinMaxEnabled}>
                         <VentToggleCircle $enabled={intakeMinMaxEnabled}>
@@ -836,7 +1095,10 @@ const LiteControlCard = () => {
                   {intakeMinMaxEnabled && (
                     <>
                       <VentRow>
-                        <VentLabel>Min:</VentLabel>
+                        <LabelWithTooltip>
+                          <VentLabel>Min:</VentLabel>
+                          <HelpTooltip text={tooltips.ventMin} />
+                        </LabelWithTooltip>
                         <VentValue>{intakeMinMax.min}%</VentValue>
                       </VentRow>
                       <VentSlider 
@@ -848,7 +1110,10 @@ const LiteControlCard = () => {
                         disabled={!intakeMinMaxEnabled}
                       />
                       <VentRow>
-                        <VentLabel>Max:</VentLabel>
+                        <LabelWithTooltip>
+                          <VentLabel>Max:</VentLabel>
+                          <HelpTooltip text={tooltips.ventMax} />
+                        </LabelWithTooltip>
                         <VentValue>{intakeMinMax.max}%</VentValue>
                       </VentRow>
                       <VentSlider 
@@ -865,7 +1130,10 @@ const LiteControlCard = () => {
                 <VentilationCard>
                   <VentTitle>Ventilation</VentTitle>
                   <VentToggleRow>
-                    <VentLabel>Min/Max Control</VentLabel>
+                    <LabelWithTooltip>
+                      <VentLabel>Min/Max Control</VentLabel>
+                      <HelpTooltip text={tooltips.ventMinMax} />
+                    </LabelWithTooltip>
                     <VentToggle onClick={toggleVentilationMinMax} $enabled={ventilationMinMaxEnabled}>
                       <VentToggleSlider $enabled={ventilationMinMaxEnabled}>
                         <VentToggleCircle $enabled={ventilationMinMaxEnabled}>
@@ -880,7 +1148,10 @@ const LiteControlCard = () => {
                   {ventilationMinMaxEnabled && (
                     <>
                       <VentRow>
-                        <VentLabel>Min:</VentLabel>
+                        <LabelWithTooltip>
+                          <VentLabel>Min:</VentLabel>
+                          <HelpTooltip text={tooltips.ventMin} />
+                        </LabelWithTooltip>
                         <VentValue>{ventilationMinMax.min}%</VentValue>
                       </VentRow>
                       <VentSlider 
@@ -892,7 +1163,10 @@ const LiteControlCard = () => {
                         disabled={!ventilationMinMaxEnabled}
                       />
                       <VentRow>
-                        <VentLabel>Max:</VentLabel>
+                        <LabelWithTooltip>
+                          <VentLabel>Max:</VentLabel>
+                          <HelpTooltip text={tooltips.ventMax} />
+                        </LabelWithTooltip>
                         <VentValue>{ventilationMinMax.max}%</VentValue>
                       </VentRow>
                       <VentSlider 
@@ -924,17 +1198,107 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   gap: 1rem;
+  border: 1px solid var(--glass-border);
+`;
+
+const CardHeader = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+`;
+
+const HeaderTextBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+const CardEyebrow = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-accent);
+`;
+
+const CardTitle = styled.h3`
+  margin: 0;
+  font-size: 1.2rem;
+  line-height: 1.2;
+  color: var(--main-text-color);
+`;
+
+const CardDescription = styled.p`
+  margin: 0;
+  max-width: 46ch;
+  color: var(--placeholder-text-color);
+  font-size: 0.88rem;
+  line-height: 1.45;
+`;
+
+const HeaderStatusPill = styled.div`
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.25);
+  color: #86efac;
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+const OverviewGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 0.75rem;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const OverviewCard = styled.div`
+  background: linear-gradient(180deg, var(--glass-bg-secondary), var(--glass-bg-primary));
+  border: 1px solid var(--glass-border);
+  border-radius: 14px;
+  padding: 0.85rem 0.9rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+const OverviewLabel = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--placeholder-text-color);
+`;
+
+const OverviewValue = styled.div`
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+  line-height: 1.35;
 `;
 
 const AccordionSection = styled.div`
   background: var(--glass-bg-primary);
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  overflow: hidden;
+  overflow: visible;
   transition: all 0.3s ease;
+  position: relative;
+  z-index: 0;
 
   &:hover {
     border-color: var(--primary-accent);
+    z-index: 5;
   }
 `;
 
@@ -943,6 +1307,7 @@ const AccordionHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: 1rem;
+  gap: 0.75rem;
   cursor: pointer;
   background: var(--glass-bg-secondary);
   transition: background 0.2s ease;
@@ -950,18 +1315,78 @@ const AccordionHeader = styled.div`
   &:hover {
     background: var(--active-bg-color);
   }
+
+  @media (max-width: 640px) {
+    align-items: flex-start;
+  }
 `;
 
 const SectionInfo = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
   color: var(--main-text-color);
+  min-width: 0;
+`;
+
+const SectionIconBadge = styled.div`
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(74, 222, 128, 0.12);
+  border: 1px solid rgba(74, 222, 128, 0.2);
+  color: var(--primary-accent);
+  flex: 0 0 auto;
+`;
+
+const SectionTextGroup = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  min-width: 0;
 `;
 
 const SectionTitle = styled.span`
   font-size: 1rem;
   font-weight: 600;
+`;
+
+const SectionTitleWithTooltip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+`;
+
+const SectionSummary = styled.div`
+  color: var(--placeholder-text-color);
+  font-size: 0.8rem;
+  line-height: 1.35;
+`;
+
+const HeaderActions = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  flex: 0 0 auto;
+`;
+
+const HeaderValuePill = styled.div`
+  padding: 0.35rem 0.6rem;
+  border-radius: 999px;
+  background: ${props => props.$active ? 'rgba(74, 222, 128, 0.14)' : 'var(--glass-bg-primary)'};
+  border: 1px solid ${props => props.$active ? 'rgba(74, 222, 128, 0.22)' : 'var(--glass-border)'};
+  color: ${props => props.$active ? '#86efac' : 'var(--placeholder-text-color)'};
+  font-size: 0.74rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+
+  @media (max-width: 640px) {
+    display: none;
+  }
 `;
 
 const AccordionArrow = styled.div`
@@ -994,9 +1419,15 @@ const MinMaxToggleRow = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
+  gap: 0.75rem;
   padding: 0.75rem;
   background: var(--glass-bg-secondary);
   border-radius: 8px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: stretch;
+  }
 `;
 
 const MinMaxLabel = styled.span`
@@ -1286,10 +1717,87 @@ const ControlGroup = styled.div`
   gap: 0.5rem;
 `;
 
+const LabelWithTooltip = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+  flex-wrap: wrap;
+`;
+
 const Label = styled.div`
   font-size: 0.85rem;
   color: var(--placeholder-text-color);
   font-weight: 500;
+`;
+
+const TooltipWrapper = styled.span`
+  position: relative;
+  display: inline-flex;
+`;
+
+const TooltipButton = styled.button`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  color: var(--placeholder-text-color);
+  cursor: help;
+  opacity: 0.85;
+
+  &:hover {
+    color: var(--primary-accent);
+    opacity: 1;
+  }
+
+  &:focus-visible {
+    color: var(--primary-accent);
+    opacity: 1;
+    outline: none;
+  }
+
+  &:hover > span,
+  &:focus-visible > span {
+    opacity: 1;
+    visibility: visible;
+    transform: translate(-50%, -6px);
+  }
+`;
+
+const TooltipBubble = styled.span`
+  position: absolute;
+  left: 50%;
+  bottom: calc(100% + 0.55rem);
+  transform: translate(-50%, 0);
+  width: min(240px, 70vw);
+  padding: 0.55rem 0.7rem;
+  border-radius: 10px;
+  background: rgba(10, 14, 18, 0.96);
+  border: 1px solid var(--glass-border);
+  color: #fff;
+  font-size: 0.75rem;
+  line-height: 1.35;
+  text-align: left;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.28);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity 0.18s ease, transform 0.18s ease, visibility 0.18s ease;
+  z-index: 30;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: rgba(10, 14, 18, 0.96) transparent transparent transparent;
+  }
 `;
 
 const ValueControl = styled.div`
@@ -1299,6 +1807,7 @@ const ValueControl = styled.div`
   background: var(--glass-bg-secondary);
   border-radius: 8px;
   padding: 0.5rem;
+  border: 1px solid var(--glass-border);
 `;
 
 const ValueButton = styled.button`
@@ -1363,13 +1872,13 @@ const VentilationGrid = styled.div`
 `;
 
 const VentilationCard = styled.div`
-  background: var(--glass-bg-secondary);
+  background: linear-gradient(180deg, var(--glass-bg-secondary), var(--glass-bg-primary));
   border: 1px solid var(--glass-border);
   border-radius: 12px;
-  padding: 0.75rem;
+  padding: 0.9rem;
   display: flex;
   flex-direction: column;
-  gap: 0.5rem;
+  gap: 0.65rem;
 `;
 
 const VentTitle = styled.div`

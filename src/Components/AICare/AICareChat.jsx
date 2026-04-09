@@ -9,6 +9,8 @@ import { sendToOpenAI, sendToOpenAIWithImage, listOpenAIModels } from './service
 import { sendToAnthropic, sendToAnthropicWithImage, listAnthropicModels } from './services/anthropicClient';
 import { sendToOllama, sendToOllamaWithImage, listOllamaModels } from './services/ollamaClient';
 import { sendToLMStudio, sendToLMStudioWithImage, listLMStudioModels } from './services/lmstudioClient';
+import { sendToOpenRouter, sendToOpenRouterWithImage, listOpenRouterModels } from './services/openrouterClient';
+import { sendToGemini, sendToGeminiWithImage, listGeminiModels } from './services/geminiClient';
 import { fetchBothSources, createToolCallPrompt } from './services/webFetch';
 import { detectNeedForWebSearch, extractSearchQuery, formatToolCallResponse } from './utils/toolDetection';
 
@@ -16,163 +18,173 @@ const AICareContext = createContext();
 
 export const useAICare = () => useContext(AICareContext);
 
-const SYSTEM_PROMPT_DETAILED = `You are Plant-Buddy, an expert AI assistant for the OpenGrowBox automated plant growing system. Your role is to help users achieve optimal plant growth and health.
+const PROVIDER_CONFIG = {
+  openai: {
+    label: 'OpenAI',
+    defaultModel: 'gpt-4o',
+    helpUrl: 'https://platform.openai.com/api-keys',
+    keyLabel: 'OpenAI API key',
+  },
+  anthropic: {
+    label: 'Anthropic',
+    defaultModel: 'claude-3-5-sonnet-20241022',
+    helpUrl: 'https://console.anthropic.com/settings/keys',
+    keyLabel: 'Anthropic API key',
+  },
+  openrouter: {
+    label: 'OpenRouter',
+    defaultModel: 'openai/gpt-4o-mini',
+    helpUrl: 'https://openrouter.ai/keys',
+    keyLabel: 'OpenRouter API key',
+  },
+  gemini: {
+    label: 'Gemini',
+    defaultModel: 'gemini-2.0-flash',
+    helpUrl: 'https://aistudio.google.com/app/apikey',
+    keyLabel: 'Gemini API key',
+  },
+  ollama: {
+    label: 'Ollama',
+    defaultModel: 'llama3.2',
+  },
+  lmstudio: {
+    label: 'LM Studio',
+    defaultModel: 'local-model',
+  },
+};
 
-## Your Capabilities
+const CLOUD_PROVIDERS = ['openai', 'anthropic', 'openrouter', 'gemini'];
 
-You are an expert in:
-- Plant health analysis and diagnosis
-- Nutrient deficiency identification and correction
-- Pest and disease detection and treatment
-- Growth stage assessment and guidance
-- Environmental optimization (temperature, humidity, light, CO2)
-- Hydroponic and soil-based cultivation techniques
-- OpenGrowBox system configuration and troubleshooting
+const getProviderLabel = (provider) => PROVIDER_CONFIG[provider]?.label || provider;
 
-## Conversation Context
+const getBaseSystemPrompt = (provider) => {
+  if (provider === 'ollama' || provider === 'lmstudio') {
+    return `You are Plant-Buddy for OpenGrowBox.
 
-Remember the conversation history. Reference previous messages when responding. Build upon our discussion rather than repeating yourself. If I ask follow-up questions, maintain context from earlier in our conversation.
+Behave like a concise senior grow assistant.
+- Use the provided room context when relevant.
+- Prioritize the most likely cause first.
+- Give short, practical steps.
+- Be honest, direct, and friendly.
+- Be critical when plant health looks risky or unstable.
+- Warn clearly when the user may damage the plant by waiting or doing nothing.
+- If the data is insufficient, say exactly what is missing.
+- Do not invent sensor values or device states.
+- Do not soften clear plant-health risks.`;
+  }
 
-## Image Analysis Guidelines
+  return `You are Plant-Buddy, the AI grow assistant for OpenGrowBox.
 
-When analyzing plant images, examine:
-- **Leaf Condition**: Color changes (yellowing, browning, spots), curling, wilting, deformation
-- **Stem & Growth**: Stunted growth, stretching, thinning, discoloration
-- **Root Health** (if visible): Root rot, browning, stunted root development
-- **Signs of Pests**: Insects, web, feeding marks, eggs, excrement
-- **Disease Symptoms**: Fungal growth, mold, mildew, bacterial spots
-- **Environmental Stress**: Heat stress, light burn, wind damage
-- **Nutrient Issues**: Deficiency patterns, toxicity symptoms
+Your job is to help the user make better grow decisions using the current room state, OpenGrowBox context, and the conversation history.
 
-## Response Guidelines
+Response behavior:
+- Be precise, clear, direct, and friendly.
+- Prefer the most likely explanation over long lists.
+- Use current sensor values when they are available.
+- Separate observation, likely cause, and action.
+- Be honest about risk. If something looks unhealthy, say it clearly.
+- Be critical when plant health, climate, watering, feeding, pests, or light setup may be causing harm.
+- Do not reassure the user unless the data actually supports reassurance.
+- If a situation looks urgent, say so early and plainly.
+- If there is uncertainty, say so clearly.
+- Do not hallucinate missing measurements, settings, or plant status.
+- Keep normal answers compact unless the user asks for deep detail.
 
-1. **Be Specific**: Identify exact issues with clear descriptions
-2. **Be Actionable**: Provide concrete steps to resolve problems
-3. **Explain Why**: Help the user understand the underlying causes
-4. **Prioritize**: Address most critical issues first
-5. **Use Data**: Reference specific numbers when discussing environmental parameters
-6. **Ask Questions**: If you need more information (temperature, humidity, pH, etc.), ask
+Preferred answer shape:
+- Observation
+- Likely cause
+- What to do now
+- What to monitor next
 
-## OpenGrowBox Context
+OpenGrowBox context:
+- This is an automated grow system with climate, lighting, sensors, and room-based control.
+- Questions may refer to plant health, environment, automation behavior, setup, or troubleshooting.
+- When image analysis is involved, combine visible symptoms with the provided environment values if useful.`;
+};
 
-The OpenGrowBox is an automated grow system with:
-- Environmental monitoring (temperature, humidity, CO2, light)
-- Automated nutrient dosing and pH control
-- Climate control systems
-- LED grow lights with spectrum control
-- Integrated camera monitoring for plant analysis
+const getImageSystemPrompt = (provider) => `${getBaseSystemPrompt(provider)}
 
-## Available Information
-
-You have access to:
-- Real-time sensor data (if connected)
-- Environmental history and trends
-- System configuration and settings
-- Plant growth progress
-- Camera images for visual analysis
-
-## When Unsure
-
-If you cannot definitively diagnose an issue:
-1. List the most likely causes in order of probability
-2. Request additional information (photos, sensor readings, system logs)
-3. Suggest diagnostic steps to narrow down the issue
-4. Recommend checking OpenGrowBox documentation for specific guidance
-
-Be honest about limitations while providing the most helpful guidance possible.
-
-Remember: The goal is to help the user grow healthy, thriving plants in their OpenGrowBox system.`;
-
-const BASIC_IMAGE_ANALYSIS_PROMPT = `You are Plant-Buddy, an expert plant health analyst. Look at this image carefully and provide a detailed health assessment.
-
-ANALYZE THESE ASPECTS:
-🌿 OVERALL HEALTH: Rate as Excellent/Good/Fair/Poor. Describe the plant's general appearance, vigor, and vitality.
-
-🍃 LEAF CONDITION: 
-- Color: Are leaves vibrant green, yellowing, browning, spotted, or discolored?
-- Structure: Any curling, wilting, drooping, or deformities?
-- Damage: Signs of burning, nutrient deficiencies, or physical damage?
-
-🪴 GROWTH & STRUCTURE:
-- Stem health: Strong or weak, stretching, thinning?
-- Overall structure: Normal growth or stunted?
-- Any visible abnormalities?
-
-🐛 PESTS & DISEASES:
-- Look carefully for: insects, spider mites, aphids, whiteflies, thrips
-- Check for: webbing, bite marks, holes in leaves, sticky residue
-- Signs of disease: mold, mildew, fungus, bacterial spots, rot
-
-⚠️ ENVIRONMENTAL STRESS:
-- Heat stress: leaf edges curling up, crispy texture
-- Light burn: bleached or burned spots
-- Nutrient issues: yellowing patterns (old leaves = nitrogen, new leaves = iron, etc.)
-- Water stress: wilting, drooping, or overwatering signs
-
-YOUR RESPONSE FORMAT:
-1. HEALTH RATING: [Excellent/Good/Fair/Poor] - Brief explanation
-2. KEY FINDINGS: List 2-4 main observations (good or bad)
-3. IDENTIFIED ISSUES: If any problems found, describe them specifically
-4. RECOMMENDATIONS: Clear, actionable next steps to address issues or maintain health
-5. MONITORING: What to watch for in coming days
-
-Be specific about what you see. If you notice multiple plants, assess the overall health of the grow. Focus on actionable advice.`;
-
-const SYSTEM_PROMPT_SIMPLE = `You are Plant-Buddy, a helpful AI assistant for the OpenGrowBox plant growing system.
-
-You help users with:
-- Plant health analysis and diagnosis
-- Nutrient deficiency identification  
-- Pest and disease detection
-- Growth stage assessment
-- Environmental optimization
-- Answering questions about OpenGrowBox
-- General plant care recommendations
-
-When analyzing images, look for: leaf issues, nutrient deficiencies, pests, diseases, and environmental stress.
-
-Always be helpful and friendly. Answer questions to the best of your ability. If you're unsure, provide your best assessment and suggest next steps.
-
-You are knowledgeable about OpenGrowBox which is an automated grow system with environmental monitoring, automated nutrient dosing, climate control, and LED grow lights.`;
+Image analysis behavior:
+- Inspect leaf posture, color, burn, spotting, chlorosis, necrosis, stretching, and visible pest or disease signs.
+- Mention what is visible first, then likely causes, then corrective actions.
+- If the image is inconclusive, say what cannot be confirmed from the image alone.`;
 
 const PROMPT_TEMPLATES = [
   {
-    id: 'analyze_plant',
-    label: 'Plant Analysis',
-    prompt: 'Please analyze my plant in the uploaded image',
+    id: 'health_check',
+    label: 'Health Check',
+    prompt: 'Give me an honest health check of this plant. Tell me clearly what looks healthy, what looks wrong, how serious it is, and what I should do next.',
+    description: 'Quick honest plant check',
     icon: Sprout
   },
   {
-    id: 'diagnose_problem',
-    label: 'Problem Diagnosis',
-    prompt: 'What is wrong with my plant in the image?',
+    id: 'problem_diagnosis',
+    label: 'Diagnose Issue',
+    prompt: 'Diagnose the most likely problem with this plant and rank the top causes by probability. Be direct if something looks risky.',
+    description: 'Most likely cause first',
     icon: Search
   },
   {
-    id: 'growth_stage',
-    label: 'Growth Stage',
-    prompt: 'What growth stage is my plant in?',
+    id: 'environment_review',
+    label: 'Environment Review',
+    prompt: 'Review the current environment context for this room and tell me if temperature, humidity, and VPD look safe for plant health. Flag anything risky or off-target.',
+    description: 'Check temp, humidity, VPD',
     icon: BarChart3
   },
   {
-    id: 'nutrient_analysis',
-    label: 'Nutrient Analysis',
-    prompt: 'Are there any nutrient deficiencies visible?',
+    id: 'nutrient_check',
+    label: 'Nutrient Check',
+    prompt: 'Check this plant for likely nutrient deficiency or toxicity signs. Tell me what you can actually see and what cannot be confirmed from the image alone.',
+    description: 'Deficiency or toxicity clues',
     icon: Droplets
   },
   {
-    id: 'pest_detection',
-    label: 'Pest Detection',
-    prompt: 'Do you see any pests or diseases on my plant?',
+    id: 'pest_disease',
+    label: 'Pests Or Disease',
+    prompt: 'Inspect this plant for pests, mold, mildew, rot, or disease signs. If there is a serious risk, say it clearly and tell me what to check immediately.',
+    description: 'Find urgent biological risks',
     icon: Bug
   },
   {
-    id: 'general_advice',
-    label: 'General Tips',
-    prompt: 'Can you give me some plant care advice?',
+    id: 'action_plan',
+    label: 'Action Plan',
+    prompt: 'Based on the current plant and room context, give me the 3 most important actions to improve plant health right now. Keep it practical and prioritized.',
+    description: 'Top 3 next actions',
     icon: Lightbulb
   }
 ];
+
+const buildEnvironmentContext = (entities, currentRoom) => {
+  const room = currentRoom?.trim()?.toLowerCase() || 'default';
+  if (!entities) return '';
+
+  const readSensor = (entityId, fallbackUnit = '') => {
+    const entity = entities[entityId];
+    if (!entity) return null;
+
+    const value = entity.state;
+    if (value === undefined || value === null || value === 'unknown' || value === 'unavailable') {
+      return null;
+    }
+
+    const unit = entity.attributes?.unit_of_measurement || fallbackUnit;
+    return `${value}${unit}`;
+  };
+
+  const temperature = readSensor(`sensor.ogb_avgtemperature_${room}`, '°C');
+  const humidity = readSensor(`sensor.ogb_avghumidity_${room}`, '%');
+  const vpd = readSensor(`sensor.ogb_currentvpd_${room}`, 'kPa');
+
+  const values = [
+    temperature ? `Temperature: ${temperature}` : null,
+    humidity ? `Humidity: ${humidity}` : null,
+    vpd ? `VPD: ${vpd}` : null,
+  ].filter(Boolean);
+
+  if (values.length === 0) return '';
+
+  return `\n\n## Current Environment\nRoom: ${currentRoom || 'default'}\n${values.join('\n')}`;
+};
 
 const AICareChat = () => {
   const { connection, currentRoom, entities } = useHomeAssistant();
@@ -205,11 +217,15 @@ const AICareChat = () => {
 
     const hasOpenAI = getApiKey('openai');
     const hasAnthropic = getApiKey('anthropic');
+    const hasOpenRouter = getApiKey('openrouter');
+    const hasGemini = getApiKey('gemini');
     const hasOllama = localStorage.getItem('plantbuddy_ollama_base_url');
     const hasLMStudio = localStorage.getItem('plantbuddy_lmstudio_base_url');
 
     if (hasOpenAI) return 'openai';
     if (hasAnthropic) return 'anthropic';
+    if (hasOpenRouter) return 'openrouter';
+    if (hasGemini) return 'gemini';
     if (hasOllama) return 'ollama';
     if (hasLMStudio) return 'lmstudio';
     return 'openai';
@@ -224,7 +240,7 @@ const AICareChat = () => {
   const [selectedModel, setSelectedModel] = useState(() => {
     const saved = localStorage.getItem('plantbuddy_selected_model');
     if (saved) return saved;
-    return 'gpt-4o';
+    return PROVIDER_CONFIG.openai.defaultModel;
   });
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState(() => localStorage.getItem('plantbuddy_ollama_base_url') || 'http://localhost:11434');
   const [lmstudioBaseUrl, setLMStudioBaseUrl] = useState(() => localStorage.getItem('plantbuddy_lmstudio_base_url') || 'http://localhost:1234/v1');
@@ -234,6 +250,7 @@ const AICareChat = () => {
     totalTokens: 0,
     requestCount: 0
   });
+  const environmentContext = buildEnvironmentContext(entities, currentRoom);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);
@@ -287,6 +304,10 @@ const AICareChat = () => {
         models = await listOpenAIModels();
       } else if (apiProvider === 'anthropic') {
         models = await listAnthropicModels();
+      } else if (apiProvider === 'openrouter') {
+        models = await listOpenRouterModels();
+      } else if (apiProvider === 'gemini') {
+        models = await listGeminiModels();
       } else if (apiProvider === 'ollama') {
         models = await listOllamaModels();
       } else if (apiProvider === 'lmstudio') {
@@ -301,10 +322,7 @@ const AICareChat = () => {
       if (models.length > 0) {
         const currentInList = models.find(m => m.id === selectedModel);
         if (!currentInList) {
-          const defaultModel = apiProvider === 'openai' ? 'gpt-4o' :
-                            apiProvider === 'anthropic' ? 'claude-3-5-sonnet-20241022' :
-                            apiProvider === 'ollama' ? models[0].id :
-                            models[0].id;
+          const defaultModel = PROVIDER_CONFIG[apiProvider]?.defaultModel || models[0].id;
           setSelectedModel(defaultModel);
         }
       }
@@ -392,6 +410,8 @@ Make sure ${apiProvider} is running and accessible from this device.
     // Check for direct API keys first
     const hasOpenAI = getApiKey('openai');
     const hasAnthropic = getApiKey('anthropic');
+    const hasOpenRouter = getApiKey('openrouter');
+    const hasGemini = getApiKey('gemini');
     const hasOllama = localStorage.getItem('plantbuddy_ollama_base_url');
     const hasLMStudio = localStorage.getItem('plantbuddy_lmstudio_base_url');
     const providers = getConfiguredProviders();
@@ -407,6 +427,12 @@ Make sure ${apiProvider} is running and accessible from this device.
       setShowNoLlmMessage(true);
       setShowApiSettings(true);
       return;
+    }
+
+    if (!savedProviderIsAvailable(apiProvider, { hasOpenAI, hasAnthropic, hasOpenRouter, hasGemini, hasOllama, hasLMStudio })) {
+      const nextProvider = providers[0] || (hasOllama ? 'ollama' : hasLMStudio ? 'lmstudio' : 'openai');
+      setApiProvider(nextProvider);
+      localStorage.setItem('plantbuddy_provider', nextProvider);
     }
 
     // Check if HA has LLMs as backup
@@ -449,6 +475,16 @@ Make sure ${apiProvider} is running and accessible from this device.
       // For now, prefer direct API if keys are configured
       // console.log('Using direct API, HA LLMs available as backup');
     }
+  };
+
+  const savedProviderIsAvailable = (provider, availability) => {
+    if (provider === 'openai') return !!availability.hasOpenAI;
+    if (provider === 'anthropic') return !!availability.hasAnthropic;
+    if (provider === 'openrouter') return !!availability.hasOpenRouter;
+    if (provider === 'gemini') return !!availability.hasGemini;
+    if (provider === 'ollama') return !!availability.hasOllama;
+    if (provider === 'lmstudio') return !!availability.hasLMStudio;
+    return false;
   };
 
   useEffect(() => {
@@ -702,7 +738,8 @@ Make sure ${apiProvider} is running and accessible from this device.
 
     // Use basic prompt for image-only analysis, detailed prompt when text is provided
     const isImageOnly = image && (!text || text.trim() === '');
-    const systemPrompt = isImageOnly ? BASIC_IMAGE_ANALYSIS_PROMPT : SYSTEM_PROMPT_SIMPLE;
+    const basePrompt = isImageOnly ? getImageSystemPrompt(apiProvider) : getBaseSystemPrompt(apiProvider);
+    const systemPrompt = `${basePrompt}${environmentContext}`;
 
     const messages = [
       {
@@ -720,25 +757,37 @@ Make sure ${apiProvider} is running and accessible from this device.
 
       if (apiProvider === 'openai') {
         if (image) {
-          result = await sendToOpenAIWithImage(text, image, selectedModel);
+          result = await sendToOpenAIWithImage(text, image, selectedModel, systemPrompt);
         } else {
           result = await sendToOpenAI(messages, selectedModel);
         }
       } else if (apiProvider === 'anthropic') {
         if (image) {
-          result = await sendToAnthropicWithImage(text, image, selectedModel);
+          result = await sendToAnthropicWithImage(text, image, selectedModel, systemPrompt);
         } else {
           result = await sendToAnthropic(messages, selectedModel);
         }
+      } else if (apiProvider === 'openrouter') {
+        if (image) {
+          result = await sendToOpenRouterWithImage(text, image, selectedModel, systemPrompt);
+        } else {
+          result = await sendToOpenRouter(messages, selectedModel);
+        }
+      } else if (apiProvider === 'gemini') {
+        if (image) {
+          result = await sendToGeminiWithImage(text, image, selectedModel, systemPrompt);
+        } else {
+          result = await sendToGemini(messages, selectedModel);
+        }
       } else if (apiProvider === 'ollama') {
         if (image) {
-          result = await sendToOllamaWithImage(text, image, selectedModel);
+          result = await sendToOllamaWithImage(text, image, selectedModel, systemPrompt);
         } else {
           result = await sendToOllama(messages, selectedModel);
         }
       } else if (apiProvider === 'lmstudio') {
         if (image) {
-          result = await sendToLMStudioWithImage(text, image, selectedModel);
+          result = await sendToLMStudioWithImage(text, image, selectedModel, systemPrompt);
         } else {
           result = await sendToLMStudio(messages, selectedModel);
         }
@@ -846,7 +895,7 @@ Make sure ${apiProvider} is running and accessible from this device.
     const apiMessages = [
       {
         role: 'system',
-        content: apiProvider === 'openai' || apiProvider === 'anthropic' ? SYSTEM_PROMPT_DETAILED : SYSTEM_PROMPT_SIMPLE
+        content: `${getBaseSystemPrompt(apiProvider)}${environmentContext}`
       },
       ...recentHistory.map(msg => ({
         role: msg.role,
@@ -872,6 +921,10 @@ Make sure ${apiProvider} is running and accessible from this device.
         // console.log('Calling sendToAnthropic...');
         result = await sendToAnthropic(apiMessages, selectedModel);
         // console.log('Anthropic response:', result);
+      } else if (apiProvider === 'openrouter') {
+        result = await sendToOpenRouter(apiMessages, selectedModel);
+      } else if (apiProvider === 'gemini') {
+        result = await sendToGemini(apiMessages, selectedModel);
       } else if (apiProvider === 'ollama') {
         // console.log('Calling sendToOllama...');
         result = await sendToOllama(apiMessages, selectedModel);
@@ -1091,7 +1144,7 @@ Make sure ${apiProvider} is running and accessible from this device.
             <RoomBadge>{currentRoom || 'Global'}</RoomBadge>
             <ProviderContainer>
               <LlmBadge onClick={() => setShowProviderDropdown(!showProviderDropdown)}>
-                {apiProvider === 'openai' ? 'OpenAI' : apiProvider === 'anthropic' ? 'Anthropic' : apiProvider === 'ollama' ? 'Ollama' : 'LM Studio'}
+                {getProviderLabel(apiProvider)}
                 <MdArrowDropDown size={12} />
               </LlmBadge>
               {showProviderDropdown && (
@@ -1124,6 +1177,36 @@ Make sure ${apiProvider} is running and accessible from this device.
                       }}
                     >
                       Anthropic
+                    </ProviderOption>
+                  )}
+                  {getApiKey('openrouter') && (
+                    <ProviderOption
+                      $selected={apiProvider === 'openrouter'}
+                      onClick={() => {
+                        if (apiProvider !== 'openrouter') {
+                          setApiProvider('openrouter');
+                          localStorage.setItem('plantbuddy_provider', 'openrouter');
+                          resetSession();
+                        }
+                        setShowProviderDropdown(false);
+                      }}
+                    >
+                      OpenRouter
+                    </ProviderOption>
+                  )}
+                  {getApiKey('gemini') && (
+                    <ProviderOption
+                      $selected={apiProvider === 'gemini'}
+                      onClick={() => {
+                        if (apiProvider !== 'gemini') {
+                          setApiProvider('gemini');
+                          localStorage.setItem('plantbuddy_provider', 'gemini');
+                          resetSession();
+                        }
+                        setShowProviderDropdown(false);
+                      }}
+                    >
+                      Gemini
                     </ProviderOption>
                   )}
                   {localStorage.getItem('plantbuddy_ollama_base_url') && (
@@ -1240,7 +1323,7 @@ Make sure ${apiProvider} is running and accessible from this device.
               <NoLlmIcon><MdSmartToy size={48} /></NoLlmIcon>
               <NoLlmTitle>Configure AI Provider</NoLlmTitle>
               <NoLlmText>
-                Plant-Buddy needs an AI provider to provide intelligent responses. Choose from OpenAI, Anthropic, Ollama (local), or LM Studio (local).
+                Plant-Buddy needs an AI provider to provide intelligent responses. Choose from OpenAI, Anthropic, OpenRouter, Gemini, Ollama, or LM Studio.
               </NoLlmText>
               <NoLlmButton onClick={() => setShowApiSettings(true)}>
                 Configure Provider
@@ -1253,11 +1336,11 @@ Make sure ${apiProvider} is running and accessible from this device.
               <WelcomeIcon><Sprout size={64} /></WelcomeIcon>
               <WelcomeTitle>Welcome to Plant-Buddy!</WelcomeTitle>
               <WelcomeText>
-                Chat with me or upload an image for plant analysis.
+                Upload a plant image or ask about your room. I will answer clearly, honestly, and point out plant-health risks directly.
               </WelcomeText>
               {showTemplates && (
                 <TemplatesContainer>
-                  <TemplatesTitle>Choose a prompt:</TemplatesTitle>
+                  <TemplatesTitle>Start with:</TemplatesTitle>
                   <TemplatesGrid>
                     {PROMPT_TEMPLATES.map(template => {
                       const IconComponent = template.icon;
@@ -1267,7 +1350,10 @@ Make sure ${apiProvider} is running and accessible from this device.
                           onClick={() => handleTemplateClick(template)}
                         >
                           <TemplateIcon><IconComponent size={24} /></TemplateIcon>
-                          <TemplateLabel>{template.label}</TemplateLabel>
+                          <TemplateContent>
+                            <TemplateLabel>{template.label}</TemplateLabel>
+                            <TemplateDescription>{template.description}</TemplateDescription>
+                          </TemplateContent>
                         </TemplateCard>
                       );
                     })}
@@ -1464,6 +1550,8 @@ Make sure ${apiProvider} is running and accessible from this device.
                     <ul style={{ marginTop: '0.5rem', paddingLeft: '1.5rem' }}>
                       <li><strong>OpenAI</strong> (GPT-4o, GPT-4) - Best for image analysis</li>
                       <li><strong>Anthropic</strong> (Claude 3.5 Sonnet) - Excellent for plants</li>
+                      <li><strong>OpenRouter</strong> - One key for many strong models</li>
+                      <li><strong>Gemini</strong> - Good fast option with a usable free tier</li>
                       <li><strong>Ollama</strong> (Local) - Free, runs locally</li>
                       <li><strong>LM Studio</strong> (Local) - Free, runs locally</li>
                     </ul>
@@ -1527,7 +1615,7 @@ Make sure ${apiProvider} is running and accessible from this device.
                 ))}
                 {availableLlms.length === 0 && !hasAnyApiKey() && !localStorage.getItem('plantbuddy_ollama_base_url') && !localStorage.getItem('plantbuddy_lmstudio_base_url') && (
                   <NoLlmsMessage>
-                    No AI providers configured. Add your OpenAI, Anthropic API key, or configure Ollama/LM Studio.
+                    No AI providers configured. Add an OpenAI, Anthropic, OpenRouter, or Gemini API key, or configure Ollama / LM Studio.
                   </NoLlmsMessage>
                 )}
               </LlmList>
@@ -1641,6 +1729,24 @@ Make sure ${apiProvider} is running and accessible from this device.
                   <ApiProviderName>Anthropic</ApiProviderName>
                 </ApiProviderOption>
                 <ApiProviderOption
+                  $selected={apiProvider === 'openrouter'}
+                  onClick={() => setApiProvider('openrouter')}
+                >
+                  <ApiProviderLogo style={{ background: '#111827', color: '#fff', fontWeight: 'bold', fontSize: '10px' }}>
+                    OR
+                  </ApiProviderLogo>
+                  <ApiProviderName>OpenRouter</ApiProviderName>
+                </ApiProviderOption>
+                <ApiProviderOption
+                  $selected={apiProvider === 'gemini'}
+                  onClick={() => setApiProvider('gemini')}
+                >
+                  <ApiProviderLogo style={{ background: '#2563eb', color: '#fff', fontWeight: 'bold', fontSize: '10px' }}>
+                    G
+                  </ApiProviderLogo>
+                  <ApiProviderName>Gemini</ApiProviderName>
+                </ApiProviderOption>
+                <ApiProviderOption
                   $selected={apiProvider === 'ollama'}
                   onClick={() => setApiProvider('ollama')}
                 >
@@ -1692,19 +1798,17 @@ Make sure ${apiProvider} is running and accessible from this device.
                 <>
                   <ApiKeyInput
                     type="password"
-                    placeholder={`Enter your ${apiProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API key`}
+                    placeholder={`Enter your ${PROVIDER_CONFIG[apiProvider]?.keyLabel || 'API key'}`}
                     value={apiKeyInput}
                     onChange={(e) => setApiKeyInput(e.target.value)}
                   />
 
                   <ApiKeyHelp>
                     <ApiKeyHelpLink
-                      href={apiProvider === 'openai'
-                        ? 'https://platform.openai.com/api-keys'
-                        : 'https://console.anthropic.com/settings/keys'}
+                      href={PROVIDER_CONFIG[apiProvider]?.helpUrl || 'https://platform.openai.com/api-keys'}
                       target="_blank"
                     >
-                      Get your {apiProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API key →
+                      Get your {getProviderLabel(apiProvider)} API key →
                     </ApiKeyHelpLink>
                   </ApiKeyHelp>
                 </>
@@ -1715,7 +1819,7 @@ Make sure ${apiProvider} is running and accessible from this device.
                   <ConfiguredTitle>Configured Providers:</ConfiguredTitle>
                   {getConfiguredProviders().map(provider => (
                     <ConfiguredBadge key={provider}>
-                      {provider === 'openai' ? 'OpenAI' : provider === 'anthropic' ? 'Anthropic' : provider}
+                      {getProviderLabel(provider)}
                       <RemoveKeyButton onClick={() => {
                         saveApiKey(provider, '');
                       }}>×</RemoveKeyButton>
@@ -1774,7 +1878,7 @@ Make sure ${apiProvider} is running and accessible from this device.
                   try {
                     saveApiKey(apiProvider, apiKeyInput.trim());
                     setApiKeyInput('');
-                    setSuccessMessage(`${apiProvider === 'openai' ? 'OpenAI' : 'Anthropic'} API key saved successfully!`);
+                    setSuccessMessage(`${getProviderLabel(apiProvider)} API key saved successfully!`);
                     setShowSuccessModal(true);
                     setShowApiSettings(false);
                   } catch (e) {
@@ -1783,7 +1887,7 @@ Make sure ${apiProvider} is running and accessible from this device.
                   }
                   setIsSavingKey(false);
                 }
-              }} disabled={(apiProvider === 'ollama' || apiProvider === 'lmstudio') ? false : (!apiKeyInput.trim() || isSavingKey)}>
+              }} disabled={!['ollama', 'lmstudio'].includes(apiProvider) ? (!apiKeyInput.trim() || isSavingKey) : false}>
                 {isSavingKey ? 'Saving...' : 'Save'}
               </SaveButton>
             </ModalActions>
@@ -2043,7 +2147,7 @@ const TemplateCard = styled.div`
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 0.75rem;
 
   &:hover {
@@ -2057,10 +2161,24 @@ const TemplateIcon = styled.span`
   font-size: 1.5rem;
 `;
 
+const TemplateContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+`;
+
 const TemplateLabel = styled.span`
   color: var(--main-text-color);
   font-size: 0.9rem;
-  font-weight: 500;
+  font-weight: 600;
+`;
+
+const TemplateDescription = styled.span`
+  color: var(--second-text-color);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  display: block;
+  margin-top: 0.2rem;
 `;
 
 const MessagesContainer = styled.div`
@@ -2575,6 +2693,7 @@ const LlmBadge = styled.div`
 
 const ProviderContainer = styled.div`
   position: relative;
+  min-width: 0;
 `;
 
 const ProviderDropdown = styled.div`
@@ -2585,9 +2704,12 @@ const ProviderDropdown = styled.div`
   background: var(--main-bg-card-color);
   border: 1px solid var(--glass-border);
   border-radius: 8px;
-  overflow: hidden;
+  overflow-x: hidden;
+  overflow-y: auto;
   z-index: 100;
-  min-width: 120px;
+  min-width: 160px;
+  max-width: min(220px, 75vw);
+  max-height: 260px;
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 `;
 
@@ -2598,6 +2720,7 @@ const ProviderOption = styled.div`
   color: var(--main-text-color);
   background: ${props => props.$selected ? 'rgba(0, 255, 127, 0.1)' : 'transparent'};
   border-left: 2px solid ${props => props.$selected ? 'var(--primary-accent)' : 'transparent'};
+  white-space: nowrap;
 
   &:hover {
     background: rgba(0, 255, 127, 0.15);
@@ -3240,22 +3363,26 @@ const SetupButton = styled.button`
 `;
 
 const ApiProviderSelector = styled.div`
-  display: flex;
-  gap: 1rem;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
   margin-bottom: 1.5rem;
 `;
 
 const ApiProviderOption = styled.div`
-  flex: 1;
   display: flex;
   flex-direction: column;
   align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+  min-width: 0;
   padding: 1rem;
   background: ${props => props.$selected ? 'rgba(0, 255, 127, 0.1)' : 'rgba(255, 255, 255, 0.05)'};
   border: 1px solid ${props => props.$selected ? 'var(--primary-accent)' : 'var(--glass-border)'};
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.2s ease;
+  text-align: center;
 
   &:hover {
     background: rgba(0, 255, 127, 0.15);
@@ -3266,7 +3393,6 @@ const ApiProviderOption = styled.div`
 const ApiProviderLogo = styled.div`
   width: 40px;
   height: 40px;
-  margin-bottom: 0.5rem;
   display: flex;
   align-items: center;
   justify-content: center;
@@ -3277,8 +3403,11 @@ const ApiProviderLogo = styled.div`
 
 const ApiProviderName = styled.span`
   color: var(--main-text-color);
-  font-size: 0.9rem;
+  font-size: 0.82rem;
   font-weight: 500;
+  line-height: 1.2;
+  text-align: center;
+  overflow-wrap: anywhere;
 `;
 
 const ApiKeyInput = styled.input`

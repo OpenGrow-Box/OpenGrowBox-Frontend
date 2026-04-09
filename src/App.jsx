@@ -47,10 +47,28 @@ const PageLoader = () => (
   </LoaderContainer>
 );
 
+const getPersistedSiteView = () => {
+  if (typeof window === 'undefined') return null;
+
+  try {
+    const storedState = window.localStorage.getItem('globalOGBState');
+    if (!storedState) return null;
+
+    const parsedState = JSON.parse(storedState);
+    const siteView = parsedState?.Settings?.siteView;
+    return siteView === 'lite' || siteView === 'pro' ? siteView : null;
+  } catch {
+    return null;
+  }
+};
+
 // Conditional routing based on siteView
 const AppRoutes = () => {
   const { state } = useGlobalState();
-  const siteView = state.Settings?.siteView || 'lite';
+  const stateSiteView = state.Settings?.siteView;
+  const siteView = stateSiteView === 'lite' || stateSiteView === 'pro'
+    ? stateSiteView
+    : getPersistedSiteView();
 
   return (
     <Routes>
@@ -65,12 +83,19 @@ const AppRoutes = () => {
           <Route path="/settings" element={<Settings />} />
           <Route path="/growbook" element={<GrowBook />} />
         </>
-      ) : (
+      ) : siteView === 'lite' ? (
         <>
           <Route path="/home" element={<LiteHome />} />
           <Route path="/dashboard" element={<LiteDashboard />} />
           <Route path="/settings" element={<Settings />} />
           <Route path="/growbook" element={<LiteGrowBook />} />
+        </>
+      ) : (
+        <>
+          <Route path="/home" element={<Interface />} />
+          <Route path="/dashboard" element={<Interface />} />
+          <Route path="/settings" element={<Settings />} />
+          <Route path="/growbook" element={<Interface />} />
         </>
       )}
     </Routes>

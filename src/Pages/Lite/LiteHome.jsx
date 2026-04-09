@@ -232,6 +232,8 @@ const LiteHome = () => {
   const temp = getSensorValue(sensorIds.temperature, '°C');
   const hum = getSensorValue(sensorIds.humidity, '%');
   const vpd = getSensorValue(sensorIds.vpd, '');
+  const roomLabel = formatRoomName(currentRoom || 'default');
+  const activeDevices = devices.filter(device => device.state === 'on').length;
 
   return (
     <MainContainer>
@@ -243,49 +245,99 @@ const LiteHome = () => {
         <LeftColumn>
           <EnvironmentSection>
             <EnvironmentHeader>
-              <EnvironmentTitle>Environment</EnvironmentTitle>
-              <SensorTags>
-                <SensorTag $type="temp">
-                  <Thermometer size={14} />
-                  {temp}
-                </SensorTag>
-                <SensorTag $type="hum">
-                  <Droplets size={14} />
-                  {hum}
-                </SensorTag>
-                <SensorTag $type="vpd">
-                  <Gauge size={14} />
-                  {vpd}
-                </SensorTag>
-              </SensorTags>
+              <SectionHeaderBlock>
+                <SectionEyebrow>Lite Overview</SectionEyebrow>
+                <EnvironmentTitle>{roomLabel}</EnvironmentTitle>
+                <SectionDescription>Live camera and current climate in one focused room view.</SectionDescription>
+              </SectionHeaderBlock>
+              <HeaderMetaPill>{cameraImage && !cameraError ? 'Camera Online' : 'No Camera'}</HeaderMetaPill>
             </EnvironmentHeader>
 
             <CameraContainer>
               {cameraImage && !cameraError ? (
-                <CameraImage src={cameraImage} alt="Camera feed" />
+                <>
+                  <CameraImage src={cameraImage} alt="Camera feed" />
+                  <CameraTopBar>
+                    <CameraBadge>
+                      <Video size={14} />
+                      Live View
+                    </CameraBadge>
+                    <CameraRoomBadge>{roomLabel}</CameraRoomBadge>
+                  </CameraTopBar>
+                </>
               ) : (
                 <CameraPlaceholder>
-                  <VideoOff size={48} />
-                  <span>No camera available</span>
+                  <CameraPlaceholderIcon>
+                    <VideoOff size={48} />
+                  </CameraPlaceholderIcon>
+                  <CameraPlaceholderTitle>No camera available</CameraPlaceholderTitle>
+                  <CameraPlaceholderText>Live climate values stay available for this room.</CameraPlaceholderText>
                 </CameraPlaceholder>
               )}
+              <CameraOverlay>
+                <CameraMetricsRow>
+                  <CameraMetricCard $type="temp">
+                    <CameraMetricLabel $type="temp" aria-label="Temperature">
+                      <Thermometer size={13} />
+                    </CameraMetricLabel>
+                    <CameraMetricValue>{temp}</CameraMetricValue>
+                  </CameraMetricCard>
+                  <CameraMetricCard $type="hum">
+                    <CameraMetricLabel $type="hum" aria-label="Humidity">
+                      <Droplets size={13} />
+                    </CameraMetricLabel>
+                    <CameraMetricValue>{hum}</CameraMetricValue>
+                  </CameraMetricCard>
+                  <CameraMetricCard $type="vpd">
+                    <CameraMetricLabel $type="vpd" aria-label="VPD">
+                      <Gauge size={13} />
+                    </CameraMetricLabel>
+                    <CameraMetricValue>{vpd || '--'}</CameraMetricValue>
+                  </CameraMetricCard>
+                </CameraMetricsRow>
+              </CameraOverlay>
             </CameraContainer>
           </EnvironmentSection>
 
           <RoomSection>
-            <RoomSelectCard title="Select Room" />
+            <LiteSectionCard>
+              <SectionTopRow>
+                <SectionHeaderBlock>
+                  <SectionEyebrow>Room</SectionEyebrow>
+                  <SectionTitleText>Select Grow Room</SectionTitleText>
+                  <SectionDescription>Switch quickly between rooms to update sensors, devices and control targets.</SectionDescription>
+                </SectionHeaderBlock>
+                <HeaderMetaPill>{roomLabel}</HeaderMetaPill>
+              </SectionTopRow>
+              <RoomCardWrap>
+                <RoomSelectCard title="Select Room" />
+              </RoomCardWrap>
+            </LiteSectionCard>
           </RoomSection>
 
           {devices.length > 0 && (
             <DevicesSection>
-              <DeviceTitle>Quick Controls</DeviceTitle>
+              <SectionTopRow>
+                <SectionHeaderBlock>
+                  <SectionEyebrow>Devices</SectionEyebrow>
+                  <DeviceTitle>Quick Controls</DeviceTitle>
+                  <SectionDescription>Direct access to your most relevant room devices with instant status feedback.</SectionDescription>
+                </SectionHeaderBlock>
+                <HeaderStatsWrap>
+                  <StatsPill>{devices.length} Devices</StatsPill>
+                  <StatsPill $active>{activeDevices} Active</StatsPill>
+                </HeaderStatsWrap>
+              </SectionTopRow>
               <DeviceGrid>
                 {devices.map(device => (
                   <DeviceCard key={device.id} $isOn={device.state === 'on'}>
                     <DeviceHeader>
-                      <DeviceIcon $isOn={device.state === 'on'}>
-                        {getDeviceIcon(device.domain)}
-                      </DeviceIcon>
+                      <DeviceIconWrap>
+                        <DeviceIcon $isOn={device.state === 'on'}>
+                          {getDeviceIcon(device.domain)}
+                        </DeviceIcon>
+                        <DeviceDomainBadge>{device.domain}</DeviceDomainBadge>
+                      </DeviceIconWrap>
                       <DeviceInfo>
                         <DeviceName>{device.title}</DeviceName>
                         <DeviceStatus $isOn={device.state === 'on'}>
@@ -302,6 +354,10 @@ const LiteHome = () => {
                     
                     {(device.domain === 'light' && device.brightness !== undefined) && (
                       <SliderContainer>
+                        <SliderHeader>
+                          <SliderLabel>Brightness</SliderLabel>
+                          <SliderValue>{device.brightness}%</SliderValue>
+                        </SliderHeader>
                         <Slider 
                           type="range" 
                           min="0" 
@@ -309,12 +365,15 @@ const LiteHome = () => {
                           value={device.brightness}
                           onChange={(e) => setDeviceBrightness(device.id, e.target.value)}
                         />
-                        <SliderValue>{device.brightness}%</SliderValue>
                       </SliderContainer>
                     )}
                     
                     {(device.domain === 'fan' && device.percentage !== undefined) && (
                       <SliderContainer>
+                        <SliderHeader>
+                          <SliderLabel>Speed</SliderLabel>
+                          <SliderValue>{device.percentage}%</SliderValue>
+                        </SliderHeader>
                         <Slider 
                           type="range" 
                           min="0" 
@@ -322,7 +381,6 @@ const LiteHome = () => {
                           value={device.percentage}
                           onChange={(e) => setDeviceSpeed(device.id, e.target.value)}
                         />
-                        <SliderValue>{device.percentage}%</SliderValue>
                       </SliderContainer>
                     )}
                   </DeviceCard>
@@ -377,6 +435,14 @@ const RoomSection = styled.div`
   margin-bottom: 0.5rem;
 `;
 
+const LiteSectionCard = styled.div`
+  background: var(--main-bg-card-color);
+  border-radius: 20px;
+  padding: 1rem;
+  box-shadow: var(--main-shadow-art);
+  border: 1px solid var(--glass-border);
+`;
+
 const EnvironmentSection = styled.div`
   background: var(--main-bg-card-color);
   border-radius: 20px;
@@ -384,21 +450,94 @@ const EnvironmentSection = styled.div`
   box-shadow: var(--main-shadow-art);
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.9rem;
+  border: 1px solid var(--glass-border);
+  overflow: hidden;
 `;
 
 const EnvironmentHeader = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   justify-content: space-between;
-  flex-wrap: wrap;
+  gap: 0.75rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+`;
+
+const SectionTopRow = styled.div`
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.9rem;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+  }
+`;
+
+const SectionHeaderBlock = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.2rem;
+`;
+
+const SectionEyebrow = styled.div`
+  font-size: 0.72rem;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--primary-accent);
+`;
+
+const SectionDescription = styled.p`
+  margin: 0;
+  color: var(--placeholder-text-color);
+  font-size: 0.88rem;
+  line-height: 1.45;
+  max-width: 46ch;
+`;
+
+const HeaderMetaPill = styled.div`
+  padding: 0.55rem 0.85rem;
+  border-radius: 999px;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  color: var(--main-text-color);
+  font-size: 0.8rem;
+  font-weight: 700;
+  white-space: nowrap;
+`;
+
+const HeaderStatsWrap = styled.div`
+  display: flex;
   gap: 0.5rem;
+  flex-wrap: wrap;
+`;
+
+const StatsPill = styled.div`
+  padding: 0.5rem 0.8rem;
+  border-radius: 999px;
+  background: ${props => props.$active ? 'rgba(74, 222, 128, 0.12)' : 'var(--glass-bg-primary)'};
+  border: 1px solid ${props => props.$active ? 'rgba(74, 222, 128, 0.22)' : 'var(--glass-border)'};
+  color: ${props => props.$active ? '#86efac' : 'var(--main-text-color)'};
+  font-size: 0.78rem;
+  font-weight: 700;
 `;
 
 const EnvironmentTitle = styled.h3`
   color: var(--main-text-color);
-  font-size: 1rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
+  margin: 0;
+`;
+
+const SectionTitleText = styled.h3`
+  color: var(--main-text-color);
+  font-size: 1.05rem;
+  font-weight: 700;
   margin: 0;
 `;
 
@@ -440,10 +579,132 @@ const CameraContainer = styled.div`
   position: relative;
   width: 100%;
   aspect-ratio: 16/9;
-  background: var(--glass-bg-primary);
-  border-radius: 16px;
+  background: linear-gradient(180deg, rgba(18, 24, 30, 0.96), rgba(10, 14, 18, 1));
+  border-radius: 22px;
   overflow: hidden;
   border: 1px solid var(--glass-border);
+  min-height: 320px;
+
+  @media (max-width: 640px) {
+    min-height: 280px;
+  }
+`;
+
+const CameraOverlay = styled.div`
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  padding: 1.1rem;
+  display: flex;
+  align-items: flex-end;
+  justify-content: center;
+  background: linear-gradient(180deg, rgba(0, 0, 0, 0) 0%, rgba(7, 10, 14, 0.82) 68%, rgba(7, 10, 14, 0.96) 100%);
+`;
+
+const CameraTopBar = styled.div`
+  position: absolute;
+  top: 1rem;
+  left: 1rem;
+  right: 1rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  z-index: 2;
+`;
+
+const CameraRoomBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(15, 15, 15, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+`;
+
+const CameraBadge = styled.div`
+  display: inline-flex;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0.45rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(15, 15, 15, 0.55);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  color: #fff;
+  font-size: 0.78rem;
+  font-weight: 700;
+  backdrop-filter: blur(10px);
+`;
+
+const CameraMetricsRow = styled.div`
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.4rem;
+  width: min(380px, 100%);
+  margin: 0 auto;
+
+  @media (max-width: 640px) {
+    grid-template-columns: 1fr;
+    width: 100%;
+  }
+`;
+
+const CameraMetricCard = styled.div`
+  padding: 0.52rem 0.58rem;
+  border-radius: 12px;
+  background: rgba(10, 14, 18, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.45rem;
+
+  ${props => props.$type === 'temp' && `
+    box-shadow: inset 0 0 0 1px rgba(74, 222, 128, 0.18);
+    background: linear-gradient(180deg, rgba(16, 26, 18, 0.88), rgba(10, 14, 18, 0.78));
+  `}
+
+  ${props => props.$type === 'hum' && `
+    box-shadow: inset 0 0 0 1px rgba(96, 165, 250, 0.18);
+    background: linear-gradient(180deg, rgba(12, 22, 34, 0.88), rgba(10, 14, 18, 0.78));
+  `}
+
+  ${props => props.$type === 'vpd' && `
+    box-shadow: inset 0 0 0 1px rgba(250, 204, 21, 0.2);
+    background: linear-gradient(180deg, rgba(32, 24, 8, 0.9), rgba(10, 14, 18, 0.78));
+  `}
+`;
+
+const CameraMetricLabel = styled.div`
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  color: ${props => {
+    if (props.$type === 'temp') return '#86efac';
+    if (props.$type === 'hum') return '#7dd3fc';
+    if (props.$type === 'vpd') return '#fcd34d';
+    return 'rgba(255, 255, 255, 0.76)';
+  }};
+
+  svg {
+    display: block;
+  }
+`;
+
+const CameraMetricValue = styled.div`
+  color: #fff;
+  font-size: 0.96rem;
+  font-weight: 700;
+  line-height: 1.15;
+  white-space: nowrap;
 `;
 
 const CameraImage = styled.img`
@@ -462,10 +723,25 @@ const CameraPlaceholder = styled.div`
   gap: 0.5rem;
   color: var(--placeholder-text-color);
   font-size: 0.9rem;
-  
-  svg {
-    opacity: 0.5;
-  }
+  padding: 1.5rem;
+  text-align: center;
+`;
+
+const CameraPlaceholderIcon = styled.div`
+  opacity: 0.5;
+`;
+
+const CameraPlaceholderTitle = styled.div`
+  color: var(--main-text-color);
+  font-size: 1rem;
+  font-weight: 700;
+`;
+
+const CameraPlaceholderText = styled.div`
+  max-width: 24rem;
+  color: var(--placeholder-text-color);
+  font-size: 0.85rem;
+  line-height: 1.4;
 `;
 
 const DevicesSection = styled.div`
@@ -473,13 +749,14 @@ const DevicesSection = styled.div`
   border-radius: 20px;
   padding: 1rem;
   box-shadow: var(--main-shadow-art);
+  border: 1px solid var(--glass-border);
 `;
 
 const DeviceTitle = styled.h3`
   color: var(--main-text-color);
-  margin-bottom: 0.75rem;
-  font-size: 1rem;
-  font-weight: 600;
+  margin: 0;
+  font-size: 1.1rem;
+  font-weight: 700;
 `;
 
 const DeviceGrid = styled.div`
@@ -548,13 +825,15 @@ const DeviceStatus = styled.div`
 const DeviceCard = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 1rem;
+  gap: 0.9rem;
   padding: 1.25rem;
-  background: ${props => props.$isOn ? 'var(--active-bg-color)' : 'var(--glass-bg-primary)'};
-  border: 2px solid ${props => props.$isOn ? 'var(--primary-accent)' : 'var(--glass-border)'};
-  border-radius: 16px;
+  background: ${props => props.$isOn
+    ? 'linear-gradient(180deg, rgba(74, 222, 128, 0.10), var(--glass-bg-primary))'
+    : 'linear-gradient(180deg, var(--glass-bg-secondary), var(--glass-bg-primary))'};
+  border: 1px solid ${props => props.$isOn ? 'rgba(74, 222, 128, 0.35)' : 'var(--glass-border)'};
+  border-radius: 18px;
   transition: all 0.2s ease;
-  
+   
   &:hover {
     transform: translateY(-2px);
     border-color: var(--primary-accent);
@@ -563,8 +842,15 @@ const DeviceCard = styled.div`
 
 const DeviceHeader = styled.div`
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 1rem;
+`;
+
+const DeviceIconWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.45rem;
 `;
 
 const DeviceInfo = styled.div`
@@ -577,10 +863,10 @@ const DeviceInfo = styled.div`
 
 const DeviceToggleBtn = styled.button`
   background: ${props => props.$isOn ? 'var(--primary-accent)' : 'var(--glass-border)'};
-  border: none;
+  border: 1px solid ${props => props.$isOn ? 'rgba(74, 222, 128, 0.22)' : 'transparent'};
   color: ${props => props.$isOn ? '#000' : 'var(--main-text-color)'};
   padding: 0.75rem;
-  border-radius: 10px;
+  border-radius: 12px;
   cursor: pointer;
   display: flex;
   align-items: center;
@@ -595,7 +881,20 @@ const DeviceToggleBtn = styled.button`
   
   &:hover {
     transform: scale(1.05);
+    border-color: var(--primary-accent);
   }
+`;
+
+const DeviceDomainBadge = styled.div`
+  padding: 0.2rem 0.45rem;
+  border-radius: 999px;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  color: var(--placeholder-text-color);
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
 `;
 
 const SliderContainer = styled.div`
@@ -604,6 +903,19 @@ const SliderContainer = styled.div`
   gap: 0.5rem;
   padding-top: 0.75rem;
   border-top: 1px solid var(--glass-border);
+`;
+
+const SliderHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+`;
+
+const SliderLabel = styled.span`
+  font-size: 0.8rem;
+  color: var(--placeholder-text-color);
+  font-weight: 600;
 `;
 
 const Slider = styled.input`
@@ -625,12 +937,19 @@ const Slider = styled.input`
 `;
 
 const SliderValue = styled.span`
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   color: var(--main-text-color);
   text-align: center;
-  font-weight: 600;
+  font-weight: 700;
 `;
 
 const ControlSection = styled.div`
   margin-top: 0.5rem;
+`;
+
+const RoomCardWrap = styled.div`
+  border-radius: 16px;
+  overflow: visible;
+  position: relative;
+  z-index: 6;
 `;

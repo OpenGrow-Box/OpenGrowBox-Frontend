@@ -89,7 +89,7 @@ export const sendToOpenAI = async (messages, model = 'gpt-4o') => {
  * @param {string} model - Model to use (default: gpt-4o)
  * @returns {Promise<string>} The assistant's response
  */
-export const sendToOpenAIWithImage = async (text, image, model = 'gpt-4o') => {
+export const sendToOpenAIWithImage = async (text, image, model = 'gpt-4o', systemPrompt = '') => {
   const client = getOpenAIClient();
   if (!client) {
     throw new Error('OpenAI API key not configured. Please add your API key in settings.');
@@ -122,18 +122,7 @@ export const sendToOpenAIWithImage = async (text, image, model = 'gpt-4o') => {
       messages: [
         {
           role: 'system',
-          content: `You are Plant-Buddy, an AI assistant for the OpenGrowBox plant growing system. You help users with plant health analysis, nutrient deficiency identification, pest and disease diagnosis, growth stage assessment, and general plant care recommendations.
-
-When analyzing images, look for:
-- Leaf color and health
-- Leaf structure and condition
-- Signs of nutrient deficiencies (yellowing, browning, spots, curling)
-- Pest infestations (insects, web, feeding marks)
-- Disease symptoms (fungus, mold, mildew)
-- Overall plant vigor and growth
-- Environmental stress indicators
-
-Provide clear, actionable recommendations. Be specific about problems and solutions. If you're unsure, suggest possible causes and recommend further investigation.`
+          content: systemPrompt || 'You are Plant-Buddy for OpenGrowBox. Analyze the image carefully and give practical, concise plant care guidance.'
         },
         {
           role: 'user',

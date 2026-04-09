@@ -439,7 +439,7 @@ const SettingsPanel = () => {
   const availableThemes = state.Design.availableThemes;
   const availableThemesPro = state.Design.availableThemesPro || [];
   const safeModeEnabled = state.Settings?.safeModeEnabled ?? true;
-  const siteView = state.Settings?.siteView ?? 'lite';
+  const siteView = state.Settings?.siteView === 'pro' ? 'pro' : 'lite';
 
   // Funktion, um das Theme anzuwenden, indem CSS-Variablen gesetzt werden
 

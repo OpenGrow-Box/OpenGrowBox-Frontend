@@ -83,10 +83,21 @@ const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
           }
           return date.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
         };
+
+        const formatTooltipTime = (dateStr) => {
+          const date = new Date(dateStr);
+          return date.toLocaleString('de-DE', {
+            day: '2-digit',
+            month: '2-digit',
+            hour: '2-digit',
+            minute: '2-digit'
+          });
+        };
         
         setChartData({
           x: sampled.map(item => formatTime(item.last_changed)),
-          y: sampled.map(item => parseFloat(item.state))
+          y: sampled.map(item => parseFloat(item.state)),
+          tooltipTime: sampled.map(item => formatTooltipTime(item.last_changed))
         });
       } catch (err) {
         // console.error(err);
@@ -114,7 +125,16 @@ const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
         borderWidth: 2,
         textStyle: { color: '#ffffff', fontSize: 12 },
         extraCssText: 'box-shadow: 0 4px 12px rgba(0,0,0,0.3); border-radius: 8px;',
-        formatter: (p) => `<div style="color:${color}; font-weight:700; font-size:14px;">${p[0].value}${unit}</div>`
+        formatter: (p) => {
+          const index = p?.[0]?.dataIndex ?? 0;
+          const time = chartData?.tooltipTime?.[index] || chartData?.x?.[index] || '';
+          return `
+            <div style="display:flex; flex-direction:column; gap:4px; min-width:90px;">
+              <div style="color:rgba(255,255,255,0.72); font-size:11px;">${time}</div>
+              <div style="color:${color}; font-weight:700; font-size:14px;">${p[0].value}${unit}</div>
+            </div>
+          `;
+        }
       },
       xAxis: {
         type: 'category',

@@ -3,11 +3,8 @@ const STORAGE_KEY = 'opengrowbox_ai_api_keys';
 const getStoredKeys = () => {
   try {
     const stored = localStorage.getItem(STORAGE_KEY);
-    console.log('LocalStorage key:', STORAGE_KEY);
-    console.log('Raw stored value:', stored);
     return stored ? JSON.parse(stored) : {};
   } catch (e) {
-    console.error('Error parsing localStorage:', e);
     return {};
   }
 };
@@ -21,19 +18,14 @@ const setStoredKeys = (keys) => {
 };
 
 export const saveApiKey = (provider, key) => {
-  console.log('Saving API key for provider:', provider);
-  console.log('Key value:', key ? key.substring(0, 10) + '...' : 'empty');
   const keys = getStoredKeys();
   keys[provider] = key;
   setStoredKeys(keys);
-  console.log('Updated keys:', getStoredKeys());
 };
 
 export const getApiKey = (provider) => {
   const keys = getStoredKeys();
-  const key = keys[provider] || null;
-  console.log('Getting API key for:', provider, 'Has key:', !!key);
-  return key;
+  return keys[provider] || null;
 };
 
 export const getApiKeys = () => {

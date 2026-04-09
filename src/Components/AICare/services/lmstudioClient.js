@@ -45,7 +45,7 @@ export const sendToLMStudio = async (messages, model = 'local-model') => {
   }
 };
 
-export const sendToLMStudioWithImage = async (text, image, model = 'local-model') => {
+export const sendToLMStudioWithImage = async (text, image, model = 'local-model', systemPrompt = '') => {
   const baseUrl = getLMStudioBaseUrl();
 
   try {
@@ -72,7 +72,7 @@ export const sendToLMStudioWithImage = async (text, image, model = 'local-model'
         messages: [
           {
             role: 'system',
-            content: 'You are Plant-Buddy, an AI assistant for the OpenGrowBox plant growing system. You help users with plant health analysis, nutrient deficiency identification, pest and disease diagnosis, growth stage assessment, and general plant care recommendations. When analyzing images, look for: leaf color and health, leaf structure and condition, signs of nutrient deficiencies, pest infestations, disease symptoms, overall plant vigor and growth, and environmental stress indicators. Provide clear, actionable recommendations.'
+            content: systemPrompt || 'You are Plant-Buddy for OpenGrowBox. Analyze the image carefully and give practical, concise plant care guidance.'
           },
           {
             role: 'user',

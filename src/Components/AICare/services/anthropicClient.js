@@ -63,7 +63,7 @@ export const sendToAnthropic = async (messages, model = 'claude-3-5-sonnet-20241
  * @param {string} model - Model to use (default: claude-3-5-sonnet-20241022)
  * @returns {Promise<string>} The assistant's response
  */
-export const sendToAnthropicWithImage = async (text, image, model = 'claude-3-5-20250219') => {
+export const sendToAnthropicWithImage = async (text, image, model = 'claude-3-5-20250219', systemPrompt = '') => {
   const client = getAnthropicClient();
   if (!client) {
     throw new Error('Anthropic API key not configured. Please add your key in settings.');
@@ -106,20 +106,7 @@ export const sendToAnthropicWithImage = async (text, image, model = 'claude-3-5-
           content: content
         }
       ],
-      system: `You are Plant-Buddy, an AI assistant for the OpenGrowBox plant growing system. You help users with plant health analysis, nutrient deficiency identification, pest and disease diagnosis, growth stage assessment, and general plant care recommendations.
-
-When analyzing images, look for:
-- Leaf color and health
-- Leaf structure and condition
-- Signs of nutrient deficiencies (yellowing, browning, spots, curling)
-- Burn marks from lights
-- Heat stress indicators
-- Pest infestations (insects, web, feeding marks)
-- Disease symptoms (fungus, mold, mildew)
-- Overall plant vigor and growth
-- Environmental stress indicators (heat, light, humidity)
-
-Provide clear, actionable recommendations. Be specific about problems and solutions. If you're unsure, suggest possible causes and recommend further investigation.`
+      system: systemPrompt || 'You are Plant-Buddy for OpenGrowBox. Analyze the image carefully and give practical, concise plant care guidance.'
     });
 
     const usage = response.usage ? {

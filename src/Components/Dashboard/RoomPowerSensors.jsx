@@ -20,6 +20,15 @@ const getEnergySettings = () => {
   }
 };
 
+const POWER_SENSOR_EXCLUDE_KEYWORDS = ['apparent', 'reactive', 'voltage', 'current', 'factor', 'signal', 'battery'];
+
+const formatTimeLabel = (dateString) => {
+  if (!dateString) return 'unknown';
+  const date = new Date(dateString);
+  if (Number.isNaN(date.getTime())) return 'unknown';
+  return date.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+};
+
 const RoomPowerSensors = () => {
   const { entities, currentRoom, connection } = useHomeAssistant();
   const { HASS } = useGlobalState();
@@ -33,6 +42,27 @@ const RoomPowerSensors = () => {
   useEffect(() => {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(settings));
   }, [settings]);
+
+  const roomScope = useMemo(() => {
+    const roomDeviceIds = new Set();
+    const roomEntityIds = new Set();
+
+    if (HASS?.devices && HASS?.entities && currentRoom) {
+      Object.entries(HASS.devices).forEach(([deviceId, device]) => {
+        if (device.area_id === currentRoom.toLowerCase()) {
+          roomDeviceIds.add(deviceId);
+        }
+      });
+
+      Object.entries(HASS.entities).forEach(([entityId, entity]) => {
+        if (roomDeviceIds.has(entity.device_id)) {
+          roomEntityIds.add(entityId);
+        }
+      });
+    }
+
+    return { roomDeviceIds, roomEntityIds };
+  }, [HASS, currentRoom]);
 
   const roomDevices = useMemo(() => {
     if (!entities) return [];
@@ -146,6 +176,74 @@ const RoomPowerSensors = () => {
       monthlyCost,
     };
   }, [roomDevices, settings.pricePerKwh]);
+
+  const livePowerSensors = useMemo(() => {
+    if (!entities) return [];
+
+    const roomSlug = currentRoom?.toLowerCase() || '';
+
+    return Object.entries(entities)
+      .filter(([entityId, entity]) => {
+        if (!entityId.startsWith('sensor.')) return false;
+
+        const unit = (entity.attributes?.unit_of_measurement || '').toLowerCase();
+        if (unit !== 'w' && unit !== 'kw') return false;
+
+        const value = parseFloat(entity.state);
+        if (Number.isNaN(value)) return false;
+
+        const haystack = `${entityId} ${entity.attributes?.friendly_name || ''}`.toLowerCase();
+        if (POWER_SENSOR_EXCLUDE_KEYWORDS.some(keyword => haystack.includes(keyword))) return false;
+
+        const entityMeta = HASS?.entities?.[entityId];
+        const matchesRoom = deviceSelect === 'all'
+          || roomScope.roomEntityIds.has(entityId)
+          || roomScope.roomDeviceIds.has(entityMeta?.device_id)
+          || (roomSlug && haystack.includes(roomSlug));
+
+        return matchesRoom;
+      })
+      .map(([entityId, entity]) => {
+        const unit = (entity.attributes?.unit_of_measurement || '').toLowerCase();
+        const rawValue = parseFloat(entity.state);
+        const watts = unit === 'kw' ? rawValue * 1000 : rawValue;
+
+        return {
+          id: entityId,
+          title: entity.attributes?.friendly_name || entityId.split('.').pop(),
+          watts,
+          state: entity.state,
+          unit: entity.attributes?.unit_of_measurement || 'W',
+          updatedAt: entity.last_updated || entity.last_changed,
+        };
+      })
+      .sort((a, b) => b.watts - a.watts);
+  }, [entities, currentRoom, HASS, deviceSelect, roomScope]);
+
+  const liveTotals = useMemo(() => {
+    const totalWatts = livePowerSensors.reduce((sum, sensor) => sum + sensor.watts, 0);
+    const latestUpdate = livePowerSensors.reduce((latest, sensor) => {
+      if (!sensor.updatedAt) return latest;
+      if (!latest) return sensor.updatedAt;
+      return new Date(sensor.updatedAt) > new Date(latest) ? sensor.updatedAt : latest;
+    }, null);
+
+    return {
+      totalWatts,
+      sensorCount: livePowerSensors.length,
+      latestUpdate,
+    };
+  }, [livePowerSensors]);
+
+  const hasLivePowerSensors = livePowerSensors.length > 0;
+  const currentLoadValue = hasLivePowerSensors ? Math.round(liveTotals.totalWatts) : totals.totalWatts;
+  const currentLoadSubtext = hasLivePowerSensors
+    ? `${liveTotals.sensorCount} live HA power sensors • updated ${formatTimeLabel(liveTotals.latestUpdate)}`
+    : `${totals.activeDevices}/${totals.totalDevices} devices active`;
+  const livePowerChartData = livePowerSensors.slice(0, 8).map(sensor => ({
+    label: sensor.title.length > 18 ? `${sensor.title.slice(0, 18)}...` : sensor.title,
+    value: Math.round(sensor.watts),
+  }));
 
   useEffect(() => {
     if (shouldSaveSnapshot()) {
@@ -266,10 +364,10 @@ const RoomPowerSensors = () => {
       <SummaryGrid>
         <EnergySummaryCard
           icon={Zap}
-          label="Current Load"
-          value={totals.totalWatts}
+          label={hasLivePowerSensors ? 'Live Load' : 'Current Load'}
+          value={currentLoadValue}
           unit="W"
-          subtext={`${totals.activeDevices}/${totals.totalDevices} devices active`}
+          subtext={currentLoadSubtext}
           color="var(--primary-accent)"
           sparklineData={sparklineData}
           trend={wattsTrend?.direction}
@@ -328,10 +426,10 @@ const RoomPowerSensors = () => {
           <SummaryGrid>
         <EnergySummaryCard
           icon={Zap}
-          label="Current Load"
-          value={totals.totalWatts}
+          label={hasLivePowerSensors ? 'Live Load' : 'Current Load'}
+          value={currentLoadValue}
           unit="W"
-          subtext={`${totals.activeDevices}/${totals.totalDevices} devices active`}
+          subtext={currentLoadSubtext}
           color="var(--primary-accent)"
           sparklineData={sparklineData}
           trend={wattsTrend?.direction}
@@ -376,6 +474,51 @@ const RoomPowerSensors = () => {
             High daily costs: €{totals.dailyCost.toFixed(2)}. Check your device settings.
           </WarningText>
         </CostWarning>
+      )}
+
+      {hasLivePowerSensors && (
+        <LivePowerSection>
+          <SectionHeader>
+            <SectionTitle>Live Power From Home Assistant</SectionTitle>
+            <LiveStatusBadge>{liveTotals.sensorCount} sensors</LiveStatusBadge>
+          </SectionHeader>
+
+          <LivePowerHero>
+            <LivePowerValue>{Math.round(liveTotals.totalWatts)} W</LivePowerValue>
+            <LivePowerMeta>
+              Real-time sum of detected power sensors for {deviceSelect === 'room' ? (currentRoom || 'this room') : 'all devices'}.
+            </LivePowerMeta>
+            <LivePowerTimestamp>Last update: {formatTimeLabel(liveTotals.latestUpdate)}</LivePowerTimestamp>
+          </LivePowerHero>
+
+          <ChartsSection>
+            <EnergyChart
+              title="Live Power By Sensor"
+              data={livePowerChartData}
+              type="bar"
+              height={260}
+              unit=" W"
+              color="var(--primary-accent)"
+              showGrid
+              smooth={false}
+            />
+          </ChartsSection>
+
+          <LiveSensorList>
+            {livePowerSensors.slice(0, 8).map((sensor) => (
+              <LiveSensorItem key={sensor.id}>
+                <LiveSensorInfo>
+                  <LiveSensorName>{sensor.title}</LiveSensorName>
+                  <LiveSensorMeta>{sensor.id}</LiveSensorMeta>
+                </LiveSensorInfo>
+                <LiveSensorValueWrap>
+                  <LiveSensorValue>{sensor.watts.toFixed(sensor.watts >= 100 ? 0 : 1)} W</LiveSensorValue>
+                  <LiveSensorMeta>{formatTimeLabel(sensor.updatedAt)}</LiveSensorMeta>
+                </LiveSensorValueWrap>
+              </LiveSensorItem>
+            ))}
+          </LiveSensorList>
+        </LivePowerSection>
       )}
 
       <ChartsSection>
@@ -671,6 +814,110 @@ const ChartsSection = styled.div`
   @media (max-width: 768px) {
     grid-template-columns: 1fr;
   }
+`;
+
+const LivePowerSection = styled.div`
+  background: linear-gradient(180deg, var(--glass-bg-secondary), var(--main-bg-card-color));
+  border: 1px solid var(--glass-border-light);
+  border-radius: 16px;
+  padding: 1.5rem;
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+const LiveStatusBadge = styled.div`
+  padding: 0.4rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(34, 197, 94, 0.12);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  color: var(--chart-success-color);
+  font-size: 0.75rem;
+  font-weight: 700;
+`;
+
+const LivePowerHero = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+`;
+
+const LivePowerValue = styled.div`
+  color: var(--main-text-color);
+  font-size: 2rem;
+  font-weight: 800;
+  line-height: 1;
+`;
+
+const LivePowerMeta = styled.div`
+  color: var(--second-text-color);
+  font-size: 0.92rem;
+  line-height: 1.45;
+`;
+
+const LivePowerTimestamp = styled.div`
+  color: var(--primary-accent);
+  font-size: 0.82rem;
+  font-weight: 600;
+`;
+
+const LiveSensorList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+`;
+
+const LiveSensorItem = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: center;
+  padding: 0.9rem 1rem;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 12px;
+
+  @media (max-width: 640px) {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+`;
+
+const LiveSensorInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  min-width: 0;
+`;
+
+const LiveSensorName = styled.div`
+  color: var(--main-text-color);
+  font-size: 0.95rem;
+  font-weight: 600;
+`;
+
+const LiveSensorMeta = styled.div`
+  color: var(--second-text-color);
+  font-size: 0.78rem;
+  line-height: 1.35;
+  word-break: break-all;
+`;
+
+const LiveSensorValueWrap = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 0.2rem;
+
+  @media (max-width: 640px) {
+    align-items: flex-start;
+  }
+`;
+
+const LiveSensorValue = styled.div`
+  color: var(--primary-accent);
+  font-size: 1rem;
+  font-weight: 700;
 `;
 
 const DevicesSection = styled.div`
