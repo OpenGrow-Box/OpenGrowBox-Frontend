@@ -126,32 +126,91 @@ export const listOllamaModels = async () => {
     }
 
     const data = await response.json();
-    return data.models?.map(model => ({
-      id: model.name,
-      name: model.name,
-      created: model.modified_at,
-      owned_by: 'ollama',
-      capabilities: getOllamaCapabilities(model.name)
-    })) || [];
+    const models = data.models || [];
+
+    // Get capabilities for each model in parallel
+    const modelsWithCapabilities = await Promise.all(
+      models.map(async (model) => {
+        const capabilities = await getOllamaCapabilities(model.name, baseUrl);
+        return {
+          id: model.name,
+          name: model.name,
+          created: model.modified_at,
+          owned_by: 'ollama',
+          capabilities
+        };
+      })
+    );
+
+    return modelsWithCapabilities;
   } catch (error) {
     console.error('Error listing Ollama models:', error);
     return [];
   }
 };
 
-const getOllamaCapabilities = (modelName) => {
+const fetchModelCapabilities = async (baseUrl, modelName) => {
+  try {
+    const response = await fetch(`${baseUrl}/api/show`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ name: modelName }),
+      signal: AbortSignal.timeout(5000)
+    });
+
+    if (!response.ok) {
+      return null;
+    }
+
+    const data = await response.json();
+    return data.capabilities || null;
+  } catch (error) {
+    return null;
+  }
+};
+
+const getOllamaCapabilities = async (modelName, baseUrl) => {
   const capabilities = [];
 
   // All Ollama models support chat
   capabilities.push('chat');
 
-  // Vision models (llava, minicpm-v, etc.)
-  if (modelName.toLowerCase().includes('llava') ||
-      modelName.toLowerCase().includes('minicpm-v') ||
-      modelName.toLowerCase().includes('llava-') ||
-      modelName.toLowerCase().includes('vision') ||
-      modelName.toLowerCase().includes('multimodal')) {
+  // Try to get actual capabilities from /api/show endpoint
+  const modelCapabilities = await fetchModelCapabilities(baseUrl, modelName);
+  if (modelCapabilities && Array.isArray(modelCapabilities)) {
+    if (modelCapabilities.includes('vision')) {
+      capabilities.push('vision');
+    }
+    if (modelCapabilities.includes('tools')) {
+      capabilities.push('tools');
+    }
+    if (modelCapabilities.includes('thinking')) {
+      capabilities.push('reasoning');
+    }
+    return capabilities;
+  }
+
+  // Fallback to keyword-based detection if /api/show fails
+  const lowerName = modelName.toLowerCase();
+  
+  if (lowerName.includes('llava') ||
+      lowerName.includes('minicpm-v') ||
+      lowerName.includes('llava-') ||
+      lowerName.includes('vision') ||
+      lowerName.includes('multimodal') ||
+      lowerName.includes('vl') || // qwen2.5vl, etc.
+      lowerName.includes('qwen') && (lowerName.includes('vl') || lowerName.includes('vision')) ||
+      lowerName.includes('gemma') && lowerName.includes('vision')) {
     capabilities.push('vision');
+  }
+
+  // Detect reasoning capabilities
+  if (lowerName.includes('thinking') ||
+      lowerName.includes('reason') ||
+      lowerName.includes('qwen') && lowerName.includes('3')) {
+    capabilities.push('reasoning');
   }
 
   return capabilities;
