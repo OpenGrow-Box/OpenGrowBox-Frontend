@@ -6,6 +6,7 @@ import { Zap, Sun, Plug, Battery, Droplets, Leaf, Lightbulb, Sprout } from 'luci
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
 import CombinedClimateChart from '../Components/Dashboard/CombinedClimateChart';
+import CombinedWaterChart from '../Components/Dashboard/CombinedWaterChart';
 import RoomPowerSensors from '../Components/Dashboard/RoomPowerSensors';
 import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
@@ -343,6 +344,14 @@ const Dashboard = () => {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <ChartGrid>
+            {/* Combined Water Chart - First Chart */}
+            <CombinedWaterChart
+              waterSensors={waterSensors}
+              isGlobalLiveMode={isGlobalLiveMode}
+              globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+              onLiveModeChange={handleLiveModeChange}
+            />
+
             {waterSensors.tankLevel && (
               <DashboardChart
                 key={`tank-${waterSensors.tankLevel.id}`}
