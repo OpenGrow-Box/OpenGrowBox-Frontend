@@ -4,6 +4,7 @@ import { MdSend, MdImage, MdDelete, MdClose, MdCamera, MdOutlineErrorOutline, Md
 import { Bot, Sprout, Search, BarChart3, Droplets, Bug, Lightbulb } from 'lucide-react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useGlobalState } from '../Context/GlobalContext';
+import { useMedium } from '../Context/MediumContext';
 import { saveApiKey, getApiKey, hasAnyApiKey, getConfiguredProviders } from './utils/apiKeys';
 import { sendToOpenAI, sendToOpenAIWithImage, listOpenAIModels } from './services/openaiClient';
 import { sendToAnthropic, sendToAnthropicWithImage, listAnthropicModels } from './services/anthropicClient';
@@ -209,7 +210,7 @@ Be honest about visibility limits. Do not guess what you cannot see.`
   }
 ];
 
-const buildEnvironmentContext = (entities, currentRoom) => {
+const buildEnvironmentContext = (entities, currentRoom, currentMedium) => {
   const room = currentRoom?.trim()?.toLowerCase() || 'default';
   if (!entities) return '';
 
@@ -236,14 +237,47 @@ const buildEnvironmentContext = (entities, currentRoom) => {
     vpd ? `VPD: ${vpd}` : null,
   ].filter(Boolean);
 
-  if (values.length === 0) return '';
+  // Build plant context
+  const plantContext = [];
+  
+  // Plant name from MediumContext
+  if (currentMedium?.plant_name) {
+    plantContext.push(`Plant Name: ${currentMedium.plant_name}`);
+  }
+  
+  // Plant species from Home Assistant entity
+  const plantSpeciesEntity = entities[`select.ogb_plantspecies_${room}`];
+  if (plantSpeciesEntity?.state && plantSpeciesEntity.state !== 'unknown' && plantSpeciesEntity.state !== 'unavailable') {
+    plantContext.push(`Species: ${plantSpeciesEntity.state}`);
+  }
+  
+  // Current bloom days from MediumContext
+  if (currentMedium?.dates?.bloomdays !== undefined && currentMedium.dates.bloomdays !== null) {
+    plantContext.push(`Bloom Days: ${currentMedium.dates.bloomdays}`);
+  }
+  
+  // Current growth phase
+  if (currentMedium?.current_phase || currentMedium?.plant_stage) {
+    plantContext.push(`Phase: ${currentMedium.current_phase || currentMedium.plant_stage}`);
+  }
 
-  return `\n\n## Current Environment\nRoom: ${currentRoom || 'default'}\n${values.join('\n')}`;
+  let context = '';
+  
+  if (plantContext.length > 0) {
+    context += `\n\n## Plant Information\n${plantContext.join('\n')}`;
+  }
+  
+  if (values.length > 0) {
+    context += `\n\n## Current Environment\nRoom: ${currentRoom || 'default'}\n${values.join('\n')}`;
+  }
+
+  return context;
 };
 
 const AICareChat = () => {
   const { connection, currentRoom, entities } = useHomeAssistant();
   const { HASS } = useGlobalState();
+  const { currentMedium } = useMedium();
   const [messages, setMessages] = useState([]);
   const [inputText, setInputText] = useState('');
   const [selectedImage, setSelectedImage] = useState(null);
@@ -306,7 +340,7 @@ const AICareChat = () => {
     requestCount: 0
   });
   const [templateSystemPrompt, setTemplateSystemPrompt] = useState(null);
-  const environmentContext = buildEnvironmentContext(entities, currentRoom);
+  const environmentContext = buildEnvironmentContext(entities, currentRoom, currentMedium);
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const messagesEndRef = useRef(null);

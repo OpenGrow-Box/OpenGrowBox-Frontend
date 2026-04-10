@@ -139,6 +139,12 @@ export const listAnthropicModels = async () => {
   if (!client) return [];
 
   const models = [{
+    id: 'claude-3-7-sonnet-20250219',
+    name: 'Claude 3.7 Sonnet',
+    created: Date.now(),
+    owned_by: 'anthropic',
+    capabilities: ['vision', 'chat', 'reasoning']
+  }, {
     id: 'claude-3-5-sonnet-20241022',
     name: 'Claude 3.5 Sonnet',
     created: Date.now(),

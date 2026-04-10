@@ -182,19 +182,29 @@ export const listOpenAIModels = async () => {
 
 const getModelCapabilities = (modelId) => {
   const capabilities = [];
-
-  // Vision capability
-  if (modelId.includes('gpt-4o') || modelId.includes('gpt-4-turbo') || modelId.includes('gpt-4-vision')) {
-    capabilities.push('vision');
-  }
+  const lower = modelId.toLowerCase();
 
   // Chat capability (all GPT models)
-  if (modelId.includes('gpt')) {
+  if (lower.includes('gpt')) {
     capabilities.push('chat');
   }
 
-  // Reasoning capability
-  if (modelId.includes('gpt-4')) {
+  // Vision capability - comprehensive detection
+  if (lower.includes('gpt-4o') ||
+      lower.includes('gpt-4-turbo') ||
+      lower.includes('gpt-4-vision') ||
+      lower.includes('vision') ||
+      lower.includes('vl') ||
+      lower.includes('multimodal')) {
+    capabilities.push('vision');
+  }
+
+  // Reasoning capability - GPT-4 and newer models
+  if (lower.includes('gpt-4') ||
+      lower.includes('gpt-4.1') ||
+      lower.includes('gpt-4.5') ||
+      lower.includes('o1') ||
+      lower.includes('o3')) {
     capabilities.push('reasoning');
   }
 
