@@ -703,6 +703,74 @@ const CombinedClimateChart = ({
     fetchAllSensorData();
   }, [startDate, endDate, sensorIds, haApiBaseUrl, accessToken, chartType, selectedCO2SensorIndex]);
 
+  // Live update effect - updates chart when new data comes from WebSocket
+  useEffect(() => {
+    if (!sensorIds || !entities || !chartOptions) return;
+
+    const chartInstance = chartRef.current?.getEchartsInstance();
+    if (!chartInstance) return;
+
+    let hasUpdate = false;
+    const now = new Date().toISOString();
+
+    // Process each sensor
+    Object.entries(sensorsConfig).forEach(([key, config]) => {
+      if (!config.id || (config.optional && !selectedCO2Sensor)) return;
+
+      const entity = entities[config.id];
+      if (!entity || !entity.state) return;
+
+      const newValue = parseFloat(entity.state);
+      if (isNaN(newValue)) return;
+
+      // Only update if value changed
+      if (currentValuesRef.current[key] === newValue) return;
+      currentValuesRef.current[key] = newValue;
+      hasUpdate = true;
+
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        [key]: { ...prev[key], current: newValue.toFixed(2) }
+      }));
+
+      // Update chart data
+      const currentData = chartDataRef.current[key];
+      if (currentData?.xData?.length > 0) {
+        // Add new data point
+        const xData = [...currentData.xData, now];
+        const yData = [...currentData.yData, newValue];
+
+        // Keep only last 1000 points
+        if (xData.length > 1000) {
+          xData.shift();
+          yData.shift();
+        }
+
+        // Calculate new average
+        const newAvg = yData.reduce((a, b) => a + b, 0) / yData.length;
+        chartDataRef.current[key] = { xData, yData, avg: newAvg };
+
+        // Update stats avg
+        setStats(prev => ({
+          ...prev,
+          [key]: { ...prev[key], avg: newAvg.toFixed(2) }
+        }));
+      }
+    });
+
+    // If any sensor was updated, refresh the entire chart
+    if (hasUpdate) {
+      // Trigger a re-fetch to rebuild the chart with aligned data
+      // This ensures all series stay aligned on the same x-axis
+      const timer = setTimeout(() => {
+        setEndDate(new Date().toISOString().slice(0, 16));
+      }, 100);
+
+      return () => clearTimeout(timer);
+    }
+  }, [entities, sensorIds, selectedCO2Sensor, chartOptions]);
+
   const getTrendIcon = (trend) => {
     if (trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
     if (trend === 'down') return <FaArrowDown style={{ color: getThemeColor('--chart-error-color') }} />;

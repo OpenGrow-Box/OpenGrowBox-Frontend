@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
 import ReactECharts from 'echarts-for-react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
@@ -20,7 +20,7 @@ const CombinedWaterChart = ({
       .toISOString().slice(0, 16);
   };
 
-  const { haApiBaseUrl, haToken: accessToken } = useHomeAssistant();
+  const { haApiBaseUrl, haToken: accessToken, entities } = useHomeAssistant();
   const isDev = import.meta.env.DEV;
   const HISTORY_FETCH_TIMEOUT_MS = 15000;
 
@@ -52,13 +52,13 @@ const CombinedWaterChart = ({
   const [showExportMenu, setShowExportMenu] = useState(false);
   const chartRef = useRef(null);
 
-  // Sensor configuration with colors
-  const sensorsConfig = {
+  // Sensor configuration with colors - use useMemo to update when waterSensors change
+  const sensorsConfig = useMemo(() => ({
     ph: { id: waterSensors?.ph?.id, title: 'pH', unit: '', color: '#8b5cf6', yAxisIndex: 0 },
     ec: { id: waterSensors?.ec?.id, title: 'EC', unit: 'mS/cm', color: '#f59e0b', yAxisIndex: 1 },
     temp: { id: waterSensors?.temp?.id, title: 'Water Temp', unit: '°C', color: '#06b6d4', yAxisIndex: 2 },
     tankLevel: { id: waterSensors?.tankLevel?.id, title: 'Tank Level', unit: '%', color: '#3b82f6', yAxisIndex: 3, optional: true }
-  };
+  }), [waterSensors]);
 
   const handleExportPNG = () => {
     const chartInstance = chartRef.current?.getEchartsInstance();
@@ -667,6 +667,110 @@ const CombinedWaterChart = ({
 
     fetchAllSensorData();
   }, [startDate, endDate, waterSensors, haApiBaseUrl, accessToken, chartType]);
+
+  // Live update effect - updates chart when new data comes from WebSocket
+  useEffect(() => {
+    if (!waterSensors || !entities || !chartOptions) return;
+
+    const chartInstance = chartRef.current?.getEchartsInstance();
+    if (!chartInstance) return;
+
+    let hasUpdate = false;
+    const now = new Date().toISOString();
+    const seriesUpdates = [];
+    let newXData = null;
+
+    // Process each sensor
+    Object.entries(sensorsConfig).forEach(([key, config]) => {
+      if (!config.id || (config.optional && !waterSensors?.[key])) return;
+
+      const entity = entities[config.id];
+      if (!entity || !entity.state) return;
+
+      const newValue = parseFloat(entity.state);
+      if (isNaN(newValue)) return;
+
+      // Only update if value changed
+      if (currentValuesRef.current[key] === newValue) return;
+      currentValuesRef.current[key] = newValue;
+      hasUpdate = true;
+
+      // Update stats
+      setStats(prev => ({
+        ...prev,
+        [key]: { ...prev[key], current: newValue.toFixed(2) }
+      }));
+
+      // Update chart data
+      const currentData = chartDataRef.current[key];
+      if (currentData?.xData?.length > 0) {
+        // Add new data point
+        const xData = [...currentData.xData, now];
+        const yData = [...currentData.yData, newValue];
+
+        // Keep only last 1000 points
+        if (xData.length > 1000) {
+          xData.shift();
+          yData.shift();
+        }
+
+        // Calculate new average
+        const newAvg = yData.reduce((a, b) => a + b, 0) / yData.length;
+        chartDataRef.current[key] = { xData, yData, avg: newAvg };
+        
+        // Store for batch update
+        newXData = xData;
+
+        // Update stats avg
+        setStats(prev => ({
+          ...prev,
+          [key]: { ...prev[key], avg: newAvg.toFixed(2) }
+        }));
+
+        // Find series indices for this sensor
+        try {
+          const option = chartInstance.getOption();
+          if (!option || !option.series) return;
+          
+          const series = option.series;
+          let dataSeriesIndex = -1;
+          let avgSeriesIndex = -1;
+          
+          series.forEach((s, idx) => {
+            if (s.name === config.title) dataSeriesIndex = idx;
+            if (s.name === `${config.title} AVG`) {
+              avgSeriesIndex = idx;
+            }
+          });
+
+          if (dataSeriesIndex >= 0) {
+            seriesUpdates[dataSeriesIndex] = { data: yData };
+          }
+          if (avgSeriesIndex >= 0) {
+            seriesUpdates[avgSeriesIndex] = { data: yData.map(() => newAvg) };
+          }
+        } catch (e) {
+          // Chart not ready, skip update
+          return;
+        }
+      }
+    });
+
+    // Update chart directly without full re-fetch
+    if (hasUpdate && seriesUpdates.length > 0) {
+      try {
+        const updateOption = {};
+        if (newXData) {
+          updateOption.xAxis = { data: newXData };
+        }
+        updateOption.series = seriesUpdates;
+        
+        chartInstance.setOption(updateOption);
+      } catch (e) {
+        console.warn('Chart update failed:', e);
+      }
+    }
+  }, [entities, waterSensors, chartOptions, sensorsConfig]);
 
   const getTrendIcon = (trend) => {
     if (trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
