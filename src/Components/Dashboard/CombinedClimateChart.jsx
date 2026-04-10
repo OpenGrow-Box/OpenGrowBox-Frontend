@@ -11,7 +11,7 @@ import { Maximize2, Minimize2, LineChart, BarChart3, Image, FileSpreadsheet } fr
 const CombinedClimateChart = ({ 
   sensorIds,
   co2Sensors = [],
-  selectedCO2SensorIndex = 0,
+  selectedCO2SensorIndex = -1,  // Default: -1 (disabled)
   onCO2SensorChange,
   isGlobalLiveMode = false,
   globalLiveRefreshTrigger = 0,
@@ -19,8 +19,14 @@ const CombinedClimateChart = ({
 }) => {
   const getDefaultDate = (offset = 0) => {
     const date = new Date(Date.now() + offset);
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-      .toISOString().slice(0, 16);
+    // Return in local time format WITHOUT timezone conversion
+    // Home Assistant expects local time string like "2026-04-10T07:12"
+    const year = date.getFullYear();
+    const month = String(date.getMonth() + 1).padStart(2, '0');
+    const day = String(date.getDate()).padStart(2, '0');
+    const hours = String(date.getHours()).padStart(2, '0');
+    const minutes = String(date.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   };
 
   const { haApiBaseUrl, haToken: accessToken, entities } = useHomeAssistant();
@@ -56,8 +62,8 @@ const CombinedClimateChart = ({
   const [showCO2Selector, setShowCO2Selector] = useState(false);
   const chartRef = useRef(null);
 
-  // Get selected CO2 sensor
-  const selectedCO2Sensor = co2Sensors[selectedCO2SensorIndex];
+  // Get selected CO2 sensor (-1 means disabled)
+  const selectedCO2Sensor = selectedCO2SensorIndex >= 0 ? co2Sensors[selectedCO2SensorIndex] : null;
 
   // Sensor configuration
   const sensorsConfig = {
@@ -292,23 +298,20 @@ const CombinedClimateChart = ({
         const gridColor = getThemeColor('--glass-border');
 
         // Merge all timestamps from all sensors to create a unified x-axis
+        // Don't filter by time range - just collect ALL timestamps from all sensors
         const allTimestamps = new Set();
+        
+        // Add ALL timestamps from all sensors (no filtering)
         ['vpd', 'temp', 'humidity', 'co2'].forEach(key => {
           if (processedData[key]?.xData) {
-            processedData[key].xData.forEach(ts => allTimestamps.add(ts));
+            processedData[key].xData.forEach(ts => {
+              allTimestamps.add(ts);
+            });
           }
         });
         
         // Sort timestamps and create unified x-axis
         const baseXData = Array.from(allTimestamps).sort();
-        
-        console.log('Unified X-axis length:', baseXData.length);
-        console.log('Sensor data lengths:', {
-          vpd: processedData.vpd?.yData?.length,
-          temp: processedData.temp?.yData?.length,
-          humidity: processedData.humidity?.yData?.length,
-          co2: processedData.co2?.yData?.length
-        });
 
         // Helper function to align sensor data to unified x-axis
         const alignDataToXAxis = (sensorKey) => {
@@ -425,7 +428,6 @@ const CombinedClimateChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.vpd.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -473,7 +475,6 @@ const CombinedClimateChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.temp.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -521,7 +522,6 @@ const CombinedClimateChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.humidity.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -569,7 +569,6 @@ const CombinedClimateChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.co2.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -763,8 +762,17 @@ const CombinedClimateChart = ({
     if (hasUpdate) {
       // Trigger a re-fetch to rebuild the chart with aligned data
       // This ensures all series stay aligned on the same x-axis
+      // Use local time format to match getDefaultDate
+      const now = new Date();
+      const year = now.getFullYear();
+      const month = String(now.getMonth() + 1).padStart(2, '0');
+      const day = String(now.getDate()).padStart(2, '0');
+      const hours = String(now.getHours()).padStart(2, '0');
+      const minutes = String(now.getMinutes()).padStart(2, '0');
+      const newEndDate = `${year}-${month}-${day}T${hours}:${minutes}`;
+      
       const timer = setTimeout(() => {
-        setEndDate(new Date().toISOString().slice(0, 16));
+        setEndDate(newEndDate);
       }, 100);
 
       return () => clearTimeout(timer);

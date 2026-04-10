@@ -280,49 +280,69 @@ const CombinedWaterChart = ({
         const secondaryTextColor = getThemeColor('--second-text-color');
         const gridColor = getThemeColor('--glass-border');
 
-        // Merge all timestamps from all sensors
+        // Helper function to create [timestamp, value] pairs for each sensor
+        // This keeps each sensor's data independent with its own timestamps
+        const createTimeValuePairs = (sensorKey) => {
+          const sensorData = processedData[sensorKey];
+          if (!sensorData?.xData?.length || !sensorData?.yData?.length) {
+            return { data: [], avg: sensorData?.avg || 0 };
+          }
+          
+          // Create [timestamp, value] pairs - each sensor keeps its own timestamps
+          const pairs = sensorData.xData.map((ts, idx) => [ts, sensorData.yData[idx]]);
+          
+          return { data: pairs, avg: sensorData.avg };
+        };
+        
+        // Create time-value pairs for each sensor (independent timestamps)
+        const phData = createTimeValuePairs('ph');
+        const ecData = createTimeValuePairs('ec');
+        const tempData = createTimeValuePairs('temp');
+        const tankLevelData = createTimeValuePairs('tankLevel');
+
+        // Create unified X-axis with all timestamps from all sensors (like DashboardChart)
         const allTimestamps = new Set();
         ['ph', 'ec', 'temp', 'tankLevel'].forEach(key => {
           if (processedData[key]?.xData) {
             processedData[key].xData.forEach(ts => allTimestamps.add(ts));
           }
         });
-
         const baseXData = Array.from(allTimestamps).sort();
 
-        // Helper function to align sensor data
+        // Helper function to align sensor data to unified x-axis (like DashboardChart)
         const alignDataToXAxis = (sensorKey) => {
           const sensorData = processedData[sensorKey];
           if (!sensorData?.xData?.length || !sensorData?.yData?.length) {
-            return { data: [], avg: 0 };
+            return { data: [], avg: sensorData?.avg || 0 };
           }
-
+          
           const alignedData = [];
           const xMap = new Map();
-
+          
+          // Create map of timestamp -> value
           sensorData.xData.forEach((ts, idx) => {
             if (!xMap.has(ts)) {
               xMap.set(ts, sensorData.yData[idx]);
             }
           });
-
+          
+          // Fill aligned data for each timestamp in baseXData
           let lastValue = null;
-          let firstValue = null;
           baseXData.forEach(ts => {
             if (xMap.has(ts)) {
               lastValue = xMap.get(ts);
-              if (firstValue === null) firstValue = lastValue;
               alignedData.push(lastValue);
             } else if (lastValue !== null) {
               alignedData.push(lastValue);
             } else {
-              alignedData.push(firstValue !== null ? firstValue : sensorData.yData[0] || 0);
+              alignedData.push(sensorData.yData[0] || 0);
             }
           });
-
+          
           return { data: alignedData, avg: sensorData.avg };
         };
-
+        
+        // Align all sensor data to unified x-axis
         const alignedPH = alignDataToXAxis('ph');
         const alignedEC = alignDataToXAxis('ec');
         const alignedTemp = alignDataToXAxis('temp');
@@ -368,7 +388,7 @@ const CombinedWaterChart = ({
         ];
 
         // Add Tank Level Y-axis if available
-        if (waterSensors?.tankLevel && alignedTankLevel.data.length > 0) {
+        if (waterSensors?.tankLevel && tankLevelData.data.length > 0) {
           yAxes.push({
             type: 'value',
             name: '',
@@ -381,10 +401,10 @@ const CombinedWaterChart = ({
           });
         }
 
-        // Build series
+        // Build series using time-value pairs (each sensor has its own timestamps)
         const series = [];
 
-        // pH Series
+        // pH Series - aligned to unified x-axis
         if (alignedPH.data.length > 0) {
           series.push({
             name: 'pH',
@@ -395,7 +415,6 @@ const CombinedWaterChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.ph.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -414,25 +433,9 @@ const CombinedWaterChart = ({
               }
             }
           });
-          // pH AVG Line
-          series.push({
-            name: 'pH AVG',
-            type: 'line',
-            data: new Array(alignedPH.data.length).fill(alignedPH.avg),
-            yAxisIndex: 0,
-            smooth: false,
-            symbol: 'none',
-            lineStyle: {
-              width: 2,
-              color: sensorsConfig.ph.color,
-              type: 'dashed',
-              opacity: 0.7
-            },
-            tooltip: { show: false }
-          });
         }
 
-        // EC Series
+        // EC Series - aligned to unified x-axis
         if (alignedEC.data.length > 0) {
           series.push({
             name: 'EC',
@@ -443,7 +446,6 @@ const CombinedWaterChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.ec.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -462,25 +464,9 @@ const CombinedWaterChart = ({
               }
             }
           });
-          // EC AVG Line
-          series.push({
-            name: 'EC AVG',
-            type: 'line',
-            data: new Array(alignedEC.data.length).fill(alignedEC.avg),
-            yAxisIndex: 1,
-            smooth: false,
-            symbol: 'none',
-            lineStyle: {
-              width: 2,
-              color: sensorsConfig.ec.color,
-              type: 'dashed',
-              opacity: 0.7
-            },
-            tooltip: { show: false }
-          });
         }
 
-        // Water Temp Series
+        // Water Temp Series - aligned to unified x-axis
         if (alignedTemp.data.length > 0) {
           series.push({
             name: 'Water Temp',
@@ -491,7 +477,6 @@ const CombinedWaterChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.temp.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -510,25 +495,9 @@ const CombinedWaterChart = ({
               }
             }
           });
-          // Water Temp AVG Line
-          series.push({
-            name: 'Water Temp AVG',
-            type: 'line',
-            data: new Array(alignedTemp.data.length).fill(alignedTemp.avg),
-            yAxisIndex: 2,
-            smooth: false,
-            symbol: 'none',
-            lineStyle: {
-              width: 2,
-              color: sensorsConfig.temp.color,
-              type: 'dashed',
-              opacity: 0.7
-            },
-            tooltip: { show: false }
-          });
         }
 
-        // Tank Level Series
+        // Tank Level Series - aligned to unified x-axis
         if (waterSensors?.tankLevel && alignedTankLevel.data.length > 0) {
           series.push({
             name: 'Tank Level',
@@ -539,7 +508,6 @@ const CombinedWaterChart = ({
             symbol: chartType === 'line' || chartType === 'area' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' || chartType === 'area' ? 4 : 8,
             showSymbol: chartType === 'line' || chartType === 'area' ? false : true,
-            sampling: 'lttb',
             itemStyle: { color: sensorsConfig.tankLevel.color },
             lineStyle: chartType !== 'bar' ? {
               width: 3,
@@ -558,29 +526,13 @@ const CombinedWaterChart = ({
               }
             }
           });
-          // Tank Level AVG Line
-          series.push({
-            name: 'Tank Level AVG',
-            type: 'line',
-            data: new Array(alignedTankLevel.data.length).fill(alignedTankLevel.avg),
-            yAxisIndex: 3,
-            smooth: false,
-            symbol: 'none',
-            lineStyle: {
-              width: 2,
-              color: sensorsConfig.tankLevel.color,
-              type: 'dashed',
-              opacity: 0.7
-            },
-            tooltip: { show: false }
-          });
         }
 
         setChartOptions({
           backgroundColor: 'transparent',
           grid: {
             top: 80,
-            right: waterSensors?.tankLevel && alignedTankLevel.data.length > 0 ? 140 : 100,
+            right: waterSensors?.tankLevel && tankLevelData.data.length > 0 ? 140 : 100,
             bottom: 60,
             left: 60
           },
@@ -592,13 +544,19 @@ const CombinedWaterChart = ({
             padding: [12, 16],
             textStyle: { color: textColor, fontSize: 13 },
             formatter: (params) => {
-              const date = formatDateTime(params[0]?.axisValue);
+              // Get timestamp from first param - it's the axis value
+              const timestamp = params[0]?.axisValue;
+              if (!timestamp) return '';
+              
+              const date = formatDateTime(timestamp);
               let html = `<div style="font-weight:600;margin-bottom:8px">${date}</div>`;
 
-              const dataMap = {};
+              // Group params by series name (excluding AVG lines)
+              const sensorValues = {};
               params.forEach(p => {
-                if (!p.seriesName.includes('AVG')) {
-                  dataMap[p.seriesName] = p.value;
+                if (!p.seriesName.includes('AVG') && p.value !== undefined && p.value !== null) {
+                  // For time axis, value is the Y value (not [timestamp, value])
+                  sensorValues[p.seriesName] = Array.isArray(p.value) ? p.value[1] : p.value;
                 }
               });
 
@@ -610,12 +568,12 @@ const CombinedWaterChart = ({
               ];
 
               sensorOrder.forEach(({ name, config }) => {
-                if (dataMap[name] !== undefined && config && config.id) {
+                if (sensorValues[name] !== undefined && config && config.id) {
                   html += `
                     <div style="display:flex;align-items:center;gap:8px;margin:4px 0">
                       <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${config.color}"></span>
                       <span style="font-size:14px;font-weight:600">${name}:</span>
-                      <span style="font-size:14px;font-weight:700">${dataMap[name]} ${config.unit}</span>
+                      <span style="font-size:14px;font-weight:700">${parseFloat(sensorValues[name]).toFixed(2)} ${config.unit}</span>
                     </div>
                   `;
                 }
@@ -738,7 +696,12 @@ const CombinedWaterChart = ({
           
           series.forEach((s, idx) => {
             if (s.name === config.title) dataSeriesIndex = idx;
-            if (s.name === `${config.title} AVG`) {
+            // Check for AVG line with different naming patterns
+            if (s.name === `${config.title} AVG` || 
+                (key === 'ph' && s.name === 'pH AVG') ||
+                (key === 'ec' && s.name === 'EC AVG') ||
+                (key === 'temp' && s.name === 'Water Temp AVG') ||
+                (key === 'tankLevel' && s.name === 'Tank Level AVG')) {
               avgSeriesIndex = idx;
             }
           });
