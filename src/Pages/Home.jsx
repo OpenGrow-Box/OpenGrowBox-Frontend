@@ -194,6 +194,7 @@ export default Home;
 
 const MainContainer = styled.div`
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 10vh;
 
   @media (max-width: 768px) {

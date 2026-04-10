@@ -5,8 +5,8 @@ import { MdDashboard, MdWaterDrop, MdInsights, MdBolt, MdSmartToy } from 'react-
 import { Zap, Sun, Plug, Battery, Droplets, Leaf, Lightbulb, Sprout } from 'lucide-react';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
+import CombinedClimateChart from '../Components/Dashboard/CombinedClimateChart';
 import RoomPowerSensors from '../Components/Dashboard/RoomPowerSensors';
-
 import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
@@ -427,6 +427,17 @@ const Dashboard = () => {
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
           <ChartGrid>
+            {/* Combined Climate Chart - First Chart */}
+            <CombinedClimateChart
+              sensorIds={sensorIds}
+              co2Sensors={co2Sensors}
+              selectedCO2SensorIndex={selectedCO2SensorIndex}
+              onCO2SensorChange={setSelectedCO2SensorIndex}
+              isGlobalLiveMode={isGlobalLiveMode}
+              globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+              onLiveModeChange={handleLiveModeChange}
+            />
+            
             <DashboardChart
               sensorId={sensorIds.vpd}
               title="VPD"
@@ -599,6 +610,7 @@ const EmptyMessage = styled.p`
 
 const MainContainer = styled.div`
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 10vh;
   background: inherit;
   min-height: 100vh;

@@ -544,6 +544,8 @@ const SensorChart = ({
           <ReactECharts
             ref={chartRef}
             option={chartOptions}
+            notMerge={false}
+            lazyUpdate={false}
             style={{ height: isFullscreen ? '70vh' : '280px', width: '100%' }}
             opts={{ renderer: 'canvas' }}
           />

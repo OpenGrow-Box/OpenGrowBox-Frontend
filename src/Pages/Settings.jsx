@@ -31,6 +31,7 @@ export default Settings;
 
 const MainContainer = styled.div`
   overflow-y: auto;
+  overflow-x: hidden;
   padding-bottom: 10vh;
   background: inherit;
   @media (max-width: 480px) {
