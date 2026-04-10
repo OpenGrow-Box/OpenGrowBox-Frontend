@@ -234,9 +234,6 @@ const CombinedClimateChart = ({
           const max = values.length > 0 ? Math.max(...values) : 0;
           const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
           
-          // DEBUG: Log the key and first/last values
-          console.log(`[FETCH] ${key}: entity=${sensorsConfig[key]?.id}, first=${values[0]}, last=${values[values.length-1]}, count=${values.length}`);
-          
           // Calculate trend
           const firstHalf = values.slice(0, Math.floor(values.length / 2));
           const secondHalf = values.slice(Math.floor(values.length / 2));
@@ -661,6 +658,9 @@ const CombinedClimateChart = ({
           },
           legend: {
             data: legendData,
+            selected: {
+              'CO₂': false  // CO2 main series initially disabled (grayed out), only AVG line shows
+            },
             top: 10,
             textStyle: { color: textColor, fontSize: 12 },
             itemGap: 20
@@ -702,114 +702,6 @@ const CombinedClimateChart = ({
 
     fetchAllSensorData();
   }, [startDate, endDate, sensorIds, haApiBaseUrl, accessToken, chartType, selectedCO2SensorIndex]);
-
-  // Live update effect - only updates data, doesn't reload entire chart
-  useEffect(() => {
-    if (!sensorIds || !entities) return;
-
-    const chartInstance = chartRef.current?.getEchartsInstance();
-    if (!chartInstance || !chartOptions) return;
-    
-    // Check if chart is disposed
-    if (chartInstance.isDisposed()) return;
-
-    let hasUpdate = false;
-    const seriesUpdates = [];
-    let newXData = null;
-
-    Object.entries(sensorsConfig).forEach(([key, config]) => {
-      if (!config.id || (config.optional && !selectedCO2Sensor)) return;
-      
-      const entity = entities[config.id];
-      if (!entity || !entity.state) return;
-
-      const newValue = parseFloat(entity.state);
-      if (isNaN(newValue)) return;
-
-      // Only update if value changed
-      if (currentValuesRef.current[key] === newValue) return;
-      currentValuesRef.current[key] = newValue;
-      hasUpdate = true;
-
-      // Update stats
-      setStats(prev => ({
-        ...prev,
-        [key]: { ...prev[key], current: newValue.toFixed(2) }
-      }));
-
-      // Update chart data if we have existing data
-      const currentData = chartDataRef.current[key];
-      if (currentData?.xData?.length > 0) {
-        const now = new Date().toISOString();
-        const xData = [...currentData.xData, now];
-        const yData = [...currentData.yData, newValue];
-
-        // Keep only last 1000 points
-        if (xData.length > 1000) {
-          xData.shift();
-          yData.shift();
-        }
-
-        const newAvg = yData.reduce((a, b) => a + b, 0) / yData.length;
-        chartDataRef.current[key] = { xData, yData, avg: newAvg };
-
-        // Store for batch update
-        newXData = xData;
-        
-        // Find series indices for this sensor
-        try {
-          const option = chartInstance.getOption();
-          if (!option || !option.series) return;
-          
-          const series = option.series;
-          let dataSeriesIndex = -1;
-          let avgSeriesIndex = -1;
-          
-          series.forEach((s, idx) => {
-            if (s.name === config.title) dataSeriesIndex = idx;
-            if (s.name === `${config.title} AVG` || (key === 'temp' && s.name === 'Temp AVG') || (key === 'co2' && s.name === 'CO₂ AVG')) {
-              avgSeriesIndex = idx;
-            }
-          });
-
-          if (dataSeriesIndex >= 0) {
-            seriesUpdates[dataSeriesIndex] = { data: yData };
-          }
-          if (avgSeriesIndex >= 0) {
-            seriesUpdates[avgSeriesIndex] = { data: yData.map(() => newAvg) };
-          }
-        } catch (e) {
-          // Chart not ready, skip update
-          return;
-        }
-
-        // Update stats avg
-        setStats(prev => ({
-          ...prev,
-          [key]: { ...prev[key], avg: newAvg.toFixed(2) }
-        }));
-      }
-    });
-
-    if (hasUpdate) {
-      const updateOption = {};
-      if (newXData) {
-        updateOption.xAxis = { data: newXData };
-      }
-      if (seriesUpdates.length > 0) {
-        updateOption.series = seriesUpdates;
-      }
-      
-      if (Object.keys(updateOption).length > 0) {
-        try {
-          chartInstance.setOption(updateOption);
-        } catch (e) {
-          // Chart might not be ready
-          console.warn('Chart update failed:', e);
-        }
-      }
-    }
-  }, [entities, sensorIds, selectedCO2Sensor, chartOptions]);
 
   const getTrendIcon = (trend) => {
     if (trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
