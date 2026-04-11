@@ -58,6 +58,9 @@ const getLogType = (data) => {
   if (entry?.VPDStatus === "InDeadband" || msg.includes('deadband')) return 'vpd-deadband';
   if (entry?.vpdTarget !== undefined || entry?.vpdTargetMin !== undefined) return 'vpd';
 
+  // Reservoir level logs
+  if (entry?.Type === "RESERVOIR" || msg.includes('reservoir') || msg.includes('tank level')) return 'reservoir';
+
   // Plant configuration logs - check for plant/grow specific fields
   if (entry?.medium_name || entry?.plant_name || entry?.plant_type || entry?.plant_stage || 
       entry?.dli_target !== undefined || entry?.ppfd_target !== undefined || 
@@ -1556,7 +1559,78 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
     );
   };
 
- const formatDeviceCDData = (data) => {
+  const formatReservoirData = (data) => {
+    // Check if this is a reservoir level log
+    const isReservoir = data?.Type === "RESERVOIR" || 
+                       (data?.Message && data.Message.toLowerCase().includes('reservoir')) ||
+                       (data?.Message && data.Message.toLowerCase().includes('tank level'));
+    
+    if (!isReservoir) return null;
+
+    const level = data.level !== undefined ? data.level : 0;
+    const threshold = data.threshold !== undefined ? data.threshold : 0;
+    const message = data.Message || data.message || 'Reservoir level';
+    const debugType = data.DebugType || 'INFO';
+
+    // Determine status based on level and threshold
+    const getStatus = () => {
+      if (debugType === 'ERROR' || debugType === 'CRITICAL') return 'critical';
+      if (debugType === 'WARNING') return 'warning';
+      if (level >= threshold) return 'warning'; // High level is usually a warning
+      if (level <= 10) return 'critical'; // Very low is critical
+      if (level <= 20) return 'warning'; // Low is warning
+      return 'optimal';
+    };
+
+    const status = getStatus();
+    const statusText = level >= threshold ? 'HIGH' : (level <= 10 ? 'CRITICAL LOW' : (level <= 20 ? 'LOW' : 'NORMAL'));
+
+    return (
+      <ReservoirContainer status={status}>
+        <ReservoirHeader>
+          <ReservoirIcon status={status}>
+            {status === 'critical' ? <FaExclamationCircle size={24} /> :
+             status === 'warning' ? <FaExclamationTriangle size={24} /> :
+             <FaWater size={24} />}
+          </ReservoirIcon>
+          <ReservoirInfo>
+            <ReservoirTitle>Reservoir Level</ReservoirTitle>
+            <ReservoirMessage>{message}</ReservoirMessage>
+          </ReservoirInfo>
+          <ReservoirStatusBadge status={status}>
+            {statusText}
+          </ReservoirStatusBadge>
+        </ReservoirHeader>
+
+        <ReservoirContent>
+          <ReservoirLevelBar>
+            <ReservoirLevelFill 
+              level={level} 
+              status={status}
+            />
+            <ReservoirLevelText>{level.toFixed(1)}%</ReservoirLevelText>
+          </ReservoirLevelBar>
+
+          <ReservoirDetails>
+            <ReservoirDetailItem>
+              <ReservoirDetailLabel>Current Level</ReservoirDetailLabel>
+              <ReservoirDetailValue status={status}>{level.toFixed(1)}%</ReservoirDetailValue>
+            </ReservoirDetailItem>
+            <ReservoirDetailItem>
+              <ReservoirDetailLabel>Warning Threshold</ReservoirDetailLabel>
+              <ReservoirDetailValue>{threshold}%</ReservoirDetailValue>
+            </ReservoirDetailItem>
+            <ReservoirDetailItem>
+              <ReservoirDetailLabel>Debug Type</ReservoirDetailLabel>
+              <ReservoirDetailValue>{debugType}</ReservoirDetailValue>
+            </ReservoirDetailItem>
+          </ReservoirDetails>
+        </ReservoirContent>
+      </ReservoirContainer>
+    );
+  };
+
+  const formatDeviceCDData = (data) => {
    if (data.blocked_actions !== 0 && Array.isArray(data.emergency_conditions)) {
      const severity = data.blocked_actions > 5 ? 'critical' :
                      data.blocked_actions > 2 ? 'warning' : 'optimal';
@@ -1623,10 +1697,11 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
    const rotationData = formatRotationData(parsedInfo);
    const csData = formatCSData(parsedInfo);
    const deviceCDData = formatDeviceCDData(parsedInfo);
-   const missingPumpsData = formatMissingPumpsData(parsedInfo);
-   const plantConfigData = formatPlantConfigData(parsedInfo);
+    const missingPumpsData = formatMissingPumpsData(parsedInfo);
+    const plantConfigData = formatPlantConfigData(parsedInfo);
+    const reservoirData = formatReservoirData(parsedInfo);
 
-  const roomColors = stringToColor(room);
+   const roomColors = stringToColor(room);
   const displayRoomName = getRoomDisplayName(room);
 
   return (
@@ -1654,7 +1729,8 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
         {deviceCDData && deviceCDData}
         {missingPumpsData && missingPumpsData}
         {plantConfigData && plantConfigData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && (
+        {reservoirData && reservoirData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -1867,6 +1943,7 @@ const GrowLogs = () => {
             <option value="medium-stats">Medium Stats</option>
             <option value="night-vpd">Night VPD</option>
             <option value="plant-config">Plant Config</option>
+            <option value="reservoir">Reservoir</option>
             <option value="emergency">Emergency</option>
           </FilterSelect>
         </SearchContainer>
@@ -1984,6 +2061,7 @@ const getLogTypeIcon = (logType) => {
     case 'medium-stats': return <FaLeaf />;
     case 'night-vpd': return <GiMoon />;
     case 'plant-config': return <FaSeedling />;
+    case 'reservoir': return <FaWater />;
     case 'emergency': return <FaExclamationTriangle />;
     default: return <FaStickyNote />;
   }
@@ -2234,6 +2312,7 @@ const LogItemContainer = styled.div`
       case 'humidity': return 'linear-gradient(135deg, rgba(45, 134, 255, 0.1) 0%, rgba(45, 253, 159, 0.1) 100%)';
       case 'temperature': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 203, 95, 0.1) 100%)';
       case 'plant-config': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)';
+      case 'reservoir': return 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)';
       default: return 'rgba(255, 255, 255, 0.05)';
     }
   }};
@@ -5302,4 +5381,227 @@ export const PlantConfigMetricValue = styled.div`
   color: ${props => props.highlight ? '#22c55e' : 'rgba(255, 255, 255, 0.9)'};
   font-size: 0.9rem;
   font-weight: ${props => props.highlight ? '700' : '600'};
+`;
+
+// Reservoir Styled Components
+export const ReservoirContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'linear-gradient(135deg, rgba(239, 68, 68, 0.15) 0%, rgba(220, 38, 38, 0.15) 100%)';
+      case 'warning': return 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(217, 119, 6, 0.15) 100%)';
+      default: return 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)';
+    }
+  }};
+  border: 1px solid ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(239, 68, 68, 0.4)';
+      case 'warning': return 'rgba(245, 158, 11, 0.4)';
+      default: return 'rgba(59, 130, 246, 0.3)';
+    }
+  }};
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: ${props => {
+      switch(props.status) {
+        case 'critical': return 'linear-gradient(90deg, #ef4444, #dc2626, #b91c1c)';
+        case 'warning': return 'linear-gradient(90deg, #f59e0b, #d97706, #c2410c)';
+        default: return 'linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8)';
+      }
+    }};
+  }
+`;
+
+export const ReservoirHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const ReservoirIcon = styled.div`
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+      case 'warning': return 'linear-gradient(135deg, #f59e0b 0%, #d97706 100%)';
+      default: return 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+    }
+  }};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(239, 68, 68, 0.3)';
+      case 'warning': return 'rgba(245, 158, 11, 0.3)';
+      default: return 'rgba(59, 130, 246, 0.3)';
+    }
+  }};
+`;
+
+export const ReservoirInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+export const ReservoirTitle = styled.h3`
+  margin: 0;
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#ef4444';
+      case 'warning': return '#f59e0b';
+      default: return '#3b82f6';
+    }
+  }};
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+export const ReservoirMessage = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+export const ReservoirStatusBadge = styled.div`
+  padding: 0.5rem 1rem;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(239, 68, 68, 0.2)';
+      case 'warning': return 'rgba(245, 158, 11, 0.2)';
+      default: return 'rgba(59, 130, 246, 0.2)';
+    }
+  }};
+  border: 1px solid ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(239, 68, 68, 0.4)';
+      case 'warning': return 'rgba(245, 158, 11, 0.4)';
+      default: return 'rgba(59, 130, 246, 0.4)';
+    }
+  }};
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#ef4444';
+      case 'warning': return '#f59e0b';
+      default: return '#3b82f6';
+    }
+  }};
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+export const ReservoirContent = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+export const ReservoirLevelBar = styled.div`
+  position: relative;
+  width: 100%;
+  height: 40px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 8px;
+  overflow: hidden;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const ReservoirLevelFill = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  width: ${props => Math.min(Math.max(props.level, 0), 100)}%;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'linear-gradient(90deg, #ef4444 0%, #dc2626 50%, #b91c1c 100%)';
+      case 'warning': return 'linear-gradient(90deg, #f59e0b 0%, #d97706 50%, #c2410c 100%)';
+      default: return 'linear-gradient(90deg, #3b82f6 0%, #2563eb 50%, #1d4ed8 100%)';
+    }
+  }};
+  transition: width 0.5s ease;
+  
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: linear-gradient(180deg, 
+      rgba(255, 255, 255, 0.3) 0%, 
+      transparent 50%, 
+      rgba(0, 0, 0, 0.2) 100%
+    );
+  }
+`;
+
+export const ReservoirLevelText = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  color: white;
+  font-size: 1rem;
+  font-weight: 700;
+  text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
+  z-index: 1;
+`;
+
+export const ReservoirDetails = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+`;
+
+export const ReservoirDetailItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const ReservoirDetailLabel = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+`;
+
+export const ReservoirDetailValue = styled.div`
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#ef4444';
+      case 'warning': return '#f59e0b';
+      default: return 'rgba(255, 255, 255, 0.9)';
+    }
+  }};
+  font-size: 1rem;
+  font-weight: 600;
 `;
