@@ -56,7 +56,14 @@ const getLogType = (data) => {
   if (entry?.Mode === 'Plant-Watering') return 'hydro-mode';
   if (entry?.Mode === 'Crop-Steering') return 'hydro-mode';
   if (entry?.VPDStatus === "InDeadband" || msg.includes('deadband')) return 'vpd-deadband';
-  if (entry?.vpdTarget !== undefined || entry?.vpdTargetMin !== undefined || entry?.vpdTargetMax !== undefined) return 'vpd';
+  if (entry?.vpdTarget !== undefined || entry?.vpdTargetMin !== undefined) return 'vpd';
+
+  // Plant configuration logs - check for plant/grow specific fields
+  if (entry?.medium_name || entry?.plant_name || entry?.plant_type || entry?.plant_stage || 
+      entry?.dli_target !== undefined || entry?.ppfd_target !== undefined || 
+      entry?.breeder_bloom_days !== undefined || entry?.grow_start_date !== undefined) {
+    return 'plant-config';
+  }
 
   if (entry.action) return 'action';
   if (["PID", "MPC", "AI"].includes((entry.controllerType || '').toUpperCase())) return 'pid-controller';
@@ -1377,46 +1384,175 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
  };
 
  // Format Missing Pumps / Invalid Dripper Devices
-  const formatMissingPumpsData = (data) => {
-    if (data.Type !== "INVALID PUMPS") return null;
+   const formatMissingPumpsData = (data) => {
+     if (data.Type !== "INVALID PUMPS") return null;
+
+     return (
+       <MissingPumpsContainer>
+         <MissingPumpsHeader>
+           <MissingPumpsIconWrapper>
+             <MdOutlineWaterDrop size={28} />
+             <MissingPumpsPulse />
+           </MissingPumpsIconWrapper>
+           <MissingPumpsInfo>
+             <MissingPumpsTitle>Pump Configuration Issue</MissingPumpsTitle>
+             <MissingPumpsRoom>{data.Name || 'Unknown Room'}</MissingPumpsRoom>
+           </MissingPumpsInfo>
+           <MissingPumpsStatusBadge>
+             <FaExclamationTriangle size={14} />
+             Setup Required
+           </MissingPumpsStatusBadge>
+         </MissingPumpsHeader>
+
+         <MissingPumpsContent>
+           <MissingPumpsMessage>
+             <MissingPumpsMessageIcon>
+               <FaPlug size={18} />
+             </MissingPumpsMessageIcon>
+             <MissingPumpsMessageText>
+               {data.message || 'No valid dripper devices found'}
+             </MissingPumpsMessageText>
+           </MissingPumpsMessage>
+
+           <MissingPumpsHint>
+             <MissingPumpsHintIcon>
+               <FaCog size={14} />
+             </MissingPumpsHintIcon>
+             <MissingPumpsHintText>
+               Please configure dripper/pump devices in Home Assistant and assign them to this room.
+             </MissingPumpsHintText>
+           </MissingPumpsHint>
+         </MissingPumpsContent>
+       </MissingPumpsContainer>
+     );
+   };
+
+  const formatPlantConfigData = (data) => {
+    // Check if this is a plant configuration log
+    const isPlantConfig = data?.medium_name || data?.plant_name || data?.plant_type || 
+                         data?.plant_stage || data?.dli_target !== undefined || 
+                         data?.ppfd_target !== undefined || data?.breeder_bloom_days !== undefined;
+    
+    if (!isPlantConfig) return null;
+
+    const plantName = data.plant_name || 'Unknown Plant';
+    const mediumName = data.medium_name || 'Unknown Medium';
+    const plantType = data.plant_type || 'Unknown Type';
+    const plantStage = data.plant_stage || 'Unknown Stage';
+    const breederName = data.breeder_name || 'Unknown Breeder';
+    const currentPhase = data.current_phase || 'unknown';
+    
+    // Grow timing
+    const totalGrowDays = data.total_grow_days || 0;
+    const vegDays = data.veg_days || 0;
+    const bloomDays = data.bloom_days || 0;
+    const vegWeek = data.veg_week || 0;
+    const bloomWeek = data.bloom_week || 0;
+    const daysToHarvest = data.days_to_harvest;
+    const estimatedHarvest = data.estimated_harvest;
+    const breederBloomDays = data.breeder_bloom_days || 0;
+    
+    // Targets
+    const dliTarget = data.dli_target || 0;
+    const ppfdTarget = data.ppfd_target || 0;
+    const lightHours = data.light_hours || 0;
 
     return (
-      <MissingPumpsContainer>
-        <MissingPumpsHeader>
-          <MissingPumpsIconWrapper>
-            <MdOutlineWaterDrop size={28} />
-            <MissingPumpsPulse />
-          </MissingPumpsIconWrapper>
-          <MissingPumpsInfo>
-            <MissingPumpsTitle>Pump Configuration Issue</MissingPumpsTitle>
-            <MissingPumpsRoom>{data.Name || 'Unknown Room'}</MissingPumpsRoom>
-          </MissingPumpsInfo>
-          <MissingPumpsStatusBadge>
-            <FaExclamationTriangle size={14} />
-            Setup Required
-          </MissingPumpsStatusBadge>
-        </MissingPumpsHeader>
+      <PlantConfigContainer>
+        <PlantConfigHeader>
+          <PlantConfigIcon>
+            <FaSeedling size={24} />
+          </PlantConfigIcon>
+          <PlantConfigInfo>
+            <PlantConfigTitle>{plantName}</PlantConfigTitle>
+            <PlantConfigSubtitle>
+              {breederName} • {plantType} • {mediumName}
+            </PlantConfigSubtitle>
+          </PlantConfigInfo>
+          <PlantConfigStatusBadge>
+            <FaLeaf size={14} />
+            {plantStage}
+          </PlantConfigStatusBadge>
+        </PlantConfigHeader>
 
-        <MissingPumpsContent>
-          <MissingPumpsMessage>
-            <MissingPumpsMessageIcon>
-              <FaPlug size={18} />
-            </MissingPumpsMessageIcon>
-            <MissingPumpsMessageText>
-              {data.message || 'No valid dripper devices found'}
-            </MissingPumpsMessageText>
-          </MissingPumpsMessage>
+        <PlantConfigGrid>
+          {/* Timing Section */}
+          <PlantConfigSection>
+            <PlantConfigSectionTitle>
+              <FaClock size={16} />
+              Grow Timing
+            </PlantConfigSectionTitle>
+            <PlantConfigMetrics>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>Total Days</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{totalGrowDays}</PlantConfigMetricValue>
+              </PlantConfigMetric>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>Vegetative</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{vegDays} days (W{vegWeek})</PlantConfigMetricValue>
+              </PlantConfigMetric>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>Bloom</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{bloomDays} days (W{bloomWeek})</PlantConfigMetricValue>
+              </PlantConfigMetric>
+              {daysToHarvest !== null && (
+                <PlantConfigMetric>
+                  <PlantConfigMetricLabel>Days to Harvest</PlantConfigMetricLabel>
+                  <PlantConfigMetricValue highlight>{daysToHarvest}</PlantConfigMetricValue>
+                </PlantConfigMetric>
+              )}
+              {breederBloomDays > 0 && (
+                <PlantConfigMetric>
+                  <PlantConfigMetricLabel>Breeder Bloom Days</PlantConfigMetricLabel>
+                  <PlantConfigMetricValue>{breederBloomDays}</PlantConfigMetricValue>
+                </PlantConfigMetric>
+              )}
+            </PlantConfigMetrics>
+          </PlantConfigSection>
 
-          <MissingPumpsHint>
-            <MissingPumpsHintIcon>
-              <FaCog size={14} />
-            </MissingPumpsHintIcon>
-            <MissingPumpsHintText>
-              Please configure dripper/pump devices in Home Assistant and assign them to this room.
-            </MissingPumpsHintText>
-          </MissingPumpsHint>
-        </MissingPumpsContent>
-      </MissingPumpsContainer>
+          {/* Targets Section */}
+          <PlantConfigSection>
+            <PlantConfigSectionTitle>
+              <MdLightbulb size={16} />
+              Light Targets
+            </PlantConfigSectionTitle>
+            <PlantConfigMetrics>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>DLI Target</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{dliTarget} mol/m²/day</PlantConfigMetricValue>
+              </PlantConfigMetric>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>PPFD Target</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{ppfdTarget} µmol/m²/s</PlantConfigMetricValue>
+              </PlantConfigMetric>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>Light Hours</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{lightHours}h</PlantConfigMetricValue>
+              </PlantConfigMetric>
+            </PlantConfigMetrics>
+          </PlantConfigSection>
+
+          {/* Status Section */}
+          <PlantConfigSection>
+            <PlantConfigSectionTitle>
+              <FaRegCircle size={16} />
+              Current Status
+            </PlantConfigSectionTitle>
+            <PlantConfigMetrics>
+              <PlantConfigMetric>
+                <PlantConfigMetricLabel>Phase</PlantConfigMetricLabel>
+                <PlantConfigMetricValue>{currentPhase}</PlantConfigMetricValue>
+              </PlantConfigMetric>
+              {estimatedHarvest && (
+                <PlantConfigMetric>
+                  <PlantConfigMetricLabel>Est. Harvest</PlantConfigMetricLabel>
+                  <PlantConfigMetricValue highlight>{estimatedHarvest}</PlantConfigMetricValue>
+                </PlantConfigMetric>
+              )}
+            </PlantConfigMetrics>
+          </PlantConfigSection>
+        </PlantConfigGrid>
+      </PlantConfigContainer>
     );
   };
 
@@ -1473,21 +1609,22 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
    return null;
  };
 
-  // Format MediumPlantsUpdate data (plants array from backend)
-  const sensorData = formatSensorData(parsedInfo);
-  const actionData = formatActionData(parsedInfo);
-  const deviceData = formatDeviceAction(parsedInfo);
-  const deviationData = formatDeviationData(parsedInfo);
-  const nightVPDData = formatNightVPDData(parsedInfo);
-  const mediumData = formatMediumData(parsedInfo);
-  const castData = formatCastData(parsedInfo);
-  const plantWateringData = formatPlantWateringData(parsedInfo);
-  const vpdTargetData = formatVPDTargetData(parsedInfo);
-  const deadbandData = formatDeadbandData(parsedInfo);
-  const rotationData = formatRotationData(parsedInfo);
-  const csData = formatCSData(parsedInfo);
-  const deviceCDData = formatDeviceCDData(parsedInfo);
-  const missingPumpsData = formatMissingPumpsData(parsedInfo);
+   // Format MediumPlantsUpdate data (plants array from backend)
+   const sensorData = formatSensorData(parsedInfo);
+   const actionData = formatActionData(parsedInfo);
+   const deviceData = formatDeviceAction(parsedInfo);
+   const deviationData = formatDeviationData(parsedInfo);
+   const nightVPDData = formatNightVPDData(parsedInfo);
+   const mediumData = formatMediumData(parsedInfo);
+   const castData = formatCastData(parsedInfo);
+   const plantWateringData = formatPlantWateringData(parsedInfo);
+   const vpdTargetData = formatVPDTargetData(parsedInfo);
+   const deadbandData = formatDeadbandData(parsedInfo);
+   const rotationData = formatRotationData(parsedInfo);
+   const csData = formatCSData(parsedInfo);
+   const deviceCDData = formatDeviceCDData(parsedInfo);
+   const missingPumpsData = formatMissingPumpsData(parsedInfo);
+   const plantConfigData = formatPlantConfigData(parsedInfo);
 
   const roomColors = stringToColor(room);
   const displayRoomName = getRoomDisplayName(room);
@@ -1501,7 +1638,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
         </RoomInfo>
         <TimeStamp>{date}</TimeStamp>
       </LogHeader>
-      <LogContent>
+       <LogContent>
         {sensorData && sensorData}
         {actionData && actionData}
         {deviceData && deviceData}
@@ -1516,7 +1653,8 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
         {csData && csData}
         {deviceCDData && deviceCDData}
         {missingPumpsData && missingPumpsData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && (
+        {plantConfigData && plantConfigData}
+        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -1728,6 +1866,7 @@ const GrowLogs = () => {
             <option value="pid-controller">PID Controller</option>
             <option value="medium-stats">Medium Stats</option>
             <option value="night-vpd">Night VPD</option>
+            <option value="plant-config">Plant Config</option>
             <option value="emergency">Emergency</option>
           </FilterSelect>
         </SearchContainer>
@@ -1844,6 +1983,7 @@ const getLogTypeIcon = (logType) => {
     case 'pid-controller': return <MdTune />;
     case 'medium-stats': return <FaLeaf />;
     case 'night-vpd': return <GiMoon />;
+    case 'plant-config': return <FaSeedling />;
     case 'emergency': return <FaExclamationTriangle />;
     default: return <FaStickyNote />;
   }
@@ -2093,6 +2233,7 @@ const LogItemContainer = styled.div`
       case 'night-vpd': return 'linear-gradient(135deg, rgba(44, 62, 80, 0.1) 0%, rgba(52, 152, 219, 0.1) 100%)'; 
       case 'humidity': return 'linear-gradient(135deg, rgba(45, 134, 255, 0.1) 0%, rgba(45, 253, 159, 0.1) 100%)';
       case 'temperature': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 203, 95, 0.1) 100%)';
+      case 'plant-config': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)';
       default: return 'rgba(255, 255, 255, 0.05)';
     }
   }};
@@ -5035,4 +5176,130 @@ const MissingPumpsHintText = styled.div`
   color: rgba(255, 255, 255, 0.6);
   font-size: 0.8rem;
   line-height: 1.4;
+`;
+
+// Plant Config Styled Components
+export const PlantConfigContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #22c55e, #3b82f6, #22c55e);
+  }
+`;
+
+export const PlantConfigHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const PlantConfigIcon = styled.div`
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e 0%, #3b82f6 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+`;
+
+export const PlantConfigInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+export const PlantConfigTitle = styled.h3`
+  margin: 0;
+  color: #22c55e;
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+export const PlantConfigSubtitle = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+export const PlantConfigStatusBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+`;
+
+export const PlantConfigGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+`;
+
+export const PlantConfigSection = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  padding: 0.75rem;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const PlantConfigSectionTitle = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.8);
+  font-size: 0.9rem;
+  font-weight: 600;
+  margin-bottom: 0.75rem;
+  padding-bottom: 0.5rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const PlantConfigMetrics = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+export const PlantConfigMetric = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.5rem 0;
+`;
+
+export const PlantConfigMetricLabel = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  font-weight: 500;
+`;
+
+export const PlantConfigMetricValue = styled.div`
+  color: ${props => props.highlight ? '#22c55e' : 'rgba(255, 255, 255, 0.9)'};
+  font-size: 0.9rem;
+  font-weight: ${props => props.highlight ? '700' : '600'};
 `;
