@@ -56,7 +56,7 @@ const dynamicFilters = {
       },
       'Closed Environment': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","light","planttype"],
+        excludeKeywords: ['drying', "template", "target", "weigh", "feed", 'hydro',"crop","light","planttype",'Vpdtolerance'],
         additionalTooltips: {}
       },
       'Script Mode': {
@@ -325,7 +325,7 @@ const dynamicFilters = {
     conditions: {
       'Crop-Steering': {
         includeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot',],
-        excludeKeywords: ['pump', 'leaf',   'cycle', 'Retrive','drying','plan','tolerance','plant','medium','light'],
+        excludeKeywords: ['pump', 'leaf',   'cycle', 'Retrive','drying','plan','tolerance','plant','medium','light','flow'],
         additionalTooltips: {
           'ogb_crop_dry_back_': 'Set the dry-back percentage for crop steering cycles',
           'ogb_crop_wet_time_': 'Set duration for wet phase in crop steering',
@@ -334,7 +334,7 @@ const dynamicFilters = {
       },
       'Hydro': {
         includeKeywords: ['hydro', 'pump', 'duration', 'intervall', 'cycle', 'Retrive'],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','plant','medium'],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','plant','medium','flow'],
         additionalTooltips: {
           'ogb_hydropumpduration_': 'Duration the hydro pump stays active',
           'ogb_hydropumpintervall_': 'Interval between hydro pump cycles'
@@ -342,19 +342,19 @@ const dynamicFilters = {
       },
       'Plant-Watering': {
         includeKeywords: ['soil'],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','cycle','medium','retrive'],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf','cycle','medium','retrive','flow'],
         additionalTooltips: {
           'ogb_waterpump_device_select_': 'Select water pump for simple watering'
         }
       },
       'Disabled': {
         includeKeywords: ["hydro"],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf', 'duration', 'intervall', "cycle", "Retrive","Plant",'medium'],
+        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf', 'duration', 'intervall', "cycle", "Retrive","Plant",'medium','flow'],
         additionalTooltips: {}
       },
       'Config': {
         includeKeywords: ["hydro"],
-        excludeKeywords: ["hydro_retrive","hydro_cycle"],
+        excludeKeywords: ["hydro_retrive","hydro_cycle",'flow'],
         additionalTooltips: {}
       }
     }
@@ -366,12 +366,12 @@ const dynamicFilters = {
     conditions: {
       'YES': {
         includeKeywords: [],
-        excludeKeywords: [],
+        excludeKeywords: ["light",],
         additionalTooltips: { }
       },
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ["retriveduration","retriveintervall","light"],
+        excludeKeywords: ["retriveduration","retriveintervall","light",'flow'],
         additionalTooltips: { }
       }
 
@@ -439,7 +439,7 @@ const dynamicFilters = {
     conditions: {
       'Tank Feed': {
         includeKeywords: ['feed',  'ec', 'ph', 'tolerance', 'tank'],
-        excludeKeywords: ['plant','Nutrient', 'individual', 'hydro'],
+        excludeKeywords: ['plant','nutrient', 'individual', 'hydro'],
         additionalTooltips: {
           'ogb_feed_ec_target_': 'EC target for tank feeding system',
           'ogb_feed_ph_target_': 'pH target for tank feeding system'
@@ -447,7 +447,7 @@ const dynamicFilters = {
       },
       'Plant Feed': {
         includeKeywords: ['feed', 'plant', 'individual'],
-        excludeKeywords: ['tank','nutrient', 'ec', 'ph', 'hydro'],
+        excludeKeywords: ['tank','Nutrient', 'ec', 'ph', 'hydro'],
         additionalTooltips: {
           'ogb_feed_nutrient_a_': 'Nutrient A dosing per plant',
           'ogb_feed_nutrient_b_': 'Nutrient B dosing per plant'
@@ -462,12 +462,12 @@ const dynamicFilters = {
       },
       'Disabled': {
         includeKeywords: ['feed'],
-        excludeKeywords: ['target','nutrient','tolerance'],
+        excludeKeywords: ['target','nutrient','tolerance','Nutrient','flow'],
         additionalTooltips: {}
       },
       'Config': {
         includeKeywords: ['feed'],
-        excludeKeywords: ['nutrient',],
+        excludeKeywords: ['Nutrient',],
         additionalTooltips: {}
       }
     }
@@ -494,7 +494,7 @@ const groupMappings = {
   },
   'Feed Settings': {
     includeKeywords: ['pump', 'feed'],
-    excludeKeywords: ['Device', 'water', 'hydro','tolerance'],
+    excludeKeywords: ['Device', 'water', 'hydro','tolerance','nutrient'],
   },
   'Special Settings': {
     includeKeywords: ['area','medium','console','planttype','season'],
