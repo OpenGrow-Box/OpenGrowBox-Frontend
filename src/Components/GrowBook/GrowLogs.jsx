@@ -61,6 +61,9 @@ const getLogType = (data) => {
   // Reservoir level logs
   if (entry?.Type === "RESERVOIR" || msg.includes('reservoir') || msg.includes('tank level')) return 'reservoir';
 
+  // CO2 safety logs
+  if (entry?.alertType === "CO2_SAFETY" || msg.includes('co2') || msg.includes('co²') || msg.includes('carbon dioxide')) return 'co2-safety';
+
   // Plant configuration logs - check for plant/grow specific fields
   if (entry?.medium_name || entry?.plant_name || entry?.plant_type || entry?.plant_stage || 
       entry?.dli_target !== undefined || entry?.ppfd_target !== undefined || 
@@ -1661,6 +1664,85 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
     );
   };
 
+  const formatCO2Data = (data) => {
+    // Check if this is a CO2 safety log
+    const isCO2Log = data?.alertType === "CO2_SAFETY" || 
+                     (data?.message && data.message.toLowerCase().includes('co2')) ||
+                     (data?.message && data.message.toLowerCase().includes('co²')) ||
+                     (data?.message && data.message.toLowerCase().includes('carbon dioxide'));
+
+    if (!isCO2Log) return null;
+
+    const currentCO2 = data.current_co2 || 0;
+    const co2Level = data.co2Level || data.DebugType || 'INFO';
+    const message = data.message || data.Message || 'CO2 alert';
+    const debugType = data.DebugType || 'INFO';
+    const timestamp = data.timestamp;
+
+    // Determine status based on CO2 level and debug type
+    const getStatus = () => {
+      if (debugType === 'ERROR' || debugType === 'CRITICAL') return 'critical';
+      if (debugType === 'WARNING') return 'warning';
+      if (co2Level === 'WARNING' || co2Level === 'ERROR' || co2Level === 'CRITICAL') {
+        return co2Level.toLowerCase();
+      }
+      if (currentCO2 > 1500) return 'critical'; // Very high CO2
+      if (currentCO2 > 1200) return 'warning'; // High CO2
+      if (currentCO2 < 200) return 'warning'; // Low CO2
+      return 'optimal';
+    };
+
+    const status = getStatus();
+    const statusText = status === 'critical' ? 'CRITICAL' : (status === 'warning' ? 'WARNING' : 'NORMAL');
+
+    return (
+      <CO2Container status={status}>
+        <CO2Header>
+          <CO2Icon status={status}>
+            <MdCloud size={24} />
+          </CO2Icon>
+          <CO2Info>
+            <CO2Title>CO2 Level Alert</CO2Title>
+            <CO2Message>{message}</CO2Message>
+          </CO2Info>
+          <CO2StatusBadge status={status}>
+            {statusText}
+          </CO2StatusBadge>
+        </CO2Header>
+
+        <CO2Content>
+          <CO2LevelDisplay>
+            <CO2LevelValue status={status}>
+              {currentCO2.toFixed(1)}
+            </CO2LevelValue>
+            <CO2LevelUnit>ppm</CO2LevelUnit>
+          </CO2LevelDisplay>
+
+          <CO2Details>
+            <CO2DetailItem>
+              <CO2DetailLabel>Current Level</CO2DetailLabel>
+              <CO2DetailValue status={status}>{currentCO2.toFixed(1)} ppm</CO2DetailValue>
+            </CO2DetailItem>
+            <CO2DetailItem>
+              <CO2DetailLabel>CO2 Status</CO2DetailLabel>
+              <CO2DetailValue>{co2Level}</CO2DetailValue>
+            </CO2DetailItem>
+            <CO2DetailItem>
+              <CO2DetailLabel>Debug Type</CO2DetailLabel>
+              <CO2DetailValue>{debugType}</CO2DetailValue>
+            </CO2DetailItem>
+            {timestamp && (
+              <CO2DetailItem>
+                <CO2DetailLabel>Timestamp</CO2DetailLabel>
+                <CO2DetailValue>{new Date(timestamp).toLocaleString()}</CO2DetailValue>
+              </CO2DetailItem>
+            )}
+          </CO2Details>
+        </CO2Content>
+      </CO2Container>
+    );
+  };
+
   const formatDeviceCDData = (data) => {
    if (data.blocked_actions !== 0 && Array.isArray(data.emergency_conditions)) {
      const severity = data.blocked_actions > 5 ? 'critical' :
@@ -1731,6 +1813,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
     const missingPumpsData = formatMissingPumpsData(parsedInfo);
     const plantConfigData = formatPlantConfigData(parsedInfo);
     const reservoirData = formatReservoirData(parsedInfo);
+    const co2Data = formatCO2Data(parsedInfo);
 
    const roomColors = stringToColor(room);
   const displayRoomName = getRoomDisplayName(room);
@@ -1758,10 +1841,11 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
         {rotationData && rotationData}
         {csData && csData}
         {deviceCDData && deviceCDData}
-        {missingPumpsData && missingPumpsData}
-        {plantConfigData && plantConfigData}
-        {reservoirData && reservoirData}
-        {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && (
+         {missingPumpsData && missingPumpsData}
+         {plantConfigData && plantConfigData}
+         {reservoirData && reservoirData}
+         {co2Data && co2Data}
+         {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && !co2Data && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -1975,6 +2059,7 @@ const GrowLogs = () => {
             <option value="night-vpd">Night VPD</option>
             <option value="plant-config">Plant Config</option>
             <option value="reservoir">Reservoir</option>
+            <option value="co2-safety">CO2 Safety</option>
             <option value="emergency">Emergency</option>
           </FilterSelect>
         </SearchContainer>
@@ -2093,6 +2178,7 @@ const getLogTypeIcon = (logType) => {
     case 'night-vpd': return <GiMoon />;
     case 'plant-config': return <FaSeedling />;
     case 'reservoir': return <FaWater />;
+    case 'co2-safety': return <MdCloud />;
     case 'emergency': return <FaExclamationTriangle />;
     default: return <FaStickyNote />;
   }
@@ -2344,6 +2430,7 @@ const LogItemContainer = styled.div`
       case 'temperature': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 203, 95, 0.1) 100%)';
       case 'plant-config': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)';
       case 'reservoir': return 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)';
+      case 'co2-safety': return 'linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(107, 114, 128, 0.1) 100%)';
       default: return 'rgba(255, 255, 255, 0.05)';
     }
   }};
@@ -5708,5 +5795,212 @@ export const CooldownStatus = styled.div`
       color: #f59e0b;
     `
   }
+`;
+
+// CO2 Safety Styled Components
+export const CO2Container = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'linear-gradient(135deg, rgba(107, 114, 128, 0.2) 0%, rgba(75, 85, 99, 0.2) 100%)';
+      case 'warning': return 'linear-gradient(135deg, rgba(156, 163, 175, 0.15) 0%, rgba(107, 114, 128, 0.15) 100%)';
+      default: return 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)';
+    }
+  }};
+  border: 1px solid ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(107, 114, 128, 0.5)';
+      case 'warning': return 'rgba(156, 163, 175, 0.4)';
+      default: return 'rgba(59, 130, 246, 0.3)';
+    }
+  }};
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: ${props => {
+      switch(props.status) {
+        case 'critical': return 'linear-gradient(90deg, #6b7280, #4b5563, #374151)';
+        case 'warning': return 'linear-gradient(90deg, #9ca3af, #6b7280, #4b5563)';
+        default: return 'linear-gradient(90deg, #3b82f6, #2563eb, #1d4ed8)';
+      }
+    }};
+  }
+`;
+
+export const CO2Header = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const CO2Icon = styled.div`
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'linear-gradient(135deg, #6b7280 0%, #4b5563 100%)';
+      case 'warning': return 'linear-gradient(135deg, #9ca3af 0%, #6b7280 100%)';
+      default: return 'linear-gradient(135deg, #3b82f6 0%, #2563eb 100%)';
+    }
+  }};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(107, 114, 128, 0.4)';
+      case 'warning': return 'rgba(156, 163, 175, 0.3)';
+      default: return 'rgba(59, 130, 246, 0.3)';
+    }
+  }};
+`;
+
+export const CO2Info = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+export const CO2Title = styled.h3`
+  margin: 0;
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#9ca3af';
+      case 'warning': return '#d1d5db';
+      default: return '#3b82f6';
+    }
+  }};
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+export const CO2Message = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+export const CO2StatusBadge = styled.div`
+  padding: 0.5rem 1rem;
+  background: ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(107, 114, 128, 0.3)';
+      case 'warning': return 'rgba(156, 163, 175, 0.25)';
+      default: return 'rgba(59, 130, 246, 0.2)';
+    }
+  }};
+  border: 1px solid ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(107, 114, 128, 0.5)';
+      case 'warning': return 'rgba(156, 163, 175, 0.4)';
+      default: return 'rgba(59, 130, 246, 0.4)';
+    }
+  }};
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#9ca3af';
+      case 'warning': return '#d1d5db';
+      default: return '#3b82f6';
+    }
+  }};
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+export const CO2Content = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+`;
+
+export const CO2LevelDisplay = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  padding: 1.5rem;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const CO2LevelValue = styled.div`
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#9ca3af';
+      case 'warning': return '#d1d5db';
+      default: return '#3b82f6';
+    }
+  }};
+  text-shadow: 0 0 20px ${props => {
+    switch(props.status) {
+      case 'critical': return 'rgba(107, 114, 128, 0.5)';
+      case 'warning': return 'rgba(156, 163, 175, 0.4)';
+      default: return 'rgba(59, 130, 246, 0.3)';
+    }
+  }};
+`;
+
+export const CO2LevelUnit = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 1rem;
+  font-weight: 500;
+`;
+
+export const CO2Details = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 0.75rem;
+`;
+
+export const CO2DetailItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const CO2DetailLabel = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+`;
+
+export const CO2DetailValue = styled.div`
+  color: ${props => {
+    switch(props.status) {
+      case 'critical': return '#9ca3af';
+      case 'warning': return '#d1d5db';
+      default: return 'rgba(255, 255, 255, 0.9)';
+    }
+  }};
+  font-size: 1rem;
+  font-weight: 600;
 `;
 
