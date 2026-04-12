@@ -967,13 +967,44 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
                     <VPDActionDirection direction={direction}>{direction}</VPDActionDirection>
                   </VPDActionItem>
                 );
+               })}
+             </ActionsList>
+           </ActionsContainer>
+         )}
+        
+        {/* Cooldown Information */}
+        {data?.activeCooldowns > 0 && data?.cooldownInfo && (
+          <CooldownContainer>
+            <CooldownHeader>
+              <CooldownIcon><FaClock size={18} color="#ff6b35" /></CooldownIcon>
+              <CooldownTitle>{data.activeCooldowns} Active Cooldowns</CooldownTitle>
+            </CooldownHeader>
+            <CooldownList>
+              {Object.entries(data.cooldownInfo).map(([device, info], idx) => {
+                const remainingMinutes = Math.floor(info.remaining_seconds / 60);
+                const remainingSeconds = Math.floor(info.remaining_seconds % 60);
+                const remainingText = remainingMinutes > 0 
+                  ? `${remainingMinutes}m ${remainingSeconds}s` 
+                  : `${remainingSeconds}s`;
+                
+                return (
+                  <CooldownItem key={idx}>
+                    <CooldownDevice>
+                      {device.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
+                    </CooldownDevice>
+                    <CooldownTime>{remainingText}</CooldownTime>
+                    <CooldownStatus blocked={info.is_blocked}>
+                      {info.is_blocked ? 'Blocked' : 'Waiting'}
+                    </CooldownStatus>
+                  </CooldownItem>
+                );
               })}
-            </ActionsList>
-          </ActionsContainer>
+            </CooldownList>
+          </CooldownContainer>
         )}
-      </DeviationContainer>
-    );
-  };
+       </DeviationContainer>
+     );
+   };
 
   // Format VPD Deadband data
   const formatDeadbandData = (data) => {
@@ -5605,3 +5636,77 @@ export const ReservoirDetailValue = styled.div`
   font-size: 1rem;
   font-weight: 600;
 `;
+
+// Cooldown Information Styles
+export const CooldownContainer = styled.div`
+  margin-top: 1rem;
+  padding: 0.75rem;
+  background: rgba(255, 107, 53, 0.1);
+  border: 1px solid rgba(255, 107, 53, 0.3);
+  border-radius: 8px;
+`;
+
+export const CooldownHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin-bottom: 0.5rem;
+`;
+
+export const CooldownIcon = styled.div``;
+
+export const CooldownTitle = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+export const CooldownList = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 0.5rem;
+`;
+
+export const CooldownItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 6px;
+  border-left: 3px solid rgba(255, 107, 53, 0.6);
+`;
+
+export const CooldownDevice = styled.div`
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.8rem;
+  font-weight: 500;
+  text-transform: capitalize;
+`;
+
+export const CooldownTime = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.8rem;
+  font-weight: 600;
+  font-family: 'Monaco', 'Menlo', monospace;
+`;
+
+export const CooldownStatus = styled.div`
+  font-size: 0.75rem;
+  font-weight: 500;
+  padding: 0.15rem 0.5rem;
+  border-radius: 4px;
+  ${props => props.blocked 
+    ? `
+      background: rgba(239, 68, 68, 0.2);
+      color: #ef4444;
+    `
+    : `
+      background: rgba(245, 158, 11, 0.2);
+      color: #f59e0b;
+    `
+  }
+`;
+
