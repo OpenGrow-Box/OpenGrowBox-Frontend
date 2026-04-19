@@ -298,7 +298,7 @@ export const normalizeRemotePlantStages = (payload) => {
 
   const extracted = Array.isArray(payload)
     ? payload
-    : payload?.plantStages || payload?.data?.plantStages || payload?.data || []
+    : payload?.plantStages || payload?.plant_stages || payload?.data?.plantStages || payload?.data?.plant_stages || payload?.data || []
 
   const extractedObjectMatch = normalizeObjectStages(extracted)
   if (extractedObjectMatch) return extractedObjectMatch

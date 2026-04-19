@@ -453,8 +453,8 @@ const Wizzard = ({ onComplete }) => {
         if (currentPlantConfigRequestRef.current && requestId === currentPlantConfigRequestRef.current) {
           currentPlantConfigRequestRef.current = null
           const normalizedCurrentStages = mergePlantAndLightStages(
-            normalizeRemotePlantStages(data.plantStages || data.data || data.result || data),
-            data.lightPlantStages
+            normalizeRemotePlantStages(data.plantStages || data.plant_stages || data.data || data.result || data),
+            data.lightPlantStages || data.light_plant_stages
           )
 
           setWizardData((prev) => ({
@@ -479,11 +479,67 @@ const Wizzard = ({ onComplete }) => {
         pendingPlantConfigRequestRef.current = null
 
         const normalizedPlantStages = mergePlantAndLightStages(
-          normalizeRemotePlantStages(data.plantStages || data.data || data.result || data),
-          data.lightPlantStages
+          normalizeRemotePlantStages(data.plantStages || data.plant_stages || data.data || data.result || data),
+          data.lightPlantStages || data.light_plant_stages
         )
 
         if (!data.success || !normalizedPlantStages) {
+          const stagesArray = data.plantStages?.data || data.plant_stages?.data || []
+          
+          if (stagesArray && Array.isArray(stagesArray) && stagesArray.length > 0) {
+            const mapped = {}
+            const stageNameMap = {
+              'germination': 'germination',
+              'clones': 'clones',
+              'clones/cuttings': 'clones',
+              'early vegetative': 'earlyVeg',
+              'mid vegetative': 'midVeg',
+              'late vegetative': 'lateVeg',
+              'early flowering': 'earlyFlower',
+              'mid flowering': 'midFlower',
+              'late flowering': 'lateFlower'
+            }
+            
+            stagesArray.forEach(stage => {
+              const name = (stage.name || stage.id || '').toString().toLowerCase()
+              const key = stageNameMap[name]
+              if (key) {
+                const env = stage.environmental || {}
+                const temp = env.temperature?.optimal || []
+                const humidity = env.humidity?.optimal || []
+                const vpd = stage.vpd?.optimal || env.vpd?.optimal || []
+                
+                mapped[key] = {
+                  minTemp: temp[0] || 20,
+                  maxTemp: temp[1] || 26,
+                  minHumidity: humidity[0] || 60,
+                  maxHumidity: humidity[1] || 75,
+                  minVPD: vpd[0] || 0.8,
+                  maxVPD: vpd[1] || 1.2,
+                  minLight: 20,
+                  maxLight: 100,
+                  minEC: 0.8,
+                  maxEc: 1.8,
+                  minPh: 5.8,
+                  maxPh: 6.2,
+                  minCo2: 600,
+                  maxCo2: 1200
+                }
+              }
+            })
+            
+            if (Object.keys(mapped).length >= 8) {
+              setWizardData((prev) => ({
+                ...prev,
+                plantStages: mapped,
+                autoPlantStageStatus: 'success',
+                autoPlantStageError: '',
+                autoPlantStageSource: data.source || (prev.plantStageMode === 'default' ? 'OpenGrowBox Default Library' : 'OpenGrowBox Live Library'),
+              }))
+              return
+            }
+          }
+
           setWizardData((prev) => ({
             ...prev,
             autoPlantStageStatus: 'error',
@@ -497,9 +553,7 @@ const Wizzard = ({ onComplete }) => {
           plantStages: normalizedPlantStages,
           autoPlantStageStatus: 'success',
           autoPlantStageError: '',
-          autoPlantStageSource:
-            data.source ||
-            (prev.plantStageMode === 'default' ? 'OpenGrowBox Default Library' : 'OpenGrowBox Live Library'),
+          autoPlantStageSource: data.source || (prev.plantStageMode === 'default' ? 'OpenGrowBox Default Library' : 'OpenGrowBox Live Library'),
         }))
       }, PLANT_CONFIG_RESULT_EVENT)
 
@@ -528,8 +582,8 @@ const Wizzard = ({ onComplete }) => {
         }
 
         const normalizedPlantStages = mergePlantAndLightStages(
-          normalizeRemotePlantStages(data.plantStages || data.data || data.result || data),
-          data.lightPlantStages
+          normalizeRemotePlantStages(data.plantStages || data.plant_stages || data.data || data.result || data),
+          data.lightPlantStages || data.light_plant_stages
         )
 
         setWizardData((prev) => ({

@@ -711,6 +711,22 @@ const ControlMode = ({ onSelectChange }) => {
             )}
           </PlanInfoGrid>
 
+          {/* Active Grow Plan */}
+          {subscription?.activeGrowPlan && (
+            <ActivePlanCard>
+              <ActivePlanIcon>🌱</ActivePlanIcon>
+              <ActivePlanInfo>
+                <ActivePlanLabel>Active Grow Plan</ActivePlanLabel>
+                <ActivePlanName>{subscription.activeGrowPlan.plan_name || 'Custom'}</ActivePlanName>
+                {subscription.activeGrowPlan.start_date && (
+                  <ActivePlanRuntime>
+                    Running since {new Date(subscription.activeGrowPlan.start_date).toLocaleDateString()}
+                  </ActivePlanRuntime>
+                )}
+              </ActivePlanInfo>
+            </ActivePlanCard>
+          )}
+
           {/* Show enabled features - API uses camelCase */}
           {subscription?.features && (
             <FeaturesList>
@@ -1401,9 +1417,48 @@ const CancelButton = styled(ModalButton)`
 const ConfirmButton = styled(ModalButton)`
   background: linear-gradient(135deg, #FF9800 0%, #F57C00 100%);
   color: white;
-  
+
   &:hover {
     background: linear-gradient(135deg, #FFA726 0%, #FB8C00 100%);
     box-shadow: 0 4px 15px rgba(255, 152, 0, 0.4);
   }
+`;
+
+const ActivePlanCard = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.75rem 1rem;
+  background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(34, 211, 238, 0.1));
+  border: 1px solid rgba(74, 222, 128, 0.3);
+  border-radius: 10px;
+`;
+
+const ActivePlanIcon = styled.div`
+  font-size: 1.5rem;
+`;
+
+const ActivePlanInfo = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+`;
+
+const ActivePlanLabel = styled.div`
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+`;
+
+const ActivePlanName = styled.div`
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--primary-accent);
+`;
+
+const ActivePlanRuntime = styled.div`
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.6);
 `;

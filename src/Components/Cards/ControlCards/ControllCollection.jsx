@@ -26,7 +26,7 @@ const dynamicFilters = {
       },
       'PID Control': {
         includeKeywords: ['pid', 'proportional', 'integral', 'derivative'],
-        excludeKeywords: ['drying', 'mpc',  'hydro','target',"crop","dampening","ambient"],
+        excludeKeywords: ['drying', 'mpc',  'hydro','target',"crop","dampening","ambient","tolerance"],
         additionalTooltips: {
           'ogb_pid_kp_': 'Proportional gain for PID controller',
           'ogb_pid_ki_': 'Integral gain for PID controller',

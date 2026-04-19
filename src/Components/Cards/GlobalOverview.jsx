@@ -1,149 +1,92 @@
 import { useState } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
-import styled, { keyframes } from 'styled-components';
+import styled from 'styled-components';
 import { usePremium } from '../Context/OGBPremiumContext';
 import { useMedium } from '../Context/MediumContext';
-import { Leaf, Calendar, Target, TrendingUp, ChevronDown, ChevronUp } from 'lucide-react';
+import { Leaf, Calendar, Sprout, TrendingUp } from 'lucide-react';
 
 const GlobalOverview = () => {
   const { currentRoom } = useHomeAssistant();
-  const { isPremium, activeGrowPlan } = usePremium();
+  const { isPremium } = usePremium();
   const { currentMedium } = useMedium();
-  const [isCollapsed, setIsCollapsed] = useState(true); // Default collapsed
+  const [isCollapsed, setIsCollapsed] = useState(false);
 
-  // Get all data from MediumContext (same as GrowDayCounter)
   const currentPhase = currentMedium?.plant_stage || currentMedium?.current_phase || 'Unknown';
-  const strainName = currentMedium?.plant_name || currentMedium?.breeder_name || '';
+  const strainName = currentMedium?.plant_name || currentMedium?.breeder_name || 'Unknown';
   const growStartDate = currentMedium?.dates?.growstartdate || '';
   const remainingDays = currentMedium?.dates?.daysToChopChop || '';
 
   const formatDaysDisplay = (days) => {
     if (!days || isNaN(parseFloat(days))) return 'N/A';
     const numDays = Math.floor(parseFloat(days));
-    if (numDays <= 0) return 'Ready to Harvest';
-    return numDays === 1 ? '1 Day' : `${numDays} Days`;
+    if (numDays <= 0) return 'Ready!';
+    return `${numDays}d`;
   };
 
-  const toggleCollapsed = () => {
-    setIsCollapsed(!isCollapsed);
-  };
-
-  
+  const isReady = !remainingDays || parseFloat(remainingDays) <= 0;
 
   return (
-    <Container>
-      <Header onClick={toggleCollapsed} style={{ cursor: 'pointer' }}>
-        <IconContainer>
-          <Leaf size={20} color="#4ade80" />
-        </IconContainer>
-        <Title>Grow Overview</Title>
-        <HeaderActions>
-          <StatusIndicator>
-            <div className="pulse-dot"></div>
-            <span>Live</span>
-          </StatusIndicator>
-          <ToggleButton>
-            {isCollapsed ? <ChevronDown size={16} /> : <ChevronUp size={16} />}
-          </ToggleButton>
-        </HeaderActions>
+    <Container $isPremium={isPremium}>
+      <Header onClick={() => setIsCollapsed(!isCollapsed)}>
+        <HeaderLeft>
+          <Icon $isPremium={isPremium}>
+            <Leaf size={14} />
+          </Icon>
+          <Title>Grow Overview</Title>
+        </HeaderLeft>
+        <HeaderRight>
+          <LiveDot />
+        </HeaderRight>
       </Header>
 
       {!isCollapsed && (
         <Content>
-        <InfoGrid>
-          <InfoCard>
-            <CardIcon>
-              <Target size={16} />
-            </CardIcon>
-            <CardContent>
-              <Label>Strain</Label>
-              <Value>{strainName || 'Unknown'}</Value>
-            </CardContent>
-          </InfoCard>
+          <StatsGrid>
+            <StatCard $accent="green">
+              <StatIcon><Sprout size={12} /></StatIcon>
+              <StatInfo>
+                <StatLabel>Strain</StatLabel>
+                <StatValue>{strainName}</StatValue>
+              </StatInfo>
+            </StatCard>
 
-          <InfoCard>
-            <CardIcon>
-              <Calendar size={16} />
-            </CardIcon>
-            <CardContent>
-              <Label>Harvest in</Label>
-              <Value highlight isReady={!remainingDays || parseFloat(remainingDays) <= 0}>
-                {formatDaysDisplay(remainingDays)}
-              </Value>
-            </CardContent>
-          </InfoCard>
+            <StatCard $accent={isReady ? 'red' : 'blue'}>
+              <StatIcon $accent={isReady ? 'red' : 'blue'}><Calendar size={12} /></StatIcon>
+              <StatInfo>
+                <StatLabel>Harvest</StatLabel>
+                <StatValue $highlight={isReady}>{formatDaysDisplay(remainingDays)}</StatValue>
+              </StatInfo>
+            </StatCard>
 
-          <InfoCard>
-            <CardIcon>
-              <TrendingUp size={16} />
-            </CardIcon>
-            <CardContent>
-              <Label>Growth Phase</Label>
-              <Value>{currentPhase || 'Unknown'}</Value>
-            </CardContent>
-          </InfoCard>
-        </InfoGrid>
+            <StatCard $accent="purple">
+              <StatIcon $accent="purple"><TrendingUp size={12} /></StatIcon>
+              <StatInfo>
+                <StatLabel>Phase</StatLabel>
+                <StatValue>{currentPhase}</StatValue>
+              </StatInfo>
+            </StatCard>
+          </StatsGrid>
 
-        {growStartDate && (
-          <GrowStartInfo>
-            <Label>Grow Started</Label>
-            <Value>{new Date(growStartDate).toLocaleDateString()}</Value>
-          </GrowStartInfo>
-        )}
-
-        {isPremium === true && (
-          <PremiumSection>
-            <PremiumHeader>
-              <span>Premium Grow Plan</span>
-            </PremiumHeader>
-            <PremiumGrid>
-              <PremiumCard>
-                <Label>Active Plan</Label>
-                <Value>{activeGrowPlan.plan_name || 'No Plan Active'}</Value>
-              </PremiumCard>
-              <PremiumCard>
-                <Label>Current Week</Label>
-                <Value>{activeGrowPlan.active_week || 'N/A'}</Value>
-              </PremiumCard>
-            </PremiumGrid>
-          </PremiumSection>
-        )}
+          {growStartDate && (
+            <StartInfo>
+              <span>Started {new Date(growStartDate).toLocaleDateString()}</span>
+            </StartInfo>
+          )}
         </Content>
       )}
     </Container>
   );
 };
 
-const slideDown = keyframes`
-  from {
-    opacity: 0;
-    transform: translateY(-10px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
-`;
-
 export default GlobalOverview;
 
 const Container = styled.div`
   background: linear-gradient(145deg, var(--main-bg-card-color), rgba(255,255,255,0.02));
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  box-shadow:
-    var(--main-shadow-art),
-    inset 0 1px 0 rgba(255,255,255,0.1);
-  border-radius: 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 12px;
   overflow: hidden;
   position: relative;
-  transition: all 0.3s ease;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow:
-      0 8px 25px rgba(0,0,0,0.15),
-      inset 0 1px 0 rgba(255,255,255,0.1);
-  }
+  transition: all 0.2s ease;
 
   &::before {
     content: '';
@@ -151,8 +94,8 @@ const Container = styled.div`
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
-    background: linear-gradient(90deg, #4ade80, #3b82f6, #8b5cf6);
+    height: 2px;
+    background: linear-gradient(90deg, #4ade80, #22d3ee);
   }
 `;
 
@@ -160,262 +103,116 @@ const Header = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 1rem 1.5rem;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+  padding: 0.75rem 1rem;
+  cursor: pointer;
   background: rgba(255, 255, 255, 0.02);
 `;
 
-const IconContainer = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  background: rgba(74, 222, 128, 0.1);
-  border: 1px solid rgba(74, 222, 128, 0.2);
-`;
-
-const Title = styled.h3`
-  margin: 0;
-  font-size: 1.3rem;
-  font-weight: 600;
-  color: var(--main-text-color);
-  letter-spacing: 0.5px;
-`;
-
-const StatusIndicator = styled.div`
+const HeaderLeft = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  font-size: 0.8rem;
-  color: #4ade80;
-  font-weight: 500;
-
-  .pulse-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    background: #4ade80;
-    animation: pulse 2s infinite;
-  }
-
-  @keyframes pulse {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0.5; }
-  }
 `;
 
-const HeaderActions = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-`;
-
-const ToggleButton = styled.button`
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  border-radius: 6px;
-  padding: 0.25rem;
-  color: rgba(255, 255, 255, 0.8);
-  cursor: pointer;
+const Icon = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  transition: all 0.2s ease;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
+  background: rgba(74, 222, 128, 0.15);
+  color: #4ade80;
+`;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.15);
-    border-color: rgba(255, 255, 255, 0.3);
-    color: white;
-  }
+const Title = styled.span`
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+`;
 
-  &:focus {
-    outline: none;
-    box-shadow: 0 0 0 2px rgba(74, 222, 128, 0.3);
-  }
+const HeaderRight = styled.div`
+  display: flex;
+  align-items: center;
+`;
+
+const LiveDot = styled.div`
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #4ade80;
+  box-shadow: 0 0 6px #4ade80;
 `;
 
 const Content = styled.div`
-  padding: 1.5rem;
+  padding: 0.75rem 1rem 1rem;
   display: flex;
   flex-direction: column;
-  gap: 1.5rem;
-  animation: ${slideDown} 0.3s ease-out;
+  gap: 0.75rem;
 `;
 
-const CollapsedContent = styled.div`
-  padding: 0.75rem 1.5rem;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 0.9rem;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
-`;
-
-const InfoGrid = styled.div`
+const StatsGrid = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-  gap: 1rem;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0.5rem;
 `;
 
-const InfoCard = styled.div`
-  background: rgba(255, 255, 255, 0.02);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 12px;
-  padding: 1rem;
+const StatCard = styled.div`
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 8px;
+  padding: 0.6rem;
   display: flex;
   align-items: center;
-  gap: 0.75rem;
-  transition: all 0.3s ease;
-  backdrop-filter: blur(10px);
+  gap: 0.5rem;
+  transition: all 0.2s ease;
 
   &:hover {
     background: rgba(255, 255, 255, 0.05);
-    transform: translateY(-2px);
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
-    border-color: rgba(255, 255, 255, 0.15);
+    border-color: rgba(255, 255, 255, 0.1);
   }
 `;
 
-const CardIcon = styled.div`
+const StatIcon = styled.div`
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
+  width: 24px;
+  height: 24px;
+  border-radius: 6px;
   background: rgba(74, 222, 128, 0.1);
-  color: #4ade80;
+  color: ${props => props.$accent === 'red' ? '#f87171' : props.$accent === 'purple' ? '#a78bfa' : '#4ade80'};
   flex-shrink: 0;
 `;
 
-const CardContent = styled.div`
+const StatInfo = styled.div`
   flex: 1;
   min-width: 0;
 `;
 
-const GrowStartInfo = styled.div`
-  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
-  border: 1px solid rgba(59, 130, 246, 0.2);
-  border-radius: 10px;
-  padding: 0.75rem 1rem;
-  text-align: center;
-  backdrop-filter: blur(10px);
-`;
-
-const PremiumSection = styled.div`
-  background: linear-gradient(135deg, rgba(255, 215, 0, 0.05), rgba(255, 165, 0, 0.05));
-  border: 1px solid rgba(255, 165, 0, 0.2);
-  border-radius: 12px;
-  padding: 1rem;
-  backdrop-filter: blur(10px);
-`;
-
-const PremiumHeader = styled.div`
-  font-size: 0.9rem;
+const StatLabel = styled.div`
+  font-size: 0.6rem;
   font-weight: 600;
-  color: #fbbf24;
-  text-align: center;
-  margin-bottom: 0.75rem;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+  color: rgba(255, 255, 255, 0.5);
+  margin-bottom: 0.15rem;
 `;
 
-const PremiumGrid = styled.div`
-  display: grid;
-  grid-template-columns: 1fr 1fr;
-  gap: 0.75rem;
-`;
-
-const PremiumCard = styled.div`
-  background: rgba(255, 255, 255, 0.03);
-  border: 1px solid rgba(255, 165, 0, 0.15);
-  border-radius: 8px;
-  padding: 0.75rem;
-  text-align: center;
-  transition: all 0.3s ease;
-
-  &:hover {
-    background: rgba(255, 255, 255, 0.06);
-    transform: translateY(-1px);
-  }
-`;
-
-const GrowPlanCard = styled.div`
-  background: rgba(74, 222, 128, 0.08);
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  padding: 0.5rem;
-  border-radius: 8px;
-  text-align: center;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: rgba(74, 222, 128, 0.12);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
-  }
-`;
-const GrowPlanWeekCard = styled.div`
-  background: rgba(255, 125, 0, 0.10);
-  border: 1px solid rgba(74, 222, 128, 0.2);
-  padding: 0.5rem;
-  border-radius: 8px;
-  text-align: center;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: rgba(74, 222, 128, 0.12);
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
-  }
-`;
-
-
-
-const DaysCard = styled.div`
-  background: ${props => props.isReady ? 
-    'rgba(239, 68, 68, 0.08)' : 
-    'rgba(59, 130, 246, 0.08)'};
-  border: 1px solid ${props => props.isReady ? 
-    'rgba(239, 68, 68, 0.2)' : 
-    'rgba(59, 130, 246, 0.2)'};
-  padding: 0.5rem;
-  border-radius: 8px;
-  text-align: center;
-  transition: all 0.3s ease;
-  
-  &:hover {
-    background: ${props => props.isReady ? 
-      'rgba(239, 68, 68, 0.12)' : 
-      'rgba(59, 130, 246, 0.12)'};
-    transform: translateY(-1px);
-    box-shadow: ${props => props.isReady ? 
-      '0 4px 12px rgba(239, 68, 68, 0.15)' : 
-      '0 4px 12px rgba(59, 130, 246, 0.15)'};
-  }
-`;
-
-const Divider = styled.div`
-  width: 1px;
-  height: 40px;
-  background: linear-gradient(to bottom, transparent, rgba(255,255,255,0.2), transparent);
-`;
-
-const Label = styled.div`
-  font-size: 0.7rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 1px;
-  color: rgba(255, 255, 255, 0.6);
-  margin-bottom: 0.25rem;
-`;
-
-const Value = styled.div`
-  font-size: ${props => props.isReady ? '1rem' : '1.1rem'};
+const StatValue = styled.div`
+  font-size: 0.8rem;
   font-weight: 700;
-  color: ${props =>
-    props.isReady ? '#ef4444' :
-    props.highlight ? '#3b82f6' : '#4ade80'};
-  text-shadow: 0 1px 2px rgba(0,0,0,0.1);
-  word-break: break-word;
+  color: ${props => props.$highlight ? '#ef4444' : 'var(--main-text-color)'};
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+`;
+
+const StartInfo = styled.div`
+  background: linear-gradient(135deg, rgba(59, 130, 246, 0.1), rgba(147, 51, 234, 0.1));
+  border-radius: 6px;
+  padding: 0.4rem 0.75rem;
+  text-align: center;
+  font-size: 0.7rem;
+  color: rgba(255, 255, 255, 0.7);
 `;

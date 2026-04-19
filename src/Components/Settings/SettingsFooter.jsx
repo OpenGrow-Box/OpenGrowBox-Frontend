@@ -112,15 +112,10 @@ const SettingsFooter = () => {
           </DiscordButton>
         </SocialButtonsContainer>
         
-        <Version onClick={handleVersionClick} $hasUpdate={hasUpdate}>
-          <VersionIcon $hasUpdate={hasUpdate}>
-            {hasUpdate ? <FaLeaf /> : <FaMobile />}
-          </VersionIcon>
-          <VersionText>
-            {hasUpdate ? 'New Update!' : 'UI Version'}
-            <VersionNumber>{appVersion}</VersionNumber>
-          </VersionText>
-        </Version>
+        <VersionBadge onClick={handleVersionClick} $hasUpdate={hasUpdate}>
+          <VersionTag $hasUpdate={hasUpdate}>{hasUpdate ? 'UPDATE' : 'v'}</VersionTag>
+          <VersionNum>{appVersion}</VersionNum>
+        </VersionBadge>
       </FooterContainer>
       <DevBageHallOfFame users={contributors} />
     </>
@@ -224,56 +219,43 @@ const DiscordButton = styled(BaseButton)`
   }
 `;
 
-const Version = styled.div`
+const VersionBadge = styled.div`
   display: flex;
   align-items: center;
-  gap: 0.5rem;
-  padding: 0.5rem 1rem;
-  border-radius: 20px;
+  gap: 0.4rem;
+  padding: 0.35rem 0.6rem;
+  border-radius: 6px;
   cursor: pointer;
-  transition: all 0.3s ease;
-  background: ${props => props.$hasUpdate 
-    ? 'linear-gradient(135deg, var(--chart-error-color), var(--chart-error-color))' 
-    : 'var(--main-bg-card-color)'
-  };
-  border: ${props => props.$hasUpdate 
-    ? '2px solid var(--chart-error-color)' 
-    : '1px solid var(--main-text-color)'
-  };
-  color: ${props => props.$hasUpdate ? 'white' : 'var(--main-text-color)'};
-  
-  ${props => props.$hasUpdate && css`
-    animation: ${pulse} 2s infinite;
-    box-shadow: 0 0 10px color-mix(in srgb, var(--chart-warning-color) 30%, transparent);
-  `}
+  transition: all 0.2s ease;
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   
   &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
-    background: ${props => props.$hasUpdate 
-      ? 'linear-gradient(135deg, var(--chart-error-color), var(--chart-error-color))' 
-      : 'var(--primary-accent, #10b981)'
-    };
+    background: rgba(255, 255, 255, 0.08);
+    border-color: ${props => props.$hasUpdate ? '#f97316' : 'rgba(255, 255, 255, 0.3)'};
   }
 `;
 
-const VersionIcon = styled.div`
-  font-size: 1.2rem;
-  ${props => props.$hasUpdate && css`animation: ${blink} 1.5s infinite;`}
+const VersionTag = styled.span`
+  font-size: 0.6rem;
+  font-weight: 700;
+  padding: 0.15rem 0.4rem;
+  border-radius: 4px;
+  background: ${props => props.$hasUpdate 
+    ? 'linear-gradient(135deg, #f97316, #ef4444)' 
+    : 'var(--primary-accent)'
+  };
+  color: #000;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  ${props => props.$hasUpdate && css`animation: ${pulse} 2s infinite;`}
 `;
 
-const VersionText = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  font-size: 0.7rem;
-  line-height: 1.2;
-`;
-
-const VersionNumber = styled.span`
-  font-weight: bold;
-  font-size: 0.65rem;
-  opacity: 0.8;
+const VersionNum = styled.span`
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+  opacity: 0.9;
 `;
 
 const OGBCopyright = styled.button`

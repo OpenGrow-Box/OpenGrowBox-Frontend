@@ -94,11 +94,7 @@ export const OGBPremiumProvider = ({ children }) => {
     };
   };
 
-  const [growPlans,setGrowPlans] = useState([])
-  const [publicGrowPlans, setPublicGrowPlans] = useState([]);
-  const [privateGrowPlans, setPrivateGrowPlans] = useState([]);
-  const [strainGrowPlan, setStrainGrowPlan] = useState("");
-  const [activeGrowPlan, setActiveGrowPlan] = useState([])
+  
   
   // Callback-Map für spezifische UI-Requests (nur wenn explizit gewünscht)
   const callbacksRef = useRef(new Map());
@@ -189,10 +185,6 @@ export const OGBPremiumProvider = ({ children }) => {
     setIsSubActive(null);
     setSubscription(null);
     setUserProfile(null);
-    setGrowPlans([]);
-    setPrivateGrowPlans([]);
-    setPublicGrowPlans([]);
-    setActiveGrowPlan([]);
     setAuthStatus('idle');
     setLastError(null);
 
@@ -259,14 +251,13 @@ export const OGBPremiumProvider = ({ children }) => {
             subscription_data: data.subscription_data
           });
 
-           try {
-             console.log('Lade Profil nach erfolgreichem Login...');
-             // Use room from response data if available, otherwise fall back to currentRoom
-             const loginRoom = data?.room || currentRoom;
-             await loadUserProfile(true);
-             await getGrowPlans(loginRoom);
-             console.log('Profil nach Login erfolgreich geladen');
-          } catch (error) {
+try {
+              console.log('Lade Profil nach erfolgreichem Login...');
+              // Use room from response data if available, otherwise fall back to currentRoom
+              const loginRoom = data?.room || currentRoom;
+              await loadUserProfile(true);
+              console.log('Profil nach Login erfolgreich geladen');
+           } catch (error) {
             console.error('Fehler beim Laden des Profils nach Login:', error);
           }
           break;
@@ -282,6 +273,7 @@ export const OGBPremiumProvider = ({ children }) => {
             console.log('🔍 Profile retrieved - limits:', data.subscription_data?.limits);
             console.log('🔍 Profile retrieved - usage:', data.subscription_data?.usage);
             console.log('🔍 Profile retrieved - features:', data.subscription_data?.features);
+            console.log('🔍 Profile retrieved - activeGrowPlan:', data.subscription_data?.activeGrowPlan);
             
             // CRITICAL FIX: Create session object so isLoggedIn becomes true
             // This fixes the login modal appearing after HA restart when profile shows logged in state
@@ -374,24 +366,7 @@ export const OGBPremiumProvider = ({ children }) => {
           
           
 
-          // Load grow plans in background
-          try {
-            const restoredRoom = data?.room || getActualRoom() || currentRoom;
-            await getGrowPlans(restoredRoom);
-            console.log('✅ Grow plans loaded after state restore');
-          } catch (error) {
-            console.error('⚠️ Error loading grow plans after restore:', error);
-          }
-          
           console.log('✅ Frontend state synchronized with restored backend state');
-          break;
-
-        case "GrowPlans retrieved":
-          console.log(data)
-          setGrowPlans(data || []);
-          setPrivateGrowPlans(data?.PrivatePlans || []);
-          setPublicGrowPlans(data?.PublicPlans || []);
-          setActiveGrowPlan(data?.ActivePlan || [])
           break;
 
         case "Connect Success":
@@ -490,9 +465,6 @@ export const OGBPremiumProvider = ({ children }) => {
         //console.log('Load Profils from Server...');
         //logCurrentRoom('initializeSession');
         await loadUserProfile(true);
-        await getGrowPlans()
-        //console.log('Load Grow Plans from Server...');
-        //await getGrowPlans();
         console.log('Session successfull loaded');
 
       } catch (error) {
@@ -924,10 +896,7 @@ export const OGBPremiumProvider = ({ children }) => {
 
     const interval = setInterval(async () => {
       try {
-        //console.log('[INTERVAL] Lade Profil und GrowPlans...');
         await loadUserProfile(true);
-        await getGrowPlans();
-        //console.log('[INTERVAL] Profil und GrowPlans aktualisiert');
       } catch (err) {
         console.warn('[INTERVAL] Fehler beim regelmäßigen Abruf:', err.message);
       }
@@ -1078,109 +1047,7 @@ export const OGBPremiumProvider = ({ children }) => {
     }
   };
 
-  const addGrowPlan = async (growPlan) => {
-    try {
-      const result = await sendAuthEventWithCallback('ogb_premium_add_growplan', { growPlan });
-      await getGrowPlans()
-      return result;
-    } catch (error) {
-      console.error('Send growplan error:', error);
-      throw error;
-    }
-  };
-
-  const getGrowPlans = async (requestingRoom) => {
-    if (operationLockRef.current) {
-      console.log('Operation in progress, skipping getGrowPlans...');
-      return;
-    }
-
-    try {
-      operationLockRef.current = true;
-      const roomToUse = requestingRoom || currentRoom;
-
-      if(!isPremium)return
-
-      await sendAuthEventWithCallback('ogb_premium_get_growplans', {
-        requestingRoom: roomToUse
-      });
-    } catch (error) {
-      console.error('Get growplans error:', error);
-      throw error;
-    } finally {
-      operationLockRef.current = false;
-    }
-  };
-
-  const delGrowPlan = async (growPlan, requestingRoom) => {
-    try {
-      const roomToUse = requestingRoom || currentRoom;
-      
-      const result = await sendAuthEventWithCallback('ogb_premium_del_growplan', { 
-        growPlan, 
-        requestingRoom: roomToUse 
-      });
-
-      await getGrowPlans()
-      return result;
-    } catch (error) {
-      console.error('Delete growplan error:', error);
-      throw error;
-    }
-  };
-
-  const activateGrowPlan = async (growPlan, requestingRoom) => {
-    try {
-      const roomToUse = requestingRoom || currentRoom;
-      console.log('activateGrowPlan with room:', roomToUse);
-      
-      const result = await sendAuthEventWithCallback('ogb_premium_growplan_activate', { 
-        growPlan, 
-        requestingRoom: roomToUse 
-      });
-      console.log("GrowPlan Activate:", result);
-      return result;
-    } catch (error) {
-      console.error('Activate growplan error:', error);
-      throw error;
-    }
-  };
-
-
-  const pauseGrowPlan = async (growPlan, requestingRoom) => {
-    try {
-      const roomToUse = requestingRoom || currentRoom;
-      console.log('Pause GrowPlan with room:', roomToUse);
-      
-      const result = await sendAuthEventWithCallback('ogb_premium_growplan_pause', { 
-        growPlan, 
-        requestingRoom: roomToUse 
-      });
-      console.log("GrowPlan Paused:", result);
-      return result;
-    } catch (error) {
-      console.error('Paused growplan error:', error);
-      throw error;
-    }
-  };
-
-
-  const resumeGrowPlan = async (growPlan, requestingRoom) => {
-    try {
-      const roomToUse = requestingRoom || currentRoom;
-      console.log('Pause GrowPlan with room:', roomToUse);
-      
-      const result = await sendAuthEventWithCallback('ogb_premium_growplan_resume', { 
-        growPlan, 
-        requestingRoom: roomToUse 
-      });
-      console.log("GrowPlan Paused:", result);
-      return result;
-    } catch (error) {
-      console.error('Paused growplan error:', error);
-      throw error;
-    }
-  };
+  
 
 
 
@@ -1462,11 +1329,6 @@ export const OGBPremiumProvider = ({ children }) => {
         userProfile,
         authStatus,
         lastError,
-        publicGrowPlans,
-        privateGrowPlans,
-        strainGrowPlan,
-        activeGrowPlan,
-        growPlans,
         currentPlan,
         // CRITICAL: Room switching state to prevent race conditions
         isRoomSwitching,
@@ -1478,10 +1340,6 @@ export const OGBPremiumProvider = ({ children }) => {
         clearError,
         refreshProfile,
         debugPendingRequests,
-        addGrowPlan,
-        getGrowPlans,
-        delGrowPlan,
-        activateGrowPlan,
         canAddNewRoom,
         isMaxRoomsReached,
         maxRoomsReached,
@@ -1490,8 +1348,6 @@ export const OGBPremiumProvider = ({ children }) => {
         getPremiumRooms,
         // Helper to check if user is logged in (has valid session)
         isLoggedIn: authStatus === 'authenticated' && !!session,
-        pauseGrowPlan,
-        resumeGrowPlan,
         // Feature checking - returns isPremium status for now
         hasFeature: (feature) => {
           // Simple check based on premium status
