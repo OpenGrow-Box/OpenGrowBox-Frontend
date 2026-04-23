@@ -792,6 +792,8 @@ const CombinedClimateChart = ({
     setShowCO2Selector(false);
   };
 
+const hasValidData = chartOptions?.series?.some(s => s.data?.length > 0);
+
   if (error) {
     return (
       <ChartCard>
@@ -799,6 +801,17 @@ const CombinedClimateChart = ({
           <FaExclamationTriangle size={32} />
           <div>Failed to load climate data</div>
         </ErrorState>
+      </ChartCard>
+    );
+  }
+
+  if (!hasValidData && !loading) {
+    return (
+      <ChartCard>
+        <NoDataState>
+          <FaChartLine size={32} />
+          <span>No climate data available</span>
+        </NoDataState>
       </ChartCard>
     );
   }
@@ -916,7 +929,7 @@ const CombinedClimateChart = ({
             <FaSpinner className="spin" size={32} />
             <span>Loading climate data...</span>
           </LoadingState>
-        ) : chartOptions ? (
+        ) : hasValidData ? (
           <ReactECharts
             ref={chartRef}
             option={chartOptions}

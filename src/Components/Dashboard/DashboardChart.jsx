@@ -152,7 +152,6 @@ const SensorChart = ({
         clearTimeout(timeoutId);
 
         if (!Array.isArray(data) || data.length === 0 || !data[0]?.length) {
-          setChartOptions(null);
           setLoading(false);
           return;
         }
@@ -465,6 +464,8 @@ const SensorChart = ({
     return <FaEquals style={{ color: getThemeColor('--second-text-color') }} />;
   };
 
+  const hasValidData = chartOptions?.series?.[0]?.data?.length > 0;
+
   if (error) {
     return (
       <ChartCard>
@@ -472,6 +473,17 @@ const SensorChart = ({
           <FaExclamationTriangle size={32} />
           <div>Failed to load data</div>
         </ErrorState>
+      </ChartCard>
+    );
+  }
+
+  if (!hasValidData && !loading) {
+    return (
+      <ChartCard>
+        <NoDataState>
+          <FaChartLine size={32} />
+          <span>No data available</span>
+        </NoDataState>
       </ChartCard>
     );
   }
@@ -540,7 +552,7 @@ const SensorChart = ({
             <FaSpinner className="spin" size={32} />
             <span>Loading sensor data...</span>
           </LoadingState>
-        ) : chartOptions ? (
+        ) : hasValidData ? (
           <ReactECharts
             ref={chartRef}
             option={chartOptions}

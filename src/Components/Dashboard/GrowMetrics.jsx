@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { FaLeaf, FaChartBar, FaCircle, FaSync, FaBullseye, FaCheck, FaExclamationTriangle, FaTimes, FaChartArea, FaSeedling, FaCalendarAlt, FaClock, FaFlask } from 'react-icons/fa';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
-import { createDefaultPlantStages } from '../Wizard/wizardHelpers';
+import { usePlantStages } from '../Context/PlantStageContext';
 
 const LoadingIndicator = ({ message = 'Loading...' }) => (
   <LoadingWrapper>
@@ -33,6 +33,7 @@ const GrowMetrics = () => {
     setCurrentMediumIndex, 
     loading: mediumLoading 
   } = useMedium();
+  const { plantStages: remotePlantStages, getStageConfigWithFallback } = usePlantStages();
   const [isLive, setIsLive] = useState(false);
 
   // In dev mode, use Vite proxy. In production, use full URL
@@ -239,9 +240,8 @@ const GrowMetrics = () => {
     
     const wizardStageKey = stageMapping[currentPlantStage] || 'germination';
     
-    // Get wizard default plant stages
-    const wizardDefaults = createDefaultPlantStages();
-    const currentStageData = wizardDefaults[wizardStageKey] || wizardDefaults.germination;
+    // Get plant stages from context (remote data from HA) with fallback to defaults
+    const currentStageData = getStageConfigWithFallback(wizardStageKey);
     
     console.log('[GrowMetrics] Current plant stage:', currentPlantStage, '->', wizardStageKey);
     console.log('[GrowMetrics] Using stage defaults:', currentStageData);
@@ -260,28 +260,28 @@ const GrowMetrics = () => {
       // Priority 1: Lese aus Plant Stages (Wizard Daten)
       if (currentStageData) {
         if (metric === 'pH') {
-          if (currentStageData.minPh != null) result[metric].min = currentStageData.minPh;
-          if (currentStageData.maxPh != null) result[metric].max = currentStageData.maxPh;
+          if (currentStageData.minPh != null) result[metric].min = Number(currentStageData.minPh.toFixed(2));
+          if (currentStageData.maxPh != null) result[metric].max = Number(currentStageData.maxPh.toFixed(2));
         }
-        if (metric === 'EC') {
-          if (currentStageData.minEC != null) result[metric].min = currentStageData.minEC;
-          if (currentStageData.maxEc != null) result[metric].max = currentStageData.maxEc;
+        if (metric === 'ec' || metric === 'EC') {
+          if (currentStageData.minEC != null) result[metric].min = Number(currentStageData.minEC.toFixed(2));
+          if (currentStageData.maxEc != null) result[metric].max = Number(currentStageData.maxEc.toFixed(2));
         }
         if (metric === 'co2') {
           if (currentStageData.minCo2 != null) result[metric].min = currentStageData.minCo2;
           if (currentStageData.maxCo2 != null) result[metric].max = currentStageData.maxCo2;
         }
-        if (metric === 'temperature') {
-          if (currentStageData.minTemp != null) result[metric].min = currentStageData.minTemp;
-          if (currentStageData.maxTemp != null) result[metric].max = currentStageData.maxTemp;
+        if (metric === 'temp' || metric === 'temperature') {
+          if (currentStageData.minTemp != null) result[metric].min = Number(currentStageData.minTemp.toFixed(1));
+          if (currentStageData.maxTemp != null) result[metric].max = Number(currentStageData.maxTemp.toFixed(1));
         }
         if (metric === 'humidity') {
-          if (currentStageData.minHumidity != null) result[metric].min = currentStageData.minHumidity;
-          if (currentStageData.maxHumidity != null) result[metric].max = currentStageData.maxHumidity;
+          if (currentStageData.minHumidity != null) result[metric].min = Number(currentStageData.minHumidity.toFixed(1));
+          if (currentStageData.maxHumidity != null) result[metric].max = Number(currentStageData.maxHumidity.toFixed(1));
         }
         if (metric === 'vpd') {
-          if (currentStageData.minVPD != null) result[metric].min = currentStageData.minVPD;
-          if (currentStageData.maxVPD != null) result[metric].max = currentStageData.maxVPD;
+          if (currentStageData.minVPD != null) result[metric].min = Number(currentStageData.minVPD.toFixed(2));
+          if (currentStageData.maxVPD != null) result[metric].max = Number(currentStageData.maxVPD.toFixed(2));
         }
       }
 

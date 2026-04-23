@@ -873,6 +873,9 @@ const Wizzard = ({ onComplete }) => {
 
   return (
     <WizardContainer>
+      <DevelopmentWarning>
+        ⚠️ This Wizard is currently in development. Some features may not work correctly. Please report issues via the Support tab.
+      </DevelopmentWarning>
       <WizardHeader>
         <TabNavigation>
           {tabs.map((tab) => (
@@ -976,6 +979,16 @@ const Wizzard = ({ onComplete }) => {
 }
 
 // Styled Components
+const DevelopmentWarning = styled.div`
+  padding: 0.75rem 1rem;
+  background: rgba(255, 193, 7, 0.15);
+  border-bottom: 1px solid rgba(255, 193, 7, 0.3);
+  color: #ffc107;
+  font-size: 0.85rem;
+  text-align: center;
+  font-weight: 500;
+`
+
 const WizardContainer = styled.div`
   display: flex;
   flex-direction: column;

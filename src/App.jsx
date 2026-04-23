@@ -6,6 +6,7 @@ import { GlobalStateProvider, useGlobalState } from './Components/Context/Global
 import HomeAssistantProvider, { useHomeAssistant } from './Components/Context/HomeAssistantContext';
 import { MediumProvider } from './Components/Context/MediumContext';
 import { OGBPremiumProvider } from './Components/Context/OGBPremiumContext';
+import { PlantStageProvider } from './Components/Context/PlantStageContext';
 
 import ErrorBoundary from '../src/misc/ErrorBoundary';
 import ConnectionStatus from '../src/misc/ConnectionStatus';
@@ -112,6 +113,7 @@ export default function App() {
             <HomeAssistantProvider>
               <ErrorBoundaryWrapper>
                 <OGBPremiumProvider>
+                  <PlantStageProvider>
                   <MediumProvider>
                     <ThemeGlobalStyle />
                     <Router basename={basename}>
@@ -134,7 +136,8 @@ export default function App() {
                         </MainContent>
                       </AppContainer>
                     </Router>
-                  </MediumProvider>
+                    </MediumProvider>
+                  </PlantStageProvider>
                 </OGBPremiumProvider>
               </ErrorBoundaryWrapper>
             </HomeAssistantProvider>

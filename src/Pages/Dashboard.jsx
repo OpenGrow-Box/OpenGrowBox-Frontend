@@ -12,6 +12,7 @@ import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
+import CropSteeringOverview from '../Components/Dashboard/CropSteeringOverview';
 import { FaSpinner, FaLeaf } from 'react-icons/fa';
 
 
@@ -505,25 +506,18 @@ const Dashboard = () => {
       )}
 
       {activeDashboardTab === 'cropsteering' && (
-        <CropSteeringSection
+        <CropSteeringContent
           as={motion.div}
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, ease: "easeOut" }}
         >
-          <CropWelcomeCard>
-            <DevBadge>
-              <MdWaterDrop size={16} /> In Development
-            </DevBadge>
-            <CropWelcomeTitle>Welcome to Crop Steering</CropWelcomeTitle>
-            <CropWelcomeText>
-              This dashboard is under active development and will launch soon.
-            </CropWelcomeText>
-            <CropWelcomeText>
-              You will get phase insights, dry-back tracking, and steering actions in one place.
-            </CropWelcomeText>
-          </CropWelcomeCard>
-        </CropSteeringSection>
+          <CropSteeringOverview 
+            isGlobalLiveMode={isGlobalLiveMode}
+            globalLiveRefreshTrigger={globalLiveRefreshTrigger}
+            onLiveModeChange={handleLiveModeChange}
+          />
+        </CropSteeringContent>
       )}
 
       {activeDashboardTab === 'energy' && (
@@ -794,7 +788,7 @@ const EnergyCardWrapper = styled.div`
   }
 `;
 
-const CropSteeringSection = styled(MainSection)`
+const CropSteeringContent = styled(MainSection)`
   display: flex;
   align-items: center;
   justify-content: center;

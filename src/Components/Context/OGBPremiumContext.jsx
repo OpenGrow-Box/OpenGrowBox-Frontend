@@ -216,11 +216,12 @@ export const OGBPremiumProvider = ({ children }) => {
           setCurrentPlan(data?.currentPlan || data?.plan || data?.subscription_data?.plan_name || "free");
           setIsPremium(data?.is_premium);
           setSubscription((prev) => {
-            const incoming = data?.subscription_data || {};
+            const incoming = data?.subscription_data || data || {};
             const planName = incoming?.plan_name || prev?.plan_name || 'free';
             return {
               ...(prev || {}),
               ...incoming,
+              activeGrowPlan: incoming?.active_grow_plan || incoming?.activeGrowPlan || prev?.activeGrowPlan,
               features: resolveFeatures(incoming?.features, prev?.features),
               limits: resolveLimits(incoming?.limits, prev?.limits, planName),
               usage: normalizeUsageCounts({
@@ -230,7 +231,11 @@ export const OGBPremiumProvider = ({ children }) => {
             };
           });
           setUserProfile(data.user);
-          setIsSubActive(data.subscription_data?.status === 'active' || false);
+          setIsSubActive(
+            data?.subscription_data?.status === 'active' || 
+            data?.status === 'active' || 
+            false
+          );
           setOGBSessions(data?.ogb_sessions || 0);
           setOgbMaxConnections(data?.ogb_max_sessions || 0);
           
@@ -290,11 +295,12 @@ try {
             
             setUserProfile(data.user);
             setSubscription((prev) => {
-              const incoming = data.subscription_data || {};
+              const incoming = data.subscription_data || data || {};
               const planName = incoming?.plan_name || prev?.plan_name || 'free';
               return {
                 ...(prev || {}),
                 ...incoming,
+                activeGrowPlan: incoming?.active_grow_plan || incoming?.activeGrowPlan || prev?.activeGrowPlan,
                 features: resolveFeatures(incoming?.features, prev?.features),
                 limits: resolveLimits(incoming?.limits, prev?.limits, planName),
                 usage: normalizeUsageCounts({
@@ -329,11 +335,12 @@ try {
           // Update all premium state without triggering auto-switch (backend already has correct mainControl)
           setIsPremium(data.is_premium || false);
           setSubscription((prev) => {
-            const incoming = data.subscription_data || {};
+            const incoming = data.subscription_data || data || {};
             const planName = incoming?.plan_name || prev?.plan_name || 'free';
             return {
               ...(prev || {}),
               ...incoming,
+              activeGrowPlan: incoming?.active_grow_plan || incoming?.activeGrowPlan || prev?.activeGrowPlan,
               features: resolveFeatures(incoming?.features, prev?.features),
               limits: resolveLimits(incoming?.limits, prev?.limits, planName),
               usage: normalizeUsageCounts({

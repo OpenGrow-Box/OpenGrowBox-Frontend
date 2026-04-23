@@ -166,10 +166,19 @@ const ControlMode = ({ onSelectChange }) => {
     seconds: 0
   });
 
-  const {subscription, ogbSessions, activeSessionCount, ogbMaxSessions, logout, 
-    canAddNewRoom, switchPremiumRoom, 
+  const {subscription, ogbSessions, activeSessionCount, ogbMaxSessions, logout,
+    canAddNewRoom, switchPremiumRoom,
     getPremiumRooms, isLoggedIn, userEmail, isRoomSwitching } = usePremium();
   const { HASS } = useGlobalState();
+
+  // Debug subscription data
+  useEffect(() => {
+    if (subscription) {
+      console.log('[ControlMode] Subscription loaded:', subscription);
+      console.log('[ControlMode] activeGrowPlan:', subscription.activeGrowPlan);
+      console.log('[ControlMode] active_grow_plan:', subscription.active_grow_plan);
+    }
+  }, [subscription]);
 
   // Show loading indicator while room switching is in progress
   const isSwitchingInProgress = isRoomSwitching || false;
@@ -712,18 +721,58 @@ const ControlMode = ({ onSelectChange }) => {
           </PlanInfoGrid>
 
           {/* Active Grow Plan */}
-          {subscription?.activeGrowPlan && (
+          {(subscription?.activeGrowPlan || subscription?.active_grow_plan) && (
             <ActivePlanCard>
-              <ActivePlanIcon>🌱</ActivePlanIcon>
-              <ActivePlanInfo>
+              <ActivePlanHeader>
                 <ActivePlanLabel>Active Grow Plan</ActivePlanLabel>
-                <ActivePlanName>{subscription.activeGrowPlan.plan_name || 'Custom'}</ActivePlanName>
-                {subscription.activeGrowPlan.start_date && (
-                  <ActivePlanRuntime>
-                    Running since {new Date(subscription.activeGrowPlan.start_date).toLocaleDateString()}
-                  </ActivePlanRuntime>
-                )}
-              </ActivePlanInfo>
+              </ActivePlanHeader>
+              <PlanInfoGrid>
+                <InfoCard>
+                  <InfoLabel>Plan Name</InfoLabel>
+                  <InfoValue>
+                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.name ||
+                     (subscription.activeGrowPlan || subscription.active_grow_plan)?.plan_name ||
+                     'Custom'}
+                  </InfoValue>
+                </InfoCard>
+                <InfoCard>
+                  <InfoLabel>Status</InfoLabel>
+                  <InfoValue>
+                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.status || 'Active'}
+                  </InfoValue>
+                </InfoCard>
+                <InfoCard>
+                  <InfoLabel>Strain</InfoLabel>
+                  <InfoValue>
+                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.strainName || 'N/A'}
+                  </InfoValue>
+                </InfoCard>
+                <InfoCard>
+                  <InfoLabel>Mode</InfoLabel>
+                  <InfoValue>
+                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.tentMode || 'N/A'}
+                  </InfoValue>
+                </InfoCard>
+                <InfoCard>
+                  <InfoLabel>Started</InfoLabel>
+                  <InfoValue>
+                    {((subscription.activeGrowPlan || subscription.active_grow_plan)?.startDate ||
+                      (subscription.activeGrowPlan || subscription.active_grow_plan)?.start_date)
+                      ? new Date(
+                          (subscription.activeGrowPlan || subscription.active_grow_plan)?.startDate ||
+                          (subscription.activeGrowPlan || subscription.active_grow_plan)?.start_date
+                        ).toLocaleDateString()
+                      : 'N/A'}
+                  </InfoValue>
+                </InfoCard>
+                <InfoCard>
+                  <InfoLabel>Weeks</InfoLabel>
+                  <InfoValue>
+                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.elapsedWeeks ?? 0} /
+                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.maxWeeks ?? 'N/A'}
+                  </InfoValue>
+                </InfoCard>
+              </PlanInfoGrid>
             </ActivePlanCard>
           )}
 
@@ -1425,23 +1474,18 @@ const ConfirmButton = styled(ModalButton)`
 `;
 
 const ActivePlanCard = styled.div`
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid rgba(255, 215, 0, 0.2);
+  border-radius: 0.5rem;
+  padding: 1rem;
+  margin-top: 1rem;
+`;
+
+const ActivePlanHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 0.75rem;
-  padding: 0.75rem 1rem;
-  background: linear-gradient(135deg, rgba(74, 222, 128, 0.1), rgba(34, 211, 238, 0.1));
-  border: 1px solid rgba(74, 222, 128, 0.3);
-  border-radius: 10px;
-`;
-
-const ActivePlanIcon = styled.div`
-  font-size: 1.5rem;
-`;
-
-const ActivePlanInfo = styled.div`
-  display: flex;
-  flex-direction: column;
-  gap: 0.15rem;
+  margin-bottom: 1rem;
 `;
 
 const ActivePlanLabel = styled.div`
@@ -1450,15 +1494,4 @@ const ActivePlanLabel = styled.div`
   text-transform: uppercase;
   letter-spacing: 0.5px;
   color: rgba(255, 255, 255, 0.5);
-`;
-
-const ActivePlanName = styled.div`
-  font-size: 1rem;
-  font-weight: 700;
-  color: var(--primary-accent);
-`;
-
-const ActivePlanRuntime = styled.div`
-  font-size: 0.7rem;
-  color: rgba(255, 255, 255, 0.6);
 `;
