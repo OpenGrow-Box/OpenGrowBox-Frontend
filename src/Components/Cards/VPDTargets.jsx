@@ -1,30 +1,28 @@
-import  { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
-import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage, FaExclamationTriangle } from 'react-icons/fa';
+import { usePlantStages } from '../Context/PlantStageContext';
+import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 
 let updateTimeout = null;
 
-// 🔹 Pflanzenphasen & Zielwerte
-const plantStages = {
-  Germination: { vpdRange: [0.412, 0.70], minTemp: 20, maxTemp: 24, minHumidity: 65, maxHumidity: 80 },
-  Clones: { vpdRange: [0.412, 0.65], minTemp: 20, maxTemp: 24, minHumidity: 65, maxHumidity: 80 },
-  EarlyVeg: { vpdRange: [0.65, 0.80], minTemp: 20, maxTemp: 26, minHumidity: 55, maxHumidity: 70 },
-  MidVeg: { vpdRange: [0.80, 1.0], minTemp: 20, maxTemp: 27, minHumidity: 55, maxHumidity: 65 },
-  LateVeg: { vpdRange: [1.05, 1.1], minTemp: 20, maxTemp: 27, minHumidity: 55, maxHumidity: 65 },
-  EarlyFlower: { vpdRange: [1.0, 1.25], minTemp: 22, maxTemp: 26, minHumidity: 50, maxHumidity: 65 },
-  MidFlower: { vpdRange: [1.1, 1.35], minTemp: 22, maxTemp: 25, minHumidity: 45, maxHumidity: 60 },
-  LateFlower: { vpdRange: [1.2, 1.65], minTemp: 20, maxTemp: 24, minHumidity: 40, maxHumidity: 55 },
+const STAGE_NAME_MAP = {
+  germination: 'Germination',
+  clones: 'Clones',
+  earlyveg: 'EarlyVeg',
+  midveg: 'MidVeg',
+  lateveg: 'LateVeg',
+  earlyflower: 'EarlyFlower',
+  midflower: 'MidFlower',
+  lateflower: 'LateFlower',
 };
 
 // 🔹 Berechnung des perfekten VPD
 const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
-  // Validate that vpdRange is an array or tuple-like with exactly two elements
   if (!Array.isArray(vpdRange) || vpdRange.length !== 2) {
     throw new Error('vpdRange must be an array with exactly two numbers.');
   }
 
-  // Convert inputs to numbers and validate
   let vpdMin, vpdMax, tolerance;
   try {
     vpdMin = parseFloat(vpdRange[0]);
@@ -34,16 +32,13 @@ const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
     throw new Error('Invalid inputs for vpdRange or tolerancePercent.');
   }
 
-  // Check for NaN or invalid numbers
   if (isNaN(vpdMin) || isNaN(vpdMax) || isNaN(tolerance)) {
     throw new Error('Invalid inputs: vpdRange or tolerancePercent must be valid numbers.');
   }
 
-  // Calculate average VPD (perfection)
   const averageVpd = (vpdMin + vpdMax) / 2;
   const toleranceValue = (tolerance / 100) * averageVpd;
 
-  // Return rounded results
   return {
     perfection: Number(averageVpd.toFixed(3)),
     perfectMin: Number((averageVpd - toleranceValue).toFixed(3)),
@@ -52,11 +47,21 @@ const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
 };
 
 const VPDTargets = () => {
-  const { entities, connection, currentRoom } = useHomeAssistant();
+  const { entities, connection, connectionState, currentRoom } = useHomeAssistant();
+  const { plantStages: remotePlantStages, getStageConfig, loading: stagesLoading, error: plantError, requestPlantStages } = usePlantStages();
+  
+  // All hooks at the top - no early returns before hooks
   const [plantStage, setPlantStage] = useState('EarlyVeg');
   const [tolerance, setTolerance] = useState(5);
   const [vpdTarget, setVpdTarget] = useState(null);
   const [tentMode, setTentMode] = useState('');
+
+  // Request plant stages when connected
+  useEffect(() => {
+    if (connectionState === 'connected' && !remotePlantStages && !stagesLoading) {
+      requestPlantStages(currentRoom);
+    }
+  }, [connectionState, currentRoom, remotePlantStages, stagesLoading, requestPlantStages]);
 
   // 🔹 Entity-Werte aus HomeAssistant holen
   useEffect(() => {
@@ -118,7 +123,7 @@ const VPDTargets = () => {
     const updateTentMode = () => {
       try {
         const mode = Object.entries(entities)
-          .filter(([key]) =>
+          .filter(([key, entity]) =>
             key.startsWith('select.ogb_tentmode_') &&
             key.toLowerCase().includes(currentRoom.toLowerCase())
           )
@@ -132,52 +137,72 @@ const VPDTargets = () => {
       }
     };
 
-    const debouncedUpdate = () => {
-      if (updateTimeout) clearTimeout(updateTimeout);
-      updateTimeout = setTimeout(() => {
-        updatePlantStage();
-        updateTolerance();
-        updateVpdTarget();
-        updateTentMode();
-      }, 100);
-    };
-
     updatePlantStage();
     updateTolerance();
     updateVpdTarget();
     updateTentMode();
 
-    // 🔹 Live-Updates aus HA
-    if (connection) {
-      const listener = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'state_changed') {
-            const id = data.entity_id.toLowerCase();
-            if (
-              id.includes('ogb_plantstage_') ||
-              id.includes('ogb_vpdtolerance_') ||
-              id.includes('ogb_vpdtarget_') ||
-              id.includes('ogb_tentmode_')
-            ) {
-              debouncedUpdate();
-            }
-          }
-        } catch (e) {
-          console.error('Websocket event parse error', e);
-        }
-      };
-      connection.addEventListener('message', listener);
-      return () => {
-        connection.removeEventListener('message', listener);
-        if (updateTimeout) clearTimeout(updateTimeout);
+    updateTimeout = setInterval(() => {
+      updatePlantStage();
+      updateTolerance();
+      updateVpdTarget();
+      updateTentMode();
+    }, 5000);
+
+    return () => {
+      if (updateTimeout) clearInterval(updateTimeout);
+    };
+  }, [entities, currentRoom, plantStage, tolerance, vpdTarget, tentMode]);
+
+  // Convert remote plant stages to display format
+  const plantStages = useMemo(() => {
+    if (!remotePlantStages) {
+      return {
+        LateVeg: { vpdRange: [0.9, 1.65], minTemp: 24, maxTemp: 27, minHumidity: 55, maxHumidity: 68 },
+        EarlyVeg: { vpdRange: [0.6, 1.2], minTemp: 22, maxTemp: 26, minHumidity: 65, maxHumidity: 75 },
+        MidVeg: { vpdRange: [0.75, 1.45], minTemp: 23, maxTemp: 27, minHumidity: 60, maxHumidity: 72 },
+        EarlyFlower: { vpdRange: [0.8, 1.55], minTemp: 22, maxTemp: 26, minHumidity: 55, maxHumidity: 68 },
+        MidFlower: { vpdRange: [0.9, 1.7], minTemp: 21, maxTemp: 25, minHumidity: 38, maxHumidity: 52 },
+        LateFlower: { vpdRange: [0.9, 1.85], minTemp: 20, maxTemp: 26, minHumidity: 40, maxHumidity: 55 },
       };
     }
-  }, [entities, connection, currentRoom]);
+    const converted = {};
+    Object.entries(remotePlantStages).forEach(([key, config]) => {
+      let vpdRange;
+      if (config.vpdRange && Array.isArray(config.vpdRange)) {
+        vpdRange = config.vpdRange;
+      } else if (config.minVPD !== undefined && config.maxVPD !== undefined) {
+        vpdRange = [config.minVPD, config.maxVPD];
+      }
+      
+      if (vpdRange && Array.isArray(vpdRange)) {
+        converted[key] = {
+          vpdRange: vpdRange.map(v => Number(v || 0)),
+          minTemp: config.minTemp,
+          maxTemp: config.maxTemp,
+          minHumidity: config.minHumidity,
+          maxHumidity: config.maxHumidity,
+        };
+      }
+    });
+    return converted;
+  }, [remotePlantStages]);
 
-  // 🔹 Berechnung
+  // Now it's safe to have conditional returns - all hooks are called above
+  if (stagesLoading) {
+    return (
+      <Container>
+        <LoadingWrapper>
+          <FaSpinner className="spin" />
+          <LoadingText>Loading plant stages...</LoadingText>
+        </LoadingWrapper>
+      </Container>
+    );
+  }
+
+  // Calculate VPD results
   let vpdResults = { perfection: 0, perfectMin: 0, perfectMax: 0 };
-  let error = '';
+  let errorMsg = '';
   try {
     const isVpdTargetMode = String(tentMode || '').toLowerCase().includes('target');
 
@@ -185,21 +210,28 @@ const VPDTargets = () => {
       vpdResults = calculatePerfectVpd([vpdTarget, vpdTarget], tolerance);
     } else {
       const selectedStage = plantStages[plantStage];
-      if (!selectedStage) throw new Error(`Unknown stage: ${plantStage}`);
+      if (!selectedStage) {
+        return (
+          <Container>
+            <ErrorText>
+              <FaExclamationTriangle /> Unknown stage: {plantStage}
+            </ErrorText>
+          </Container>
+        );
+      }
       vpdResults = calculatePerfectVpd(selectedStage.vpdRange, tolerance);
     }
   } catch (err) {
     console.error(err);
-    error = err?.message || 'Unknown error';
+    errorMsg = err?.message || 'Unknown error';
   }
 
-  // 🔹 Anzeige
+  // Render
   return (
     <Container>
-
-      {error ? (
+      {errorMsg ? (
         <ErrorText>
-          <FaExclamationTriangle /> {error}
+          <FaExclamationTriangle /> {errorMsg}
         </ErrorText>
       ) : (
         <ResultsWrapper>
@@ -213,7 +245,7 @@ const VPDTargets = () => {
             <FaBullseye color="#9efc7c" />{vpdResults.perfection} kPa
           </Result>
           <Result>
-            <FaArrowUp color="#fc7c7c" />{vpdResults.perfectMax} kPa
+            <FaArrowUp color="#fc7d7c" />{vpdResults.perfectMax} kPa
           </Result>
         </ResultsWrapper>
       )}
@@ -221,20 +253,39 @@ const VPDTargets = () => {
   );
 };
 
-export default VPDTargets;
-
-// 🔹 Styled Components
+// Styled Components
 const Container = styled.div`
   display: flex;
   flex-direction: column;
-  margin:0.5rem;
-
+  margin: 0.5rem;
   color: var(--main-text-color);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   max-width: 25rem;
 `;
 
+const LoadingWrapper = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  padding: 2rem;
+  color: var(--second-text-color);
+  
+  .spin {
+    animation: spin 1s linear infinite;
+  }
+  
+  @keyframes spin {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+  }
+`;
 
+const LoadingText = styled.span`
+  font-size: 0.9rem;
+  color: var(--second-text-color);
+`;
 
 const ResultsWrapper = styled.div`
   display: flex;
@@ -248,8 +299,6 @@ const Result = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
-
-
 `;
 
 const ErrorText = styled.div`
@@ -259,3 +308,5 @@ const ErrorText = styled.div`
   align-items: center;
   gap: 8px;
 `;
+
+export default VPDTargets;
