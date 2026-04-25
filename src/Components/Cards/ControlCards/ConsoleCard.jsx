@@ -282,9 +282,30 @@ const ConsoleCard = () => {
   
   const { connection, currentRoom } = useHomeAssistant();
 
+  // Track previous room for detecting room changes
+  const prevRoomRef = useRef(currentRoom);
+
+  // Clear state on room change
+  useEffect(() => {
+    if (prevRoomRef.current !== currentRoom) {
+      const oldRoom = prevRoomRef.current;
+      prevRoomRef.current = currentRoom;
+
+      setLines(prev => [
+        ...prev,
+        { type: 'divider', content: '' },
+        { type: 'system', content: `📍 Switched to Room: ${currentRoom || 'global'}`, timestamp: new Date() },
+        { type: 'divider', content: '' },
+      ]);
+      setDynamicCommands({});
+      setInput('');
+      setShowSuggestions(false);
+    }
+  }, [currentRoom]);
+
   // Load commands via WebSocket
   useEffect(() => {
-    if (!connection) return;
+    if (!connection || !currentRoom) return;
 
     const unsubscribe = connection.subscribeEvents(
       (event) => {
