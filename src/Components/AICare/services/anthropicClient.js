@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { getApiKey } from '../utils/apiKeys';
+import { prepareImage } from '../utils/imageUtils';
 
 /**
  * Creates an Anthropic client with the stored API key
@@ -82,19 +83,17 @@ export const sendToAnthropicWithImage = async (text, image, model = 'claude-3-5-
 
     // Add image if provided
     if (image && image.data) {
-      // Remove data URL prefix if present
-      const base64Data = image.data.includes('base64,') 
-        ? image.data.split('base64,')[1] 
-        : image.data;
-
-      content.push({
-        type: 'image',
-        source: {
-          type: 'base64',
-          media_type: 'image/jpeg', // Assume JPEG, adjust based on file type
-          data: base64Data
-        }
-      });
+      const imageData = await prepareImage(image);
+      if (imageData) {
+        content.push({
+          type: 'image',
+          source: {
+            type: 'base64',
+            media_type: imageData.mimeType,
+            data: imageData.base64
+          }
+        });
+      }
     }
 
     const response = await client.messages.create({

@@ -1,4 +1,5 @@
 import { getApiKey } from '../utils/apiKeys';
+import { prepareImage } from '../utils/imageUtils';
 
 const GEMINI_BASE_URL = 'https://generativelanguage.googleapis.com/v1beta';
 
@@ -63,8 +64,11 @@ export const sendToGemini = async (messages, model = 'gemini-2.0-flash') => {
 
 export const sendToGeminiWithImage = async (text, image, model = 'gemini-2.0-flash', systemPrompt = '') => {
   const apiKey = getGeminiKey();
-  const base64Data = image?.data?.includes('base64,') ? image.data.split('base64,')[1] : image?.data;
-  const mimeType = image?.data?.match(/^data:(.*?);base64,/)?.[1] || 'image/jpeg';
+  
+  let imageData = null;
+  if (image && image.data) {
+    imageData = await prepareImage(image);
+  }
 
   const response = await fetch(`${GEMINI_BASE_URL}/models/${model}:generateContent?key=${apiKey}`, {
     method: 'POST',
@@ -77,7 +81,7 @@ export const sendToGeminiWithImage = async (text, image, model = 'gemini-2.0-fla
         role: 'user',
         parts: [
           ...(text && text.trim() ? [{ text }] : [{ text: 'Please analyze this plant image.' }]),
-          ...(base64Data ? [{ inline_data: { mime_type: mimeType, data: base64Data } }] : []),
+          ...(imageData ? [{ inline_data: { mime_type: imageData.mimeType, data: imageData.base64 } }] : []),
         ],
       }],
       generationConfig: {

@@ -1,3 +1,5 @@
+import { prepareImage } from '../utils/imageUtils';
+
 const getOllamaBaseUrl = () => {
   return localStorage.getItem('plantbuddy_ollama_base_url') || 'http://localhost:11434';
 };
@@ -60,10 +62,10 @@ export const sendToOllamaWithImage = async (text, image, model = 'llava', system
     };
 
     if (image && image.data) {
-      const base64Data = image.data.includes('base64,')
-        ? image.data.split('base64,')[1]
-        : image.data;
-      message.images.push(base64Data);
+      const imageData = await prepareImage(image);
+      if (imageData) {
+        message.images.push(imageData.base64);
+      }
     }
 
     const messages = [];

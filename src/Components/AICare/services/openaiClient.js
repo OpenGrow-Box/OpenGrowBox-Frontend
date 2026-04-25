@@ -1,5 +1,6 @@
 import OpenAI from 'openai';
 import { getApiKey } from '../utils/apiKeys';
+import { prepareImage } from '../utils/imageUtils';
 
 /**
  * Creates an OpenAI client with the stored API key
@@ -108,13 +109,16 @@ export const sendToOpenAIWithImage = async (text, image, model = 'gpt-4o', syste
 
     // Add image
     if (image && image.data) {
-      content.push({
-        type: 'image_url',
-        image_url: {
-          url: image.data,
-          detail: 'auto' // or 'low' for faster processing
-        }
-      });
+      const imageData = await prepareImage(image);
+      if (imageData) {
+        content.push({
+          type: 'image_url',
+          image_url: {
+            url: imageData.dataUrl,
+            detail: 'auto' // or 'low' for faster processing
+          }
+        });
+      }
     }
 
     const response = await client.chat.completions.create({

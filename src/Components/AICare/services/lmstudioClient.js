@@ -1,3 +1,5 @@
+import { prepareImage } from '../utils/imageUtils';
+
 const getLMStudioBaseUrl = () => {
   return localStorage.getItem('plantbuddy_lmstudio_base_url') || 'http://localhost:1234/v1';
 };
@@ -56,10 +58,13 @@ export const sendToLMStudioWithImage = async (text, image, model = 'local-model'
     }
 
     if (image && image.data) {
-      content.push({
-        type: 'image_url',
-        image_url: { url: image.data }
-      });
+      const imageData = await prepareImage(image);
+      if (imageData) {
+        content.push({
+          type: 'image_url',
+          image_url: { url: imageData.dataUrl }
+        });
+      }
     }
 
     const response = await fetch(`${baseUrl}/chat/completions`, {

@@ -50,11 +50,9 @@ const PROVIDER_CONFIG = {
   },
   lmstudio: {
     label: 'LM Studio',
-    defaultModel: 'local-model',
+    defaultModel: 'llama3.2',
   },
 };
-
-const CLOUD_PROVIDERS = ['openai', 'anthropic', 'openrouter', 'gemini'];
 
 const getProviderLabel = (provider) => PROVIDER_CONFIG[provider]?.label || provider;
 

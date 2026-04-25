@@ -1,4 +1,5 @@
 import { getApiKey } from '../utils/apiKeys';
+import { prepareImage } from '../utils/imageUtils';
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1';
 
@@ -60,10 +61,13 @@ export const sendToOpenRouterWithImage = async (text, image, model = 'openai/gpt
   }
 
   if (image?.data) {
-    content.push({
-      type: 'image_url',
-      image_url: { url: image.data },
-    });
+    const imageData = await prepareImage(image);
+    if (imageData) {
+      content.push({
+        type: 'image_url',
+        image_url: { url: imageData.dataUrl },
+      });
+    }
   }
 
   return sendToOpenRouter([
