@@ -19,7 +19,26 @@ const DeviceCard = () => {
 
 
 const updateDevices = () => {
-    let sensors = Object.entries(entities)
+    const entitiesArray = Object.entries(entities);
+    
+    const findNumberEntity = (switchKey) => {
+      const switchBase = switchKey.replace("switch.", "");
+      const possibleNames = [
+        `${switchBase}_brightness`,
+        `${switchBase}_level`,
+        `${switchBase}_duty`,
+        `${switchBase}_intensity`,
+      ];
+      for (const name of possibleNames) {
+        const numberKey = `number.${name}`;
+        if (entities[numberKey]) {
+          return entities[numberKey];
+        }
+      }
+      return null;
+    };
+
+    let sensors = entitiesArray
       .filter(([key, entity]) => {
         const isRelevantType =
           (key.startsWith("switch.") ||
@@ -59,6 +78,33 @@ const updateDevices = () => {
         const isHumidifierOn = domain === "humidifier" && entity.state === "on";
         const isOn = entity.state === "on" || isClimateOn || isHumidifierOn;
 
+        let brightness = undefined;
+        let duty = undefined;
+        let isDimmable = false;
+        let dimNumberEntityId = undefined;
+
+        if (domain === "light" && entity.attributes?.brightness !== undefined) {
+          brightness = Math.round((entity.attributes.brightness / 255) * 100);
+        }
+        if (domain === "fan" && entity.attributes?.percentage !== undefined) {
+          duty = entity.attributes.percentage;
+        }
+        if (domain === "switch") {
+          const numberEntity = findNumberEntity(key);
+          if (numberEntity) {
+            isDimmable = true;
+            dimNumberEntityId = numberEntity.entity_id;
+            const numValue = parseFloat(numberEntity.state);
+            if (!isNaN(numValue)) {
+              if (key.includes("light")) {
+                brightness = numValue;
+              } else {
+                duty = numValue;
+              }
+            }
+          }
+        }
+
         return {
           id: key,
           title,
@@ -66,14 +112,10 @@ const updateDevices = () => {
           originalState: entity.state,
           state: isOn ? "on" : "off",
           domain,
-          brightness:
-            domain === "light" && entity.attributes?.brightness !== undefined
-              ? Math.round((entity.attributes.brightness / 255) * 100)
-              : undefined,
-          duty:
-            domain === "fan" && entity.attributes?.percentage !== undefined
-              ? entity.attributes.percentage
-              : undefined,
+          brightness,
+          duty,
+          isDimmable,
+          dimNumberEntityId,
           hvacMode:
             domain === "climate" 
               ? (entity.attributes?.hvac_mode || entity.state)
@@ -385,6 +427,37 @@ const updateDevices = () => {
     updateBrightness(entityId, value);
   };
 
+  const handleDimmerCommit = async (entityId, value, device) => {
+    const confirmed = await confirmChange(
+      device.title,
+      `${device.brightness ?? device.duty ?? 0}%`,
+      `${value}%`
+    );
+
+    if (!confirmed) {
+      setLocalSliderValues(prev => {
+        const updated = { ...prev };
+        delete updated[entityId];
+        return updated;
+      });
+      return;
+    }
+
+    try {
+      await sendCommand({
+        type: "call_service",
+        domain: "number",
+        service: "set_value",
+        service_data: {
+          entity_id: entityId,
+          value: Number(value),
+        },
+      });
+    } catch (error) {
+      console.error("Error updating dimmer:", error);
+    }
+  };
+
   const handleHumidityCommit = async (entityId, value, device) => {
     const confirmed = await confirmChange(
       device.title,
@@ -466,6 +539,28 @@ const updateDevices = () => {
                       onChange={(e) => handleSliderChange(sensor.entity_id, e.target.value)}
                       onMouseUp={(e) => handleBrightnessCommit(sensor.entity_id, e.target.value, sensor)}
                       onTouchEnd={(e) => handleBrightnessCommit(sensor.entity_id, e.target.value, sensor)}
+                    />
+                  </ControlSliderWrapper>
+                </ControlBox>
+              )}
+
+              {/* DIMMABLE SWITCH SLIDER */}
+              {sensor.domain === "switch" && sensor.isDimmable && sensor.dimNumberEntityId && (
+                <ControlBox>
+                  <ControlHeader>
+                    <ControlLabel>{sensor.entity_id.includes("light") ? "Brightness" : "Level"}</ControlLabel>
+                    <ControlLabelValue>{localSliderValues[sensor.dimNumberEntityId] ?? (sensor.brightness ?? sensor.duty) ?? 0}%</ControlLabelValue>
+                  </ControlHeader>
+                  <ControlSliderWrapper>
+                    <ControlSlider
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={localSliderValues[sensor.dimNumberEntityId] ?? sensor.brightness ?? sensor.duty ?? 0}
+                      onChange={(e) => handleSliderChange(sensor.dimNumberEntityId, e.target.value)}
+                      onMouseUp={(e) => handleDimmerCommit(sensor.dimNumberEntityId, e.target.value, sensor)}
+                      onTouchEnd={(e) => handleDimmerCommit(sensor.dimNumberEntityId, e.target.value, sensor)}
                     />
                   </ControlSliderWrapper>
                 </ControlBox>
