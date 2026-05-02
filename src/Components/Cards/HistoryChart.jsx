@@ -132,7 +132,7 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 250
     // Build URL - in dev mode, use relative path for proxy
     const baseUrlPart = apiBaseUrl ? apiBaseUrl : '';
     const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startDate)}?filter_entity_id=${sensorId}&end_time=${encodeURIComponent(endDate)}`;
-    console.log('HistoryChart fetching from:', url, 'isDev:', isDev);
+    // console.log('HistoryChart fetching from:', url, 'isDev:', isDev);
 
     try {
       const response = await fetch(url, {

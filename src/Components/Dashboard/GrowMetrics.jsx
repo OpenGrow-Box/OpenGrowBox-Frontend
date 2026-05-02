@@ -121,19 +121,19 @@ const GrowMetrics = () => {
     const allSensorIds = allSensors.map(e => e.entity_id).filter(id => 
       id.includes('co2') || id.includes('ec') || id.includes('ph') || id.includes('humid') || id.includes('temp') || id.includes('vpd')
     );
-    console.log('[GrowMetrics] Relevant sensors:', allSensorIds);
+    // console.log('[GrowMetrics] Relevant sensors:', allSensorIds);
     
     // Auto-detect each sensor's type
     allSensors.forEach(entity => {
       const metricType = detectSensorType(entity, currentRoom);
       if (metricType && !foundEntities[metricType]) {
         foundEntities[metricType] = entity.entity_id;
-        console.log('[GrowMetrics] Detected:', metricType, '=', entity.entity_id, 'value:', entity.state);
+        // console.log('[GrowMetrics] Detected:', metricType, '=', entity.entity_id, 'value:', entity.state);
       }
     });
 
-    console.log('[GrowMetrics] Auto-detected sensors:', foundEntities);
-    console.log('[GrowMetrics] Room:', currentRoom, '| Total sensors:', allSensors.length);
+    // console.log('[GrowMetrics] Auto-detected sensors:', foundEntities);
+    // console.log('[GrowMetrics] Room:', currentRoom, '| Total sensors:', allSensors.length);
 
     return foundEntities;
   }, [entities, currentRoom]);
@@ -211,14 +211,14 @@ const GrowMetrics = () => {
       }
     });
     
-    console.log('[GrowMetrics] Dynamic control entities:', found);
-    console.log('[GrowMetrics] Room:', currentRoom, '| Total control entities:', allEntities.length);
+    // console.log('[GrowMetrics] Dynamic control entities:', found);
+    // console.log('[GrowMetrics] Room:', currentRoom, '| Total control entities:', allEntities.length);
     
     return found;
   }, [entities, currentRoom]);
 
   // Kombiniere Target Values aus: Wizard Defaults → HA Entities → Hardcoded
-  /* eslint-disable react/prop-types */
+   
   const loadedTargetValues = useMemo(() => {
     const result = {};
     
@@ -243,8 +243,8 @@ const GrowMetrics = () => {
     // Get plant stages from context (remote data from HA) with fallback to defaults
     const currentStageData = getStageConfigWithFallback(wizardStageKey);
     
-    console.log('[GrowMetrics] Current plant stage:', currentPlantStage, '->', wizardStageKey);
-    console.log('[GrowMetrics] Using stage defaults:', currentStageData);
+    // console.log('[GrowMetrics] Current plant stage:', currentPlantStage, '->', wizardStageKey);
+    // console.log('[GrowMetrics] Using stage defaults:', currentStageData);
 
     Object.keys(defaultTargetValues).forEach(metric => {
       const controlEntity = controlEntities[metric];
@@ -309,12 +309,12 @@ const GrowMetrics = () => {
         }
       }
       
-      console.log(`[GrowMetrics] Target ${metric}:`, result[metric]);
+      // console.log(`[GrowMetrics] Target ${metric}:`, result[metric]);
     });
 
     return result;
   }, [controlEntities, entities, currentMedium, mediums, currentMediumIndex, currentRoom]);
-  /* eslint-enable react/prop-types */
+   
 
   // Format date for display
   const formatDate = (dateStr) => {
@@ -413,7 +413,7 @@ const GrowMetrics = () => {
     // Build URL - in dev mode, use relative path for proxy
     const baseUrlPart = apiBaseUrl ? apiBaseUrl : '';
     const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startTime)}?filter_entity_id=${entityId}&end_time=${encodeURIComponent(endTime)}&minimal_response&no_attributes&significant_changes_only`;
-    console.log('GrowMetrics fetching from:', url, 'isDev:', isDev);
+    // console.log('GrowMetrics fetching from:', url, 'isDev:', isDev);
 
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
@@ -507,7 +507,7 @@ const GrowMetrics = () => {
       if (sortedData.length > maxReadings) {
         const step = Math.ceil(sortedData.length / maxReadings);
         sampledData = sortedData.filter((_, index) => index % step === 0);
-        console.log(`[GrowMetrics] Sampled data from ${sortedData.length} to ${sampledData.length} readings (step: ${step})`);
+        // console.log(`[GrowMetrics] Sampled data from ${sortedData.length} to ${sampledData.length} readings (step: ${step})`);
       }
 
       setHistoricalData(sampledData);
@@ -539,11 +539,11 @@ const GrowMetrics = () => {
     const handleVisibilityChange = () => {
       if (!document.hidden) {
         // Tab became active - validate data and refresh if needed
-        console.log('GrowMetrics: Tab became active, validating data...');
+        // console.log('GrowMetrics: Tab became active, validating data...');
 
         // If we have no data or connection issues, refresh
         if (!historicalData.length && !loading && !error) {
-          console.log('GrowMetrics: No data found, refreshing...');
+          // console.log('GrowMetrics: No data found, refreshing...');
           fetchAllGrowData();
         }
 

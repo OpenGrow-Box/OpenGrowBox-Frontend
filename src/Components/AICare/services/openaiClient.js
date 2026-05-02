@@ -10,7 +10,7 @@ const getOpenAIClient = () => {
   const apiKey = getApiKey('openai');
   if (!apiKey) return null;
 
-  console.log('Creating OpenAI client with key:', apiKey.substring(0, 10) + '...');
+  // console.log('Creating OpenAI client with key:', apiKey.substring(0, 10) + '...');
 
   return new OpenAI({
     apiKey: apiKey,
@@ -32,8 +32,8 @@ export const sendToOpenAI = async (messages, model = 'gpt-4o') => {
     throw new Error('OpenAI API key not configured. Please add your API key in settings.');
   }
 
-  console.log('Sending request to OpenAI with model:', model);
-  console.log('Messages:', JSON.stringify(messages, null, 2));
+  // console.log('Sending request to OpenAI with model:', model);
+  // console.log('Messages:', JSON.stringify(messages, null, 2));
 
   try {
     const response = await client.chat.completions.create({
@@ -45,7 +45,7 @@ export const sendToOpenAI = async (messages, model = 'gpt-4o') => {
       maxRetries: 0,
     });
 
-    console.log('OpenAI response received:', response);
+    // console.log('OpenAI response received:', response);
 
     const usage = response.usage ? {
       promptTokens: response.usage.prompt_tokens,

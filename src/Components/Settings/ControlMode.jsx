@@ -174,9 +174,9 @@ const ControlMode = ({ onSelectChange }) => {
   // Debug subscription data
   useEffect(() => {
     if (subscription) {
-      console.log('[ControlMode] Subscription loaded:', subscription);
-      console.log('[ControlMode] activeGrowPlan:', subscription.activeGrowPlan);
-      console.log('[ControlMode] active_grow_plan:', subscription.active_grow_plan);
+      // console.log('[ControlMode] Subscription loaded:', subscription);
+      // console.log('[ControlMode] activeGrowPlan:', subscription.activeGrowPlan);
+      // console.log('[ControlMode] active_grow_plan:', subscription.active_grow_plan);
     }
   }, [subscription]);
 

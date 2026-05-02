@@ -5,7 +5,7 @@ export const fetchOpenGrowBoxDocs = async (query) => {
   try {
     // For now, return mock data since the docs URLs might not be accessible
     // In production, you would implement actual API calls here
-    console.log('Would fetch docs for:', query);
+    // console.log('Would fetch docs for:', query);
     
     return {
       source: 'docs',
@@ -28,7 +28,7 @@ export const fetchOpenGrowBoxDocs = async (query) => {
 export const fetchOpenGrowBoxWiki = async (query) => {
   try {
     // For now, return mock data
-    console.log('Would fetch wiki for:', query);
+    // console.log('Would fetch wiki for:', query);
     
     return {
       source: 'wiki',

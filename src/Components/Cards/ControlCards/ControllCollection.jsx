@@ -51,7 +51,7 @@ const dynamicFilters = {
       },
       'VPD Target': {
         includeKeywords: ['leaf'],
-        excludeKeywords: ['drying', "template", "weigh", 'hydro',"crop",'hydro',"crop","light","planttype"],
+        excludeKeywords: ['drying', "template","stage", "weigh", 'hydro',"crop",'hydro',"crop","light","planttype"],
         additionalTooltips: {}
       },
       'Closed Environment': {
@@ -529,7 +529,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_workmode_${currentRoom?.toLowerCase()}`]: 'Use this mode when working on your plants. It will dim the lights and reduce device activity until you deactivate it again.',
 
     [`ogb_leaftemp_offset_${currentRoom?.toLowerCase()}`]: 'Override the detected leaf temperature by automation if needed.',
-    [`ogb_vpdtarget_${currentRoom?.toLowerCase()}`]: 'Set your target VPD. Works only in "Targeted VPD" Tent Mode.',
+    [`ogb_vpdtarget_${currentRoom?.toLowerCase()}`]: 'Set your target VPD. Works only in "Targeted VPD" Tent Mode Use MinMax setters for temp and Hum as PlantStage change will overwrite it.',
     [`ogb_vpdtolerance_${currentRoom?.toLowerCase()}`]: 'Adjust tolerance between Targeted VPD and Perfect VPD.',
 
     [`ogb_lightcontrol_${currentRoom?.toLowerCase()}`]: 'Enable to control lights via OpenGrowBox.',

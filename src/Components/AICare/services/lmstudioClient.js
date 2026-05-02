@@ -95,7 +95,7 @@ export const sendToLMStudioWithImage = async (text, image, model = 'local-model'
     }
 
     const data = await response.json();
-    console.log('LM Studio response:', data);
+    // console.log('LM Studio response:', data);
 
     const usage = data.usage ? {
       promptTokens: data.usage.prompt_tokens,

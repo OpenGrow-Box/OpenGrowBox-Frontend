@@ -737,7 +737,7 @@ const CameraCard = () => {
             device_name: selectedCamera,
           },
         });
-        console.log('Requested timelapse status for header info:', selectedCamera);
+        // console.log('Requested timelapse status for header info:', selectedCamera);
       } catch (err) {
         console.error('Failed to request timelapse status:', err);
       }
@@ -761,7 +761,7 @@ const CameraCard = () => {
           },
         });
 
-        console.log('Requested timelapse config for:', selectedCamera);
+        // console.log('Requested timelapse config for:', selectedCamera);
       } catch (err) {
         console.error('Failed to request timelapse config:', err);
       }
@@ -786,7 +786,7 @@ const CameraCard = () => {
             const currentSelectedCamera = selectedCameraRef.current;
             const selectedPhotoDate = currentPhotoDateRef.current;
             if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('Received daily photos list:', data.photos);
+              // console.log('Received daily photos list:', data.photos);
               setDailyPhotos(data.photos || []);
               setDailyViewLoading(false);
               // Select most recent photo if none selected
@@ -807,7 +807,7 @@ const CameraCard = () => {
             device_name: selectedCamera,
           },
         });
-        console.log('Requested daily photos for header info:', selectedCamera);
+        // console.log('Requested daily photos for header info:', selectedCamera);
 
         // Listen for timelapse photos response FIRST (before sending request)
         const unsubTimelapsePhotos = await connection.subscribeEvents(
@@ -816,7 +816,7 @@ const CameraCard = () => {
             if (!isMounted) return;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('Received timelapse photos response:', data.total_count, 'photos');
+              // console.log('Received timelapse photos response:', data.total_count, 'photos');
               // Set timelapse photos list and total count
               setTimelapsePhotos(data.photos || []);
               setTotalTimelapseCount(data.total_count || 0);
@@ -840,7 +840,7 @@ const CameraCard = () => {
             device_name: selectedCamera,
           },
         });
-        console.log('Requested timelapse photos for header info:', selectedCamera);
+        // console.log('Requested timelapse photos for header info:', selectedCamera);
 
         // Listen for CameraRecordingStatus events from backend
         const unsubRecordingStatus = await connection.subscribeEvents(
@@ -853,7 +853,7 @@ const CameraCard = () => {
               : data.room === currentRoom;
 
             if (matchesSelectedCamera) {
-              console.log('Received CameraRecordingStatus:', data);
+              // console.log('Received CameraRecordingStatus:', data);
 
               // Only update isRecording if data.is_recording is explicitly set (not undefined/null)
               // This prevents unconditionally resetting to false when data is incomplete
@@ -930,7 +930,7 @@ const CameraCard = () => {
             if (!isMounted) return;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.device_name, currentSelectedCamera) || isSameCamera(data.device, currentSelectedCamera)) {
-              console.log('Timelapse completed:', data);
+              // console.log('Timelapse completed:', data);
               setIsRecording(false);
               setRecordingStatus(prev => ({ ...prev, active: false }));
             }
@@ -946,7 +946,7 @@ const CameraCard = () => {
             if (!isMounted) return;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.device_name, currentSelectedCamera) || isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('Received timelapse config response:', data.current_config);
+              // console.log('Received timelapse config response:', data.current_config);
               const cfg = data.current_config || {};
               setTimelapseConfigHydrated(true);
               
@@ -962,7 +962,7 @@ const CameraCard = () => {
                 const startDateLocal = fromUtcISO(now.toISOString());
                 const endDateLocal = fromUtcISO(oneMonthLater.toISOString());
 
-                console.log('Auto-filling dates:', { startDate: startDateLocal, endDate: endDateLocal });
+                // console.log('Auto-filling dates:', { startDate: startDateLocal, endDate: endDateLocal });
 
                 setTimelapseConfig(prev => ({
                   ...prev,
@@ -1009,7 +1009,7 @@ const CameraCard = () => {
             if (!isMounted) return;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.device_name, currentSelectedCamera)) {
-              console.log('Timelapse generation started:', data);
+              // console.log('Timelapse generation started:', data);
               setIsGeneratingTimelapse(true);
               setTimelapseProgress({
                 active: true,
@@ -1033,7 +1033,7 @@ const CameraCard = () => {
             if (!isMounted) return;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.device_name, currentSelectedCamera)) {
-              console.log('Timelapse generation progress:', data.progress);
+              // console.log('Timelapse generation progress:', data.progress);
               setTimelapseProgress(prev => ({
                 active: true,
                 percent: Math.max(prev.percent || 0, data.progress || 0),
@@ -1056,7 +1056,7 @@ const CameraCard = () => {
             if (!isMounted) return;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.device_name, currentSelectedCamera)) {
-              console.log('Timelapse generation complete:', data);
+              // console.log('Timelapse generation complete:', data);
               setIsGeneratingTimelapse(false);
 
               if (!data.success) {
@@ -1100,7 +1100,7 @@ const CameraCard = () => {
                 ? `${(data.file_size / (1024 * 1024)).toFixed(2)} MB`
                 : 'Unknown size';
 
-              console.log('Timelapse generated successfully:', {
+              // console.log('Timelapse generated successfully:', {
                 format: (data.format || 'zip').toUpperCase(),
                 frames: data.frame_count || 0,
                 size: fileSizeMb,
@@ -1174,7 +1174,7 @@ const CameraCard = () => {
             const currentSelectedCamera = selectedCameraRef.current;
             const selectedPhotoDate = currentPhotoDateRef.current;
             if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('Photo deleted:', data.date);
+              // console.log('Photo deleted:', data.date);
               // Remove deleted photo from list
               setDailyPhotos(prev => prev.filter(p => p.date !== data.date));
               // If current photo was deleted, select another
@@ -1201,7 +1201,7 @@ const CameraCard = () => {
             const data = event.data;
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('All daily photos deleted:', data.deleted_count);
+              // console.log('All daily photos deleted:', data.deleted_count);
               setIsDeletingAllDaily(false);
               // Clear all state
               setDailyPhotos([]);
@@ -1260,7 +1260,7 @@ const CameraCard = () => {
                 link.click();
                 document.body.removeChild(link);
 
-                console.log('ZIP download started via URL:', data.download_url, `(${data.total_size} bytes)`);
+                // console.log('ZIP download started via URL:', data.download_url, `(${data.total_size} bytes)`);
               } else {
                 setModal({
                   show: true,
@@ -1302,7 +1302,7 @@ const CameraCard = () => {
             if (!isMounted) return; // Prevent updates if unmounted
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('All timelapse photos deleted:', data.deleted_count);
+              // console.log('All timelapse photos deleted:', data.deleted_count);
               setIsDeletingAllTimelapse(false);
               setTotalTimelapseCount(0);
               setTimelapsePhotos([]);
@@ -1325,7 +1325,7 @@ const CameraCard = () => {
             if (!isMounted) return; // Prevent updates if unmounted
             const currentSelectedCamera = selectedCameraRef.current;
             if (isSameCamera(data.camera_entity, currentSelectedCamera)) {
-              console.log('All timelapse output deleted:', data.deleted_count);
+              // console.log('All timelapse output deleted:', data.deleted_count);
               setIsDeletingTimelapseOutput(false);
               setTimelapseOutputs([]);
               setTimelapseOutputCounts({ mp4: 0, zip: 0 });
@@ -1373,7 +1373,7 @@ const CameraCard = () => {
     // If timelapse count is still 0 after 2 seconds, retry request
     const timeout = setTimeout(async () => {
       if (totalTimelapseCount === 0 && isMounted) {
-        console.log('Timelapse count still 0, retrying request...');
+        // console.log('Timelapse count still 0, retrying request...');
         try {
           await connection.sendMessagePromise({
             type: 'fire_event',
@@ -1463,7 +1463,7 @@ const CameraCard = () => {
           date: currentPhotoDate,
         },
       });
-      console.log('Delete photo event sent for:', currentPhotoDate);
+      // console.log('Delete photo event sent for:', currentPhotoDate);
     } catch (err) {
       console.error('Failed to delete photo:', err);
       setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete photo. Please try again.', type: 'error' });
@@ -1482,7 +1482,7 @@ const CameraCard = () => {
           date: photo.date,
         },
       });
-      console.log('Delete photo event sent for:', photo.date);
+      // console.log('Delete photo event sent for:', photo.date);
     } catch (err) {
       console.error('Failed to delete photo:', err);
       setModal({ show: true, title: 'Delete Failed', message: 'Failed to delete photo. Please try again.', type: 'error' });
@@ -1512,7 +1512,7 @@ const CameraCard = () => {
           camera_entity: selectedCamera,
         },
       });
-      console.log('Delete all daily photos event sent');
+      // console.log('Delete all daily photos event sent');
     } catch (err) {
       console.error('Failed to delete all daily photos:', err);
       setIsDeletingAllDaily(false);
@@ -1556,7 +1556,7 @@ const CameraCard = () => {
           end_date: zipDateRange.endDate || undefined,
         },
       });
-      console.log('Download ZIP event sent for', filteredPhotos.length, 'photos');
+      // console.log('Download ZIP event sent for', filteredPhotos.length, 'photos');
     } catch (err) {
       console.error('Failed to download ZIP:', err);
       setIsDownloadingZip(false);
@@ -1581,7 +1581,7 @@ const CameraCard = () => {
           camera_entity: selectedCamera,
         },
       });
-      console.log('Delete all timelapse event sent');
+      // console.log('Delete all timelapse event sent');
     } catch (err) {
       console.error('Failed to delete all timelapse photos:', err);
       setIsDeletingAllTimelapse(false);
@@ -1606,7 +1606,7 @@ const CameraCard = () => {
           camera_entity: selectedCamera,
         },
       });
-      console.log('Delete all timelapse output event sent');
+      // console.log('Delete all timelapse output event sent');
     } catch (err) {
       console.error('Failed to delete all timelapse output:', err);
       setIsDeletingTimelapseOutput(false);
@@ -1646,7 +1646,7 @@ const CameraCard = () => {
           camera_entity: selectedCamera,
         },
       });
-      console.log('Retry capture event sent for:', selectedCamera);
+      // console.log('Retry capture event sent for:', selectedCamera);
       // Clear notification after sending retry - will show new notification if fails again
       setTimeout(() => setCaptureFailure(null), 2000);
     } catch (err) {
@@ -1690,8 +1690,8 @@ const CameraCard = () => {
     const activeCamera = selectedCameraRef.current;
     if (activeCamera && connection) {
       try {
-        console.log('[CameraCard] Sending timelapse config change:', field, value);
-        console.log('[CameraCard] Selected camera:', activeCamera);
+        // console.log('[CameraCard] Sending timelapse config change:', field, value);
+        // console.log('[CameraCard] Selected camera:', activeCamera);
 
         const fieldToPayload = {
           interval: { interval: String(newConfig.interval) },
@@ -1716,7 +1716,7 @@ const CameraCard = () => {
             config: configPayload,
           },
         });
-        console.log('[CameraCard] Timelapse config saved to backend, response:', response);
+        // console.log('[CameraCard] Timelapse config saved to backend, response:', response);
       } catch (err) {
         console.error('[CameraCard] Failed to save timelapse config:', err);
       }
@@ -1756,7 +1756,7 @@ const CameraCard = () => {
         },
       });
 
-      console.log('Timelapse generation event sent to backend');
+      // console.log('Timelapse generation event sent to backend');
 
     } catch (err) {
       console.error('Failed to send timelapse event:', err);
@@ -1784,7 +1784,7 @@ const CameraCard = () => {
   const toggleRecording = async () => {
     // Prevent multiple simultaneous toggle calls
     if (toggleLockRef.current) {
-      console.log('Toggle already in progress, ignoring');
+      // console.log('Toggle already in progress, ignoring');
       return;
     }
     
@@ -1814,7 +1814,7 @@ const CameraCard = () => {
           countdown: ''
         });
 
-        console.log('Timelapse stop command sent successfully');
+        // console.log('Timelapse stop command sent successfully');
       } else {
         // Start recording: first persist current UI config so backend startTL reads valid ISO dates
         await connection.sendMessagePromise({
@@ -1842,7 +1842,7 @@ const CameraCard = () => {
             room: currentRoom,
           },
         });
-        console.log('Timelapse recording started');
+        // console.log('Timelapse recording started');
       }
     } catch (err) {
       console.error('Failed to toggle recording:', err);

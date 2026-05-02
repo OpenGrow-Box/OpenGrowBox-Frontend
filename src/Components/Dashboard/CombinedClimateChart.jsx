@@ -232,7 +232,7 @@ const CombinedClimateChart = ({
           const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
           
           // DEBUG: Log the key and first/last values
-          console.log(`[FETCH] ${key}: entity=${sensorsConfig[key]?.id}, first=${values[0]}, last=${values[values.length-1]}, count=${values.length}`);
+          // console.log(`[FETCH] ${key}: entity=${sensorsConfig[key]?.id}, first=${values[0]}, last=${values[values.length-1]}, count=${values.length}`);
           
           // Calculate stats
           const current = values.length > 0 ? values[values.length - 1] : 0;
@@ -276,13 +276,13 @@ const CombinedClimateChart = ({
         setStats(newStats);
         chartDataRef.current = processedData;
         
-        console.log('Processed data:', {
+        // console.log('Processed data:', {
           vpd: processedData.vpd?.yData?.slice(-3),
           temp: processedData.temp?.yData?.slice(-3),
           humidity: processedData.humidity?.yData?.slice(-3),
           co2: processedData.co2?.yData?.slice(-3)
         });
-        console.log('New stats:', newStats);
+        // console.log('New stats:', newStats);
 
         // Update current values ref
         currentValuesRef.current = {
@@ -357,9 +357,9 @@ const CombinedClimateChart = ({
         const alignedCO2 = alignDataToXAxis('co2');
         
         // DEBUG: Log aligned data
-        console.log('[ALIGNED] VPD first/last:', alignedVPD.data[0], alignedVPD.data[alignedVPD.data.length-1]);
-        console.log('[ALIGNED] Temp first/last:', alignedTemp.data[0], alignedTemp.data[alignedTemp.data.length-1]);
-        console.log('[ALIGNED] Humidity first/last:', alignedHumidity.data[0], alignedHumidity.data[alignedHumidity.data.length-1]);
+        // console.log('[ALIGNED] VPD first/last:', alignedVPD.data[0], alignedVPD.data[alignedVPD.data.length-1]);
+        // console.log('[ALIGNED] Temp first/last:', alignedTemp.data[0], alignedTemp.data[alignedTemp.data.length-1]);
+        // console.log('[ALIGNED] Humidity first/last:', alignedHumidity.data[0], alignedHumidity.data[alignedHumidity.data.length-1]);
 
         // Build legend data
         const legendData = ['VPD', 'Temperature', 'Humidity'];

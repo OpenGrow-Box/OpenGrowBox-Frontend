@@ -129,18 +129,18 @@ export const OGBPremiumProvider = ({ children }) => {
   // Debug-Funktion für currentRoom
   const logCurrentRoom = (functionName) => {
     const actualRoom = getActualRoom();
-    console.log(`[${functionName}] currentRoom:`, currentRoom, '| actualRoom:', actualRoom);
+    // console.log(`[${functionName}] currentRoom:`, currentRoom, '| actualRoom:', actualRoom);
   };
 
   // Funktion zum Laden des Benutzerprofils über Home Assistant Event
   const loadUserProfile = async (force = false) => {
     if (operationLockRef.current && !force) {
-      console.log('Operation in progress, skipping loadUserProfile...');
+      // console.log('Operation in progress, skipping loadUserProfile...');
       return;
     }
 
     if (isLoadingProfileRef.current && !force) {
-      console.log('Profil wird bereits geladen, überspringe...');
+      // console.log('Profil wird bereits geladen, überspringe...');
       return;
     }
 
@@ -162,10 +162,10 @@ export const OGBPremiumProvider = ({ children }) => {
       console.error('Fehler beim Laden des Benutzerprofils:', error);
       
       if (error.message.includes('unauthorized') || error.message.includes('Not authenticated')) {
-        console.log('Authentifizierungsfehler - setze States zurück');
+        // console.log('Authentifizierungsfehler - setze States zurück');
         resetStates();
       } else {
-        console.log('Netzwerk-/Serverfehler - behalte aktuelle States bei');
+        // console.log('Netzwerk-/Serverfehler - behalte aktuelle States bei');
       }
       throw error;
     } finally {
@@ -239,11 +239,11 @@ export const OGBPremiumProvider = ({ children }) => {
           setOGBSessions(data?.ogb_sessions || 0);
           setOgbMaxConnections(data?.ogb_max_sessions || 0);
           
-          console.log('📊 Login data received:', {
-            ogb_sessions: data?.ogb_sessions,
-            ogb_max_sessions: data?.ogb_max_sessions,
-            usage: data?.subscription_data?.usage
-          });
+          // console.log('📊 Login data received:', {
+          //   ogb_sessions: data?.ogb_sessions,
+          //   ogb_max_sessions: data?.ogb_max_sessions,
+          //   usage: data?.subscription_data?.usage
+          // });
 
           // Aktualisiere den globalen State mit Login-Daten
           setDeep("OGBPremium", {
@@ -257,11 +257,11 @@ export const OGBPremiumProvider = ({ children }) => {
           });
 
 try {
-              console.log('Lade Profil nach erfolgreichem Login...');
+              // console.log('Lade Profil nach erfolgreichem Login...');
               // Use room from response data if available, otherwise fall back to currentRoom
               const loginRoom = data?.room || currentRoom;
               await loadUserProfile(true);
-              console.log('Profil nach Login erfolgreich geladen');
+              // console.log('Profil nach Login erfolgreich geladen');
            } catch (error) {
             console.error('Fehler beim Laden des Profils nach Login:', error);
           }
@@ -274,11 +274,6 @@ try {
         case "Profile retrieved":
           // SECURITY: Only set premium status if user data exists
           if (data.user) {
-            console.log('🔍 Profile retrieved - subscription_data:', data.subscription_data);
-            console.log('🔍 Profile retrieved - limits:', data.subscription_data?.limits);
-            console.log('🔍 Profile retrieved - usage:', data.subscription_data?.usage);
-            console.log('🔍 Profile retrieved - features:', data.subscription_data?.features);
-            console.log('🔍 Profile retrieved - activeGrowPlan:', data.subscription_data?.activeGrowPlan);
             
             // CRITICAL FIX: Create session object so isLoggedIn becomes true
             // This fixes the login modal appearing after HA restart when profile shows logged in state
@@ -290,7 +285,7 @@ try {
               };
               setSession(profileSession);
               setAuthStatus('authenticated');
-              console.log('✅ Session created from profile - isLoggedIn is now true');
+              // console.log('✅ Session created from profile - isLoggedIn is now true');
             }
             
             setUserProfile(data.user);
@@ -322,7 +317,7 @@ try {
 
         case "Premium state auto-restored from disk":
           // Handle state restoration after HA restart
-          console.log('✅ Premium state auto-restored from backend!', data);
+          // console.log('✅ Premium state auto-restored from backend!', data);
           
           // Create a session object from restored data so isLoggedIn works
           const restoredSession = {
@@ -373,7 +368,7 @@ try {
           
           
 
-          console.log('✅ Frontend state synchronized with restored backend state');
+          // console.log('✅ Frontend state synchronized with restored backend state');
           break;
 
         case "Connect Success":
@@ -405,7 +400,7 @@ try {
           break;
 
         default:
-          console.log('Unhandled success message:', message);
+          // console.log('Unhandled success message:', message);
       }
 
       // Callback aufrufen falls vorhanden
@@ -431,7 +426,7 @@ try {
          break;
 
         default:
-          console.log('Unhandled error message:', message);
+          // console.log('Unhandled error message:', message);
       }
 
       // Callback aufrufen falls vorhanden
@@ -445,22 +440,22 @@ try {
   useEffect(() => {
     const initializeSession = async () => {
       if (isInitializedRef.current) {
-        console.log('Session bereits initialisiert, überspringe...');
+        // console.log('Session bereits initialisiert, überspringe...');
         return;
       }
 
       if (operationLockRef.current) {
-        console.log('Operation in progress, skipping initialization...');
+        // console.log('Operation in progress, skipping initialization...');
         return;
       }
 
       if (!connection) {
-        console.log('Warte auf Connection...');
+        // console.log('Warte auf Connection...');
         return;
       }
 
       if (!currentRoom) {
-        console.log('Warte auf currentRoom...');
+        // console.log('Warte auf currentRoom...');
         return;
       }
 
@@ -472,7 +467,7 @@ try {
         //console.log('Load Profils from Server...');
         //logCurrentRoom('initializeSession');
         await loadUserProfile(true);
-        console.log('Session successfull loaded');
+        // console.log('Session successfull loaded');
 
       } catch (error) {
         console.error('Fehler beim Laden des Profils während der Initialisierung:', error);
@@ -537,7 +532,7 @@ try {
       try {
         unsubscribeUsage = await connection.subscribeEvents(
           (event) => {
-            console.log('📊 Received api_usage_update:', event.data);
+            // console.log('📊 Received api_usage_update:', event.data);
             const { usage, timestamp, lastEndpoint, lastMethod, plan, features, limits } = event.data;
             
             // Update subscription with full structure (plan, features, limits, usage)
@@ -582,7 +577,7 @@ try {
               setIsPremium(plan !== 'free' && plan !== 'trial');
             }
             
-            console.log('✅ Subscription updated in real-time:', { plan, features, limits, usage });
+            // console.log('✅ Subscription updated in real-time:', { plan, features, limits, usage });
           },
           "api_usage_update"
         );
@@ -618,7 +613,7 @@ try {
         unsubscribePlanChanged = await connection.subscribeEvents(
           (event) => {
             const { new_plan, features, limits } = event.data || {};
-            console.log('🔄 Received ogb_premium_subscription_changed:', event.data);
+            // console.log('🔄 Received ogb_premium_subscription_changed:', event.data);
 
             if (new_plan) {
               setCurrentPlan(new_plan);
@@ -676,7 +671,7 @@ try {
       try {
         unsubscribeSession = await connection.subscribeEvents(
           (event) => {
-            console.log('📊 Received session_update:', event.data);
+            // console.log('📊 Received session_update:', event.data);
             const { active_sessions, max_sessions, active_rooms, roomsUsed } = event.data;
             
             // Update session counts with fresh data
@@ -700,7 +695,7 @@ try {
                 }),
               };
             });
-            console.log('✅ Session count updated in real-time:', { active_sessions, max_sessions, active_rooms, roomsUsed });
+            // console.log('✅ Session count updated in real-time:', { active_sessions, max_sessions, active_rooms, roomsUsed });
           },
           "session_update"
         );
@@ -737,7 +732,7 @@ try {
         unsubscribeAuth = await connection.subscribeEvents(
           (event) => {
             const data = event.data;
-            console.log('🔐 Received isAuthenticated event:', data);
+            // console.log('🔐 Received isAuthenticated event:', data);
             
             // Only process if logged in
             if (data.is_logged_in) {
@@ -782,7 +777,7 @@ try {
               setOGBSessions(data.ogb_sessions || 0);
               setOgbMaxConnections(data.ogb_max_sessions || 0);
               
-              console.log(`✅ Auth shared from ${data.AuthenticatedRoom}, isLoggedIn is now true`);
+              // console.log(`✅ Auth shared from ${data.AuthenticatedRoom}, isLoggedIn is now true`);
             }
           },
           "isAuthenticated"
@@ -821,7 +816,7 @@ try {
         // Subscribe to room_limit_reached event (API login rejection)
         unsubscribeRoomLimit = await connection.subscribeEvents(
           (event) => {
-            console.log('🚫 Received room_limit_reached:', event.data);
+            // console.log('🚫 Received room_limit_reached:', event.data);
             const { room, current_rooms, max_rooms, plan, action } = event.data;
             
             setMaxRoomsReached(true);
@@ -841,7 +836,7 @@ try {
         // Subscribe to ui_to_many_rooms_message event (WebSocket rejection)
         unsubscribeUIRoomLimit = await connection.subscribeEvents(
           (event) => {
-            console.log('🚫 Received ui_to_many_rooms_message:', event.data);
+            // console.log('🚫 Received ui_to_many_rooms_message:', event.data);
             setMaxRoomsReached(true);
           },
           "ui_to_many_rooms_message"
@@ -851,7 +846,7 @@ try {
         // Subscribe to ogb_main_control_changed event (backend reset mainControl)
         unsubscribeMainControlChanged = await connection.subscribeEvents(
           (event) => {
-            console.log('🔄 Received ogb_main_control_changed:', event.data);
+            // console.log('🔄 Received ogb_main_control_changed:', event.data);
             const { room, old_value, new_value, reason } = event.data;
             
             if (reason === 'room_limit_reached' && old_value === 'Premium' && new_value === 'HomeAssistant') {
@@ -936,7 +931,7 @@ try {
       callbacksRef.current.set(eventId, {
         resolve: (result) => {
           clearTimeout(timeoutId);
-          console.log(`Request ${eventId} resolved successfully`);
+          // console.log(`Request ${eventId} resolved successfully`);
           resolve(result);
         },
         reject: (error) => {
@@ -984,8 +979,8 @@ try {
     setLastError(null);
 
     try {
-      const loginData = { email, OGBToken, room: selectedRoom }
-      console.log("LOGINDATA:", loginData)
+      const loginData = { email: email.toLowerCase(), OGBToken, room: selectedRoom }
+      // console.log("LOGINDATA:", loginData)
       const result = await sendAuthEventWithCallback('ogb_premium_login', loginData);
       return result;
     } catch (error) {
@@ -1033,7 +1028,7 @@ try {
     // CRITICAL: If we're currently switching rooms, block all room additions
     // This prevents the race condition where user can add more rooms than allowed
     if (isRoomSwitching) {
-      console.log('⏳ isMaxRoomsReached: TRUE (room switch in progress)');
+      // console.log('⏳ isMaxRoomsReached: TRUE (room switch in progress)');
       return true;
     }
     
@@ -1082,7 +1077,7 @@ try {
   };
 
   const debugPendingRequests = () => {
-    console.log('Aktuelle callbacks:', {
+    // console.log('Aktuelle callbacks:', {
       count: callbacksRef.current.size,
       callbacks: Array.from(callbacksRef.current.keys())
     });
@@ -1136,7 +1131,7 @@ try {
     }
 
     try {
-      console.log(`🔌 Disconnecting room ${roomToDisconnect} from Premium...`);
+      // console.log(`🔌 Disconnecting room ${roomToDisconnect} from Premium...`);
       
       const entity_id = `select.ogb_maincontrol_${roomToDisconnect.toLowerCase()}`;
       
@@ -1150,7 +1145,7 @@ try {
         },
       });
 
-      console.log(`✅ Room ${roomToDisconnect} disconnected from Premium (service call sent)`);
+      // console.log(`✅ Room ${roomToDisconnect} disconnected from Premium (service call sent)`);
 
       // Don't wait for the state to change - just continue
       // The backend will handle the state change asynchronously
@@ -1182,7 +1177,7 @@ try {
     }
 
     try {
-      console.log(`🔄 Switching Premium from ${fromRoom} to ${toRoom}...`);
+      // console.log(`🔄 Switching Premium from ${fromRoom} to ${toRoom}...`);
       
       // CRITICAL: Set switching state to block other room changes
       setIsRoomSwitching(true);
@@ -1200,7 +1195,7 @@ try {
       // Step 4: Set new room to Premium - with retry mechanism
       const newRoomEntityId = `select.ogb_maincontrol_${toRoom.toLowerCase()}`;
       
-      console.log(`📤 Setting ${toRoom} to Premium (with retry)...`);
+      // console.log(`📤 Setting ${toRoom} to Premium (with retry)...`);
       
       // Retry mechanism: try up to 5 times with increasing delay
       let premiumConnected = false;
@@ -1211,7 +1206,7 @@ try {
         if (attempts > 0) {
           // Wait before retry - increasing delay
           const delay = attempts * 1500;
-          console.log(`⏳ Retrying Premium switch for ${toRoom} in ${delay}ms...`);
+          // console.log(`⏳ Retrying Premium switch for ${toRoom} in ${delay}ms...`);
           await new Promise(resolve => setTimeout(resolve, delay));
         }
         
@@ -1240,14 +1235,14 @@ try {
           const freshEntity = stateResponse.find(e => e.entity_id === newRoomEntityId);
           const currentState = freshEntity?.state;
           
-          console.log(`🔍 Direct HA state check: ${newRoomEntityId} = ${currentState}`);
+          // console.log(`🔍 Direct HA state check: ${newRoomEntityId} = ${currentState}`);
           
           if (currentState === 'Premium') {
             premiumConnected = true;
-            console.log(`✅ ${toRoom} is now in Premium mode (attempt ${attempts + 1})`);
+            // console.log(`✅ ${toRoom} is now in Premium mode (attempt ${attempts + 1})`);
             break;
           } else {
-            console.log(`⚠️ ${toRoom} not in Premium yet (attempt ${attempts + 1}), state: ${currentState}`);
+            // console.log(`⚠️ ${toRoom} not in Premium yet (attempt ${attempts + 1}), state: ${currentState}`);
           }
           
         } catch (err) {
@@ -1280,7 +1275,7 @@ try {
           
           if (finalEntity?.state === 'Premium') {
             premiumConnected = true;
-            console.log(`✅ ${toRoom} FORCE SET to Premium!`);
+            // console.log(`✅ ${toRoom} FORCE SET to Premium!`);
           }
         } catch (err) {
           console.error(`❌ Final force set failed:`, err.message);
@@ -1290,7 +1285,7 @@ try {
       // Step 5: Final profile refresh
       await loadUserProfile(true);
       
-      console.log(`✅ Premium switched from ${fromRoom} to ${toRoom}`);
+      // console.log(`✅ Premium switched from ${fromRoom} to ${toRoom}`);
       
       return true;
     } catch (error) {

@@ -164,22 +164,22 @@ const AdminPanel = () => {
 
   const handleUserManagement = async () => {
     // Navigate to user management or open modal
-    console.log('Opening user management...');
+    // console.log('Opening user management...');
   };
 
   const handleSubscriptionManagement = async () => {
     // Navigate to subscription management
-    console.log('Opening subscription management...');
+    // console.log('Opening subscription management...');
   };
 
   const handleFeatureFlags = async () => {
     // Navigate to feature flag management
-    console.log('Opening feature flag management...');
+    // console.log('Opening feature flag management...');
   };
 
   const handleAnalytics = async () => {
     // Navigate to admin analytics
-    console.log('Opening admin analytics...');
+    // console.log('Opening admin analytics...');
   };
 
   if (loading) {

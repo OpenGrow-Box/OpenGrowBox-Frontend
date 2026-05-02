@@ -117,7 +117,7 @@ export const PlantStageProvider = ({ children }) => {
 
     const handlePlantConfigResult = (event) => {
       const data = event?.data || {};
-      console.log('📥 PlantConfig Result erhalten:', JSON.stringify(data, null, 2));
+      // console.log('📥 PlantConfig Result erhalten:', JSON.stringify(data, null, 2));
       
       const requestId = data.requestId || data.request_id;
       
@@ -141,9 +141,9 @@ export const PlantStageProvider = ({ children }) => {
             setSource(data.activeSource || 'ha');
             setError(null);
             hasLoadedRef.current = true;
-            console.log('✅ Plant stages loaded from HA:', normalizedPlantStages);
+            // console.log('✅ Plant stages loaded from HA:', normalizedPlantStages);
           } else {
-            console.log('⚠️ HA response but no stages:', data.plantStages);
+            // console.log('⚠️ HA response but no stages:', data.plantStages);
             setError('No plant stages in HA response');
             setPlantStages(createDefaultPlantStages());
             setSource('default');
@@ -184,7 +184,7 @@ export const PlantStageProvider = ({ children }) => {
     setError(null);
     pendingRequestRef.current = requestId;
     
-    console.log('📤 Sending needPlantConfig event:', { room: roomName, mode, requestId });
+    // console.log('📤 Sending needPlantConfig event:', { room: roomName, mode, requestId });
 
     try {
       await connection.sendMessagePromise({

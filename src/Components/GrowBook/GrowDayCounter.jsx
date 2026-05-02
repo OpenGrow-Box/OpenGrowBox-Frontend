@@ -211,7 +211,7 @@ const GrowDayCounter = () => {
         }
       });
 
-      console.log('Grow finish signal sent to backend');
+      // console.log('Grow finish signal sent to backend');
     } catch (error) {
       console.error('Failed to send grow finish signal:', error);
     }

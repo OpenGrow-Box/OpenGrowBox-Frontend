@@ -95,7 +95,7 @@ export const sendToOllamaWithImage = async (text, image, model = 'llava', system
     }
 
     const data = await response.json();
-    console.log('Ollama response:', data);
+    // console.log('Ollama response:', data);
 
     const content = data.message?.content || data.message || '';
     const estimatedTokens = Math.ceil(content.length / 4);

@@ -107,8 +107,8 @@ export const HomeAssistantProvider = ({ children }) => {
   const stateURL = isDev ? '/api/states' : (baseUrl ? `${baseUrl}/api/states` : '');
   const apiBaseUrl = isDev ? '' : baseUrl;
 
-  console.log('isDev:', isDev, 'envHaHost:', envHaHost, 'configuredServer:', configuredServer);
-  console.log('HA Config - baseUrl:', baseUrl || 'not set', 'token:', token ? '[REDACTED]' : 'null');
+  // console.log('isDev:', isDev, 'envHaHost:', envHaHost, 'configuredServer:', configuredServer);
+  // console.log('HA Config - baseUrl:', baseUrl || 'not set', 'token:', token ? '[REDACTED]' : 'null');
 
   // Configuration validation
   const isConfigurationValid = () => {
@@ -201,7 +201,7 @@ export const HomeAssistantProvider = ({ children }) => {
     retryDelayRef.current = Math.min(retryDelayRef.current * 1.5, 30000);
     
     // Schedule reconnection
-    console.log(`Reconnecting in ${retryDelayRef.current}ms... (Attempt ${connectAttemptRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
+    // console.log(`Reconnecting in ${retryDelayRef.current}ms... (Attempt ${connectAttemptRef.current}/${MAX_RECONNECT_ATTEMPTS})`);
     reconnectTimeoutRef.current = setTimeout(() => {
       if (isMountedRef.current) connect(true);
     }, retryDelayRef.current);
@@ -280,7 +280,7 @@ export const HomeAssistantProvider = ({ children }) => {
       // Set up connection event listeners with proper cleanup tracking
       const readyListener = () => {
         if (isMountedRef.current) {
-          console.log('Home Assistant connection ready ✅');
+          // console.log('Home Assistant connection ready ✅');
           setError(null);
           retryDelayRef.current = 1000;
           connectAttemptRef.current = 0;
@@ -392,7 +392,7 @@ export const HomeAssistantProvider = ({ children }) => {
       }
       
       setError(null);
-      console.log("✅ Connected to Home Assistant WebSocket");
+      // console.log("✅ Connected to Home Assistant WebSocket");
       
     } catch (err) {
       if (!isMountedRef.current) return;
@@ -454,7 +454,7 @@ export const HomeAssistantProvider = ({ children }) => {
       setIsOnline(online);
       
       if (online && !wsConnectionRef.current) {
-        console.log("Network is online, attempting to reconnect");
+        // console.log("Network is online, attempting to reconnect");
         connect();
       }
     };
@@ -474,14 +474,14 @@ export const HomeAssistantProvider = ({ children }) => {
 
     // Skip if user manually initiated connection from setup page
     if (isManualConnectRef.current) {
-      console.log('Manual connection in progress, skipping initial connect');
+      // console.log('Manual connection in progress, skipping initial connect');
       setLoading(false);
       return;
     }
 
     // Check configuration first
     if (!isConfigurationValid()) {
-      console.log('Home Assistant not configured, skipping connection attempt');
+      // console.log('Home Assistant not configured, skipping connection attempt');
       setConnectionState(CONNECTION_STATES.CONFIG_ERROR);
       setLoading(false);
       return;
@@ -524,7 +524,7 @@ export const HomeAssistantProvider = ({ children }) => {
           console.warn("Error closing connection:", e);
         }
         wsConnectionRef.current = null;
-        console.log('Home Assistant connection closed 🧹');
+        // console.log('Home Assistant connection closed 🧹');
       }
     };
   }, [token, isOnline]); // Removed baseUrl dependency - in production we use window.location.origin
@@ -547,18 +547,18 @@ export const HomeAssistantProvider = ({ children }) => {
     const handleVisibilityChange = () => {
       if (document.hidden) {
         // Tab became hidden - log for debugging
-        console.log('Tab hidden - WebSocket operations may be throttled by browser');
+        // console.log('Tab hidden - WebSocket operations may be throttled by browser');
         // Don't pause operations, just be aware of potential throttling
       } else {
         // Tab became visible - validate connection and refresh if needed
-        console.log('Tab visible - validating connection state');
+        // console.log('Tab visible - validating connection state');
 
         // Check if we need to refresh connection or data
         if (!connection || connection.readyState === 3) {
-          console.log('Connection was lost while tab was hidden, will reconnect automatically');
+          // console.log('Connection was lost while tab was hidden, will reconnect automatically');
           // The existing reconnection logic will handle this
         } else if (connection.readyState === 1) {
-          console.log('Connection active, tab reactivation successful');
+          // console.log('Connection active, tab reactivation successful');
         }
 
         // Clear any stale debounce timers
@@ -624,9 +624,9 @@ export const HomeAssistantProvider = ({ children }) => {
         sendCommand,
         // Tab reactivation helper for components
         handleTabReactivation: () => {
-          console.log('Manual tab reactivation triggered');
+          // console.log('Manual tab reactivation triggered');
           if (!connection || connection.readyState === 3) {
-            console.log('Reconnecting due to tab reactivation...');
+            // console.log('Reconnecting due to tab reactivation...');
             connectAttemptRef.current = 0;
             retryDelayRef.current = 1000;
             connect(true);
