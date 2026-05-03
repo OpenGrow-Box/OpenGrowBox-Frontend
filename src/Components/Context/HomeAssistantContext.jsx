@@ -97,7 +97,7 @@ export const HomeAssistantProvider = ({ children }) => {
 
       return url.toString().replace(/\/$/, '');
     } catch (error) {
-      console.error('Invalid Home Assistant base URL:', urlString, error);
+      // console.error('Invalid Home Assistant base URL:', urlString, error);
       return '';
     }
   };
@@ -131,7 +131,7 @@ export const HomeAssistantProvider = ({ children }) => {
         try {
           wsConnectionRef.current.removeEventListener(event, listener);
         } catch (e) {
-          console.warn(`Error removing ${event} listener:`, e);
+          // console.warn(`Error removing ${event} listener:`, e);
         }
       }
     });
@@ -165,7 +165,7 @@ export const HomeAssistantProvider = ({ children }) => {
         await new Promise(resolve => setTimeout(resolve, 500 * attempt));
       } catch (error) {
         if (attempt === maxRetries) throw error;
-        console.warn(`Command attempt ${attempt} failed, retrying...`, error);
+        // console.warn(`Command attempt ${attempt} failed, retrying...`, error);
         // Wait before retry
         await new Promise(resolve => setTimeout(resolve, 500 * attempt));
       }
@@ -178,7 +178,7 @@ export const HomeAssistantProvider = ({ children }) => {
 
     // Check configuration before attempting reconnection
     if (!isConfigurationValid()) {
-      console.warn('Configuration invalid, not attempting reconnection');
+      // console.warn('Configuration invalid, not attempting reconnection');
       setConnectionState(CONNECTION_STATES.CONFIG_ERROR);
       setError('Home Assistant configuration missing. Please check your settings.');
       return;
@@ -191,7 +191,7 @@ export const HomeAssistantProvider = ({ children }) => {
     connectAttemptRef.current += 1;
 
     if (connectAttemptRef.current > MAX_RECONNECT_ATTEMPTS) {
-      console.warn(`Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
+      // console.warn(`Maximum reconnection attempts (${MAX_RECONNECT_ATTEMPTS}) reached`);
       setConnectionState(CONNECTION_STATES.NETWORK_ERROR);
       setError(`Failed to connect after ${MAX_RECONNECT_ATTEMPTS} attempts. Please check your network and Home Assistant configuration.`);
       return;
@@ -219,7 +219,7 @@ export const HomeAssistantProvider = ({ children }) => {
         } catch (e) {
           // Silently ignore "Subscription not found" errors
           if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-            console.warn("Error unsubscribing from entities:", e);
+            // console.warn("Error unsubscribing from entities:", e);
           }
         }
         unsubscribeRef.current = null;
@@ -269,7 +269,7 @@ export const HomeAssistantProvider = ({ children }) => {
             }
           }
         } catch (err) {
-          console.error("Failed to fetch initial entities:", err);
+          // console.error("Failed to fetch initial entities:", err);
           // Don't throw here, we still have the WebSocket connection
         }
       }
@@ -289,7 +289,7 @@ export const HomeAssistantProvider = ({ children }) => {
 
       const disconnectedListener = () => {
         if (isMountedRef.current) {
-          console.warn('Home Assistant disconnected ❌');
+          // console.warn('Home Assistant disconnected ❌');
           // Don't immediately clear connection - give reconnection a chance
           setTimeout(() => {
             if (!wsConnectionRef.current || wsConnectionRef.current.readyState === 3) {
@@ -303,7 +303,7 @@ export const HomeAssistantProvider = ({ children }) => {
 
       const errorListener = (err) => {
         if (isMountedRef.current) {
-          console.error('Home Assistant connection error:', err);
+          // console.error('Home Assistant connection error:', err);
           setError(`Connection error: ${err.message || 'Unknown error'}`);
         }
       };
@@ -320,7 +320,7 @@ export const HomeAssistantProvider = ({ children }) => {
       ];
 
     } catch (err) {
-      console.error("Error in setupConnection:", err);
+      // console.error("Error in setupConnection:", err);
       if (isMountedRef.current) setError(`Setup error: ${err.message || 'Unknown error'}`);
       throw err; // Re-throw to be handled by caller
     }
@@ -332,7 +332,7 @@ export const HomeAssistantProvider = ({ children }) => {
 
     // Double-check configuration
     if (!isConfigurationValid()) {
-      console.warn("Invalid configuration, cannot connect");
+      // console.warn("Invalid configuration, cannot connect");
       setConnectionState(CONNECTION_STATES.CONFIG_ERROR);
       setLoading(false);
       return;
@@ -354,7 +354,7 @@ export const HomeAssistantProvider = ({ children }) => {
           setupRetry: 0
         });
        } catch (err) {
-         console.error("WebSocket connection failed:", err);
+          // console.error("WebSocket connection failed:", err);
          // Determine error type
          if (err.message?.includes('401') || err.message?.includes('auth')) {
            setConnectionState(CONNECTION_STATES.AUTH_ERROR);
@@ -387,7 +387,7 @@ export const HomeAssistantProvider = ({ children }) => {
       try {
         await setupConnection(newConnection);
       } catch (err) {
-        console.error("Failed to set up entity subscription:", err);
+        // console.error("Failed to set up entity subscription:", err);
         throw err; // Re-throw to be caught by outer try/catch
       }
       
@@ -397,7 +397,7 @@ export const HomeAssistantProvider = ({ children }) => {
     } catch (err) {
       if (!isMountedRef.current) return;
 
-      console.error("Failed to connect to Home Assistant:", err);
+      // console.error("Failed to connect to Home Assistant:", err);
 
       // Handle unauthorized errors specially
       if (isUnauthorizedError(err)) {
@@ -412,7 +412,7 @@ export const HomeAssistantProvider = ({ children }) => {
           SecureTokenStorage.clearToken();
 
           setError('Invalid token. Please re-enter your Home Assistant Long-Lived Access Token.');
-          console.warn(`Maximum unauthorized attempts (${MAX_UNAUTH_ATTEMPTS}) reached. Redirecting to config.`);
+          // console.warn(`Maximum unauthorized attempts (${MAX_UNAUTH_ATTEMPTS}) reached. Redirecting to config.`);
 
           // Redirect to config page
           setTimeout(() => {
@@ -436,7 +436,7 @@ export const HomeAssistantProvider = ({ children }) => {
         try {
           wsConnectionRef.current.close();
         } catch (e) {
-          console.warn("Error closing partial connection:", e);
+          // console.warn("Error closing partial connection:", e);
         }
         wsConnectionRef.current = null;
       }
@@ -508,7 +508,7 @@ export const HomeAssistantProvider = ({ children }) => {
         try {
           unsubscribeRef.current();
         } catch (e) {
-          console.warn("Error during unsubscribe:", e);
+          // console.warn("Error during unsubscribe:", e);
         }
         unsubscribeRef.current = null;
       }
@@ -521,7 +521,7 @@ export const HomeAssistantProvider = ({ children }) => {
         try {
           wsConnectionRef.current.close();
         } catch (e) {
-          console.warn("Error closing connection:", e);
+          // console.warn("Error closing connection:", e);
         }
         wsConnectionRef.current = null;
         // console.log('Home Assistant connection closed 🧹');

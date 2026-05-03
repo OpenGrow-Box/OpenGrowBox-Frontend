@@ -63,7 +63,7 @@ export const MediumProvider = ({ children }) => {
       });
     } catch (error) {
       // Service might not exist - that's OK, backend will emit MediumPlantsUpdate on init
-      console.warn('request_medium_plants_data service not available (backend will auto-emit):', error.message);
+      // console.warn('request_medium_plants_data service not available (backend will auto-emit):', error.message);
     }
   }, [connection, currentRoom, isConnectionValid]);
 
@@ -222,7 +222,7 @@ export const MediumProvider = ({ children }) => {
             service_data: { room: currentRoom },
           });
         } catch (e) {
-          console.warn('request_medium_plants_data not available:', e.message);
+          // console.warn('request_medium_plants_data not available:', e.message);
         }
 
         // Stop loading after 3 seconds
@@ -230,7 +230,7 @@ export const MediumProvider = ({ children }) => {
         return () => clearTimeout(loadingTimer);
 
       } catch (err) {
-        console.error('Error setting up medium listeners:', err);
+        // console.error('Error setting up medium listeners:', err);
         setError('Failed to connect to medium data stream');
         setLoading(false);
       }
@@ -317,7 +317,7 @@ export const MediumProvider = ({ children }) => {
       //console.log('[MediumContext] Update successful:', updates);
       
     } catch (error) {
-      console.error('Failed to update medium plant dates:', error);
+      // console.error('Failed to update medium plant dates:', error);
       
       // Rollback on error
       if (optimistic && previousMedium) {
@@ -349,7 +349,7 @@ export const MediumProvider = ({ children }) => {
         try {
           await updateMediumPlantDates(mediumIndex, allUpdates);
         } catch (error) {
-          console.error('Debounced update failed:', error);
+          // console.error('Debounced update failed:', error);
         }
       }
     }, delay);

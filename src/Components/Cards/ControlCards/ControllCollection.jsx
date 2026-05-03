@@ -319,6 +319,90 @@ const dynamicFilters = {
     }
   },
 
+
+  cooler_control: {
+    selectEntity: 'ogb_cooler_minmax_',
+    activeInGroups: ['Targets'], 
+    conditions: {
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ["cooler_duty"],
+        additionalTooltips: {
+
+        }
+      }
+    }
+  },
+
+  heater_control: {
+    selectEntity: 'ogb_heater_minmax_',
+    activeInGroups: ['Targets'], 
+    conditions: {
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ["heater_duty"],
+        additionalTooltips: {
+
+        }
+      }
+    }
+  },
+
+  dhumidifier_control: {
+    selectEntity: 'ogb_humidifier_minmax_',
+    activeInGroups: ['Targets'], 
+    conditions: {
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ["humidifier_duty"],
+        additionalTooltips: {
+
+        }
+      }
+    }
+  },
+
+
+
+    dehumidifier_control: {
+    selectEntity: 'ogb_dehumidifier_minmax_',
+    activeInGroups: ['Targets'], 
+    conditions: {
+      'YES': {
+        includeKeywords: [],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ["dehumidifier_duty"],
+        additionalTooltips: {
+
+        }
+      }
+    }
+  },
+
+
+
+
+
+
   hydro_mode: {
     selectEntity: 'ogb_hydro_mode_',
     activeInGroups: ['Hydro Settings'], 
@@ -502,7 +586,7 @@ const groupMappings = {
   },
   'Targets': {
     includeKeywords: ['weight', 'min', 'max'],
-    excludeKeywords: ['co2', 'Light', 'crop',"moisture","soil"],
+    excludeKeywords: ['co2', 'Light', 'crop',"moisture","soil","reservoir"],
   },
   'Drying': {
     includeKeywords: ['drying'],

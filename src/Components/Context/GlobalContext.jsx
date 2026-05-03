@@ -61,7 +61,7 @@ export const GlobalStateProvider = ({ children }) => {
         };
       }
     } catch (error) {
-       console.warn('Failed to load state from localStorage:', error);
+       // console.warn('Failed to load state from localStorage:', error);
     }
     return initialState;
   });

@@ -1101,10 +1101,10 @@ const CameraCard = () => {
                 : 'Unknown size';
 
               // console.log('Timelapse generated successfully:', {
-                format: (data.format || 'zip').toUpperCase(),
-                frames: data.frame_count || 0,
-                size: fileSizeMb,
-              });
+              //   format: (data.format || 'zip').toUpperCase(),
+              //   frames: data.frame_count || 0,
+              //   size: fileSizeMb,
+              // });
 
               if (data.success && data.filename) {
                 const resolvedFormat = (data.format || data.filename.split('.').pop() || '').toLowerCase();

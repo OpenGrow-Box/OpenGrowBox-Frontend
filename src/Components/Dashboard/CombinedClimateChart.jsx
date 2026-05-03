@@ -277,11 +277,11 @@ const CombinedClimateChart = ({
         chartDataRef.current = processedData;
         
         // console.log('Processed data:', {
-          vpd: processedData.vpd?.yData?.slice(-3),
-          temp: processedData.temp?.yData?.slice(-3),
-          humidity: processedData.humidity?.yData?.slice(-3),
-          co2: processedData.co2?.yData?.slice(-3)
-        });
+        //   vpd: processedData.vpd?.yData?.slice(-3),
+        //   temp: processedData.temp?.yData?.slice(-3),
+        //   humidity: processedData.humidity?.yData?.slice(-3),
+        //   co2: processedData.co2?.yData?.slice(-3)
+        // });
         // console.log('New stats:', newStats);
 
         // Update current values ref

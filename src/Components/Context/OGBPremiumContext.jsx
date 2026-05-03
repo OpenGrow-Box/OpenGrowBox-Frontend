@@ -159,7 +159,7 @@ export const OGBPremiumProvider = ({ children }) => {
       });
 
     } catch (error) {
-      console.error('Fehler beim Laden des Benutzerprofils:', error);
+      // console.error('Fehler beim Laden des Benutzerprofils:', error);
       
       if (error.message.includes('unauthorized') || error.message.includes('Not authenticated')) {
         // console.log('Authentifizierungsfehler - setze States zurück');
@@ -263,7 +263,7 @@ try {
               await loadUserProfile(true);
               // console.log('Profil nach Login erfolgreich geladen');
            } catch (error) {
-            console.error('Fehler beim Laden des Profils nach Login:', error);
+             // console.error('Fehler beim Laden des Profils nach Login:', error);
           }
           break;
 
@@ -470,7 +470,7 @@ try {
         // console.log('Session successfull loaded');
 
       } catch (error) {
-        console.error('Fehler beim Laden des Profils während der Initialisierung:', error);
+        // console.error('Fehler beim Laden des Profils während der Initialisierung:', error);
         //console.log('Initialisierung fehlgeschlagen, setze loading auf false');
       } finally {
         setLoading(false);
@@ -500,7 +500,7 @@ try {
         responseListenerRef.current = unsubscribe;
         //console.log("Successfully subscribed to auth response events");
       } catch (e) {
-        console.error("Subscription to auth response failed:", e);
+        // console.error("Subscription to auth response failed:", e);
       }
     };
     
@@ -513,7 +513,7 @@ try {
         } catch (e) {
           // Silently ignore "Subscription not found" errors during cleanup
           if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-            console.warn("Error unsubscribing from auth response events:", e);
+            // console.warn("Error unsubscribing from auth response events:", e);
           }
         }
         responseListenerRef.current = null;
@@ -583,7 +583,7 @@ try {
         );
         //console.log("Successfully subscribed to api_usage_update events");
       } catch (e) {
-        console.error("Subscription to api_usage_update failed:", e);
+        // console.error("Subscription to api_usage_update failed:", e);
       }
     };
     
@@ -596,7 +596,7 @@ try {
         } catch (e) {
           // Silently ignore cleanup errors
           if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-            console.warn("Error unsubscribing from api_usage_update events:", e);
+            // console.warn("Error unsubscribing from api_usage_update events:", e);
           }
         }
       }
@@ -642,7 +642,7 @@ try {
         );
         //console.log('Successfully subscribed to ogb_premium_subscription_changed events');
       } catch (e) {
-        console.error('Subscription to ogb_premium_subscription_changed failed:', e);
+        // console.error('Subscription to ogb_premium_subscription_changed failed:', e);
       }
     };
 
@@ -654,7 +654,7 @@ try {
           unsubscribePlanChanged();
         } catch (e) {
           if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-            console.warn('Error unsubscribing from ogb_premium_subscription_changed events:', e);
+            // console.warn('Error unsubscribing from ogb_premium_subscription_changed events:', e);
           }
         }
       }
@@ -701,7 +701,7 @@ try {
         );
         //console.log("Successfully subscribed to session_update events");
       } catch (e) {
-        console.error("Subscription to session_update failed:", e);
+        // console.error("Subscription to session_update failed:", e);
       }
     };
     
@@ -714,7 +714,7 @@ try {
         } catch (e) {
           // Silently ignore cleanup errors
           if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-            console.warn("Error unsubscribing from session_update events:", e);
+            // console.warn("Error unsubscribing from session_update events:", e);
           }
         }
       }
@@ -784,7 +784,7 @@ try {
         );
         //console.log("Successfully subscribed to isAuthenticated events");
       } catch (e) {
-        console.error("Subscription to isAuthenticated failed:", e);
+        // console.error("Subscription to isAuthenticated failed:", e);
       }
     };
     
@@ -796,7 +796,7 @@ try {
           unsubscribeAuth();
         } catch (e) {
           if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-            console.warn("Error unsubscribing from isAuthenticated events:", e);
+            // console.warn("Error unsubscribing from isAuthenticated events:", e);
           }
         }
       }
@@ -826,7 +826,7 @@ try {
               `Currently using ${current_rooms}/${max_rooms} rooms.\n` +
               `Please disconnect another room first or upgrade your plan.`;
             
-            console.warn('⚠️ Room limit reached:', message);
+            // console.warn('⚠️ Room limit reached:', message);
             // The alert will be shown by the component that triggered the action
           },
           "room_limit_reached"
@@ -850,7 +850,7 @@ try {
             const { room, old_value, new_value, reason } = event.data;
             
             if (reason === 'room_limit_reached' && old_value === 'Premium' && new_value === 'HomeAssistant') {
-              console.warn(`⚠️ Room ${room} was reset from Premium to HomeAssistant due to room limit`);
+              // console.warn(`⚠️ Room ${room} was reset from Premium to HomeAssistant due to room limit`);
               // The UI will automatically reflect this from entity state changes
             }
           },
@@ -859,7 +859,7 @@ try {
         //console.log("Successfully subscribed to ogb_main_control_changed events");
 
       } catch (e) {
-        console.error("Subscription to room limit events failed:", e);
+        // console.error("Subscription to room limit events failed:", e);
       }
     };
     
@@ -872,7 +872,7 @@ try {
             unsub();
           } catch (e) {
             if (!e?.code?.includes('not_found') && !e?.message?.includes('not found')) {
-              console.warn(`Error unsubscribing from ${name} events:`, e);
+              // console.warn(`Error unsubscribing from ${name} events:`, e);
             }
           }
         }
@@ -887,7 +887,7 @@ try {
   // SECURITY: Ensure isPremium is always false when not authenticated
   useEffect(() => {
     if (!userProfile && isPremium) {
-      console.warn('SECURITY: Resetting isPremium to false - no user profile found');
+      // console.warn('SECURITY: Resetting isPremium to false - no user profile found');
       setIsPremium(false);
       setIsSubActive(false);
     }
@@ -900,7 +900,7 @@ try {
       try {
         await loadUserProfile(true);
       } catch (err) {
-        console.warn('[INTERVAL] Fehler beim regelmäßigen Abruf:', err.message);
+        // console.warn('[INTERVAL] Fehler beim regelmäßigen Abruf:', err.message);
       }
     }, 1000 * 60 * 5);
 
@@ -924,7 +924,7 @@ try {
     const responsePromise = new Promise((resolve, reject) => {
       const timeoutId = setTimeout(() => {
         callbacksRef.current.delete(eventId);
-        console.error(`Request timeout for ${eventType} after 30 seconds`);
+        // console.error(`Request timeout for ${eventType} after 30 seconds`);
         reject(new Error(`Request timeout for ${eventType}`));
       }, 30000);
 
@@ -936,7 +936,7 @@ try {
         },
         reject: (error) => {
           clearTimeout(timeoutId);
-          console.error(`Request ${eventId} rejected:`, error);
+          // console.error(`Request ${eventId} rejected:`, error);
           reject(error);
         }
       });
@@ -960,7 +960,7 @@ try {
       return responsePromise;
     } catch (error) {
       callbacksRef.current.delete(eventId);
-      console.error(`Error sending ${eventType} event:`, error);
+      // console.error(`Error sending ${eventType} event:`, error);
       throw error;
     }
   };
@@ -970,7 +970,7 @@ try {
   const login = async (email, OGBToken, selectedRoom) => {
     // Prevent duplicate login calls
     if (loginInProgressRef.current) {
-      console.warn('Login already in progress, ignoring duplicate call');
+      // console.warn('Login already in progress, ignoring duplicate call');
       return { success: false, message: 'Login already in progress' };
     }
     
@@ -987,7 +987,7 @@ try {
       setAuthStatus('error');
       setLastError(error.message);
 
-      console.error('Login error:', error);
+      // console.error('Login error:', error);
       throw error;
     } finally {
       // Reset login lock after completion (success or failure)
@@ -1000,7 +1000,7 @@ try {
       const result = await sendAuthEventWithCallback('ogb_premium_logout', {});
       return result;
     } catch (error) {
-      console.error('Logout error:', error);
+      // console.error('Logout error:', error);
       throw error;
     }
   };
@@ -1044,7 +1044,7 @@ try {
       const result = await sendAuthEventWithCallback('ogb_premium_get_profile', {});
       return result;
     } catch (error) {
-      console.error('Get profile error:', error);
+      // console.error('Get profile error:', error);
       throw error;
     }
   };
@@ -1064,7 +1064,7 @@ try {
       
       return result;
     } catch (error) {
-      console.error('Update profile error:', error);
+      // console.error('Update profile error:', error);
       throw error;
     }
   };
@@ -1078,9 +1078,9 @@ try {
 
   const debugPendingRequests = () => {
     // console.log('Aktuelle callbacks:', {
-      count: callbacksRef.current.size,
-      callbacks: Array.from(callbacksRef.current.keys())
-    });
+    //   count: callbacksRef.current.size,
+    //   callbacks: Array.from(callbacksRef.current.keys())
+    // });
   };
 
   const normalizeSessionCount = (value) => {
@@ -1114,7 +1114,7 @@ try {
     try {
       await loadUserProfile(true);
     } catch (error) {
-      console.error('Fehler beim Refresh des Profils:', error);
+      // console.error('Fehler beim Refresh des Profils:', error);
       throw error;
     }
   };
@@ -1158,7 +1158,7 @@ try {
       
       return true;
     } catch (error) {
-      console.error(`❌ Failed to disconnect room ${roomToDisconnect}:`, error);
+      // console.error(`❌ Failed to disconnect room ${roomToDisconnect}:`, error);
       // Continue anyway - the user wanted to switch, so try to set the new room to Premium
       return false;
     }
@@ -1246,14 +1246,14 @@ try {
           }
           
         } catch (err) {
-          console.warn(`⚠️ Error setting ${toRoom} to Premium (attempt ${attempts + 1}):`, err.message);
+          // console.warn(`⚠️ Error setting ${toRoom} to Premium (attempt ${attempts + 1}):`, err.message);
         }
         
         attempts++;
       }
       
       if (!premiumConnected) {
-        console.warn(`⚠️ ${toRoom} did not switch to Premium after ${maxAttempts} attempts, trying one more time...`);
+        // console.warn(`⚠️ ${toRoom} did not switch to Premium after ${maxAttempts} attempts, trying one more time...`);
         
         // LAST RESORT: Force set the state directly
         try {
@@ -1278,7 +1278,7 @@ try {
             // console.log(`✅ ${toRoom} FORCE SET to Premium!`);
           }
         } catch (err) {
-          console.error(`❌ Final force set failed:`, err.message);
+          // console.error(`❌ Final force set failed:`, err.message);
         }
       }
       
@@ -1289,7 +1289,7 @@ try {
       
       return true;
     } catch (error) {
-      console.error(`❌ Failed to switch Premium from ${fromRoom} to ${toRoom}:`, error);
+      // console.error(`❌ Failed to switch Premium from ${fromRoom} to ${toRoom}:`, error);
       throw error;
     } finally {
       // CRITICAL: Always release the switching lock, even on error
