@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import ReactECharts from 'echarts-for-react';
+import EChartsWrapper from '../Common/EChartsWrapper';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
 import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaDownload, FaChevronDown } from 'react-icons/fa';
@@ -30,8 +31,19 @@ const CombinedClimateChart = ({
   };
 
   const { haApiBaseUrl, haToken: accessToken, entities } = useHomeAssistant();
+  const { state } = useGlobalState();
   const isDev = import.meta.env.DEV;
   const HISTORY_FETCH_TIMEOUT_MS = 15000;
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
 
   // Store chart data in ref for live updates
   const chartDataRef = useRef({ 
@@ -68,7 +80,7 @@ const CombinedClimateChart = ({
   // Sensor configuration
   const sensorsConfig = {
     vpd: { id: sensorIds?.vpd, title: 'VPD', unit: 'kPa', color: '#f59e0b', yAxisIndex: 0 },
-    temp: { id: sensorIds?.temperature, title: 'Temperature', unit: '°C', color: '#22c55e', yAxisIndex: 1 },
+    temp: { id: sensorIds?.temperature, title: 'Temperature', unit: getTemperatureUnit(), color: '#22c55e', yAxisIndex: 1 },
     humidity: { id: sensorIds?.humidity, title: 'Humidity', unit: '%', color: '#3b82f6', yAxisIndex: 2 },
     co2: { id: selectedCO2Sensor?.entity_id || selectedCO2Sensor?.id, title: 'CO₂', unit: selectedCO2Sensor?.unit || 'ppm', color: '#a855f7', yAxisIndex: 3, optional: true }
   };
@@ -112,7 +124,8 @@ const CombinedClimateChart = ({
     const series = option.series;
     
     // Build CSV with all sensors (skip AVG lines)
-    const headers = ['Timestamp', 'VPD (kPa)', 'Temperature (°C)', 'Humidity (%)'];
+    const tempUnit = getTemperatureUnit();
+    const headers = ['Timestamp', 'VPD (kPa)', `Temperature (${tempUnit})`, 'Humidity (%)'];
     if (selectedCO2Sensor) headers.push('CO₂ (ppm)');
     
     const csvContent = [
@@ -231,27 +244,34 @@ const CombinedClimateChart = ({
           const sensorData = data[0];
           const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
           
+          // Convert temperature values to Fahrenheit if region is US
+          const isTemperature = key === 'temp' && currentRegion === 'US';
+          const convertedValues = isTemperature ? values.map(v => celsiusToFahrenheit(v)) : values;
+          
           // DEBUG: Log the key and first/last values
           // console.log(`[FETCH] ${key}: entity=${sensorsConfig[key]?.id}, first=${values[0]}, last=${values[values.length-1]}, count=${values.length}`);
           
           // Calculate stats
-          const current = values.length > 0 ? values[values.length - 1] : 0;
-          const min = values.length > 0 ? Math.min(...values) : 0;
-          const max = values.length > 0 ? Math.max(...values) : 0;
-          const avg = values.length > 0 ? values.reduce((a, b) => a + b, 0) / values.length : 0;
+          const current = convertedValues.length > 0 ? convertedValues[convertedValues.length - 1] : 0;
+          const min = convertedValues.length > 0 ? Math.min(...convertedValues) : 0;
+          const max = convertedValues.length > 0 ? Math.max(...convertedValues) : 0;
+          const avg = convertedValues.length > 0 ? convertedValues.reduce((a, b) => a + b, 0) / convertedValues.length : 0;
           
           // Calculate trend
-          const firstHalf = values.slice(0, Math.floor(values.length / 2));
-          const secondHalf = values.slice(Math.floor(values.length / 2));
+          const firstHalf = convertedValues.slice(0, Math.floor(convertedValues.length / 2));
+          const secondHalf = convertedValues.slice(Math.floor(convertedValues.length / 2));
           const firstAvg = firstHalf.length > 0 ? firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length : 0;
           const secondAvg = secondHalf.length > 0 ? secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length : 0;
           const trend = secondAvg > firstAvg * 1.05 ? 'up' : secondAvg < firstAvg * 0.95 ? 'down' : 'stable';
+          
+          // Convert avg to Fahrenheit if temperature and region is US
+          const convertedAvg = isTemperature ? celsiusToFahrenheit(avg) : avg;
           
           newStats[key] = {
             current: current.toFixed(2),
             min: min.toFixed(2),
             max: max.toFixed(2),
-            avg: avg.toFixed(2),
+            avg: convertedAvg.toFixed(2),
             trend
           };
 
@@ -261,7 +281,7 @@ const CombinedClimateChart = ({
             const val = parseFloat(item.state);
             if (!isNaN(val)) {
               lastValidValue = val;
-              return val;
+              return isTemperature ? celsiusToFahrenheit(val) : val;
             }
             return lastValidValue;
           });
@@ -269,7 +289,7 @@ const CombinedClimateChart = ({
           processedData[key] = {
             xData: sensorData.map(item => item.last_changed),
             yData: filledYData,
-            avg
+            avg: convertedAvg
           };
         });
 
@@ -727,10 +747,11 @@ const CombinedClimateChart = ({
       currentValuesRef.current[key] = newValue;
       hasUpdate = true;
 
-      // Update stats
+      // Update stats - convert temperature if region is US
+      const convertedValue = (key === 'temp' && currentRegion === 'US') ? celsiusToFahrenheit(newValue) : newValue;
       setStats(prev => ({
         ...prev,
-        [key]: { ...prev[key], current: newValue.toFixed(2) }
+        [key]: { ...prev[key], current: convertedValue.toFixed(2) }
       }));
 
       // Update chart data
@@ -738,7 +759,10 @@ const CombinedClimateChart = ({
       if (currentData?.xData?.length > 0) {
         // Add new data point
         const xData = [...currentData.xData, now];
-        const yData = [...currentData.yData, newValue];
+        
+        // Convert temperature value if region is US
+        const convertedNewValue = (key === 'temp' && currentRegion === 'US') ? celsiusToFahrenheit(newValue) : newValue;
+        const yData = [...currentData.yData, convertedNewValue];
 
         // Keep only last 1000 points
         if (xData.length > 1000) {
@@ -750,10 +774,11 @@ const CombinedClimateChart = ({
         const newAvg = yData.reduce((a, b) => a + b, 0) / yData.length;
         chartDataRef.current[key] = { xData, yData, avg: newAvg };
 
-        // Update stats avg
+        // Update stats avg - convert temperature avg if needed
+        const convertedAvg = (key === 'temp' && currentRegion === 'US') ? celsiusToFahrenheit(newAvg) : newAvg;
         setStats(prev => ({
           ...prev,
-          [key]: { ...prev[key], avg: newAvg.toFixed(2) }
+          [key]: { ...prev[key], avg: convertedAvg.toFixed(2) }
         }));
       }
     });
@@ -866,7 +891,7 @@ const hasValidData = chartOptions?.series?.some(s => s.data?.length > 0);
           </StatBox>
           <StatBox>
             <StatLabel style={{ color: sensorsConfig.temp.color }}>Temp</StatLabel>
-            <StatValue>{stats.temp.current}<Unit>°C</Unit></StatValue>
+            <StatValue>{stats.temp.current}<Unit>{sensorsConfig.temp.unit}</Unit></StatValue>
             <TrendIndicator>{getTrendIcon(stats.temp.trend)}</TrendIndicator>
             <StatAvg>Ø {stats.temp.avg}</StatAvg>
           </StatBox>
@@ -930,7 +955,7 @@ const hasValidData = chartOptions?.series?.some(s => s.data?.length > 0);
             <span>Loading climate data...</span>
           </LoadingState>
         ) : hasValidData ? (
-          <ReactECharts
+          <EChartsWrapper
             ref={chartRef}
             option={chartOptions}
             notMerge={false}

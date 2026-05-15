@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
+import { useGlobalState } from '../../Context/GlobalContext';
 import HistoryChart from '../HistoryChart';
 import { getThemeColor } from '../../../utils/themeColors';
 import formatLabel from '../../../misc/formatLabel';
@@ -8,8 +9,19 @@ import { filterSensorsByRoom } from './sensorClassifier';
 
 const TempCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [tempSensors, setTempSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
 
   useEffect(() => {
     let sensors = Object.entries(entities)
@@ -19,12 +31,22 @@ const TempCard = ({pause, resume, isPlaying, filterByRoom}) => {
           (key.toLowerCase().includes('avgtemp')) &&
           !isNaN(parseFloat(entity.state))
       )
-      .map(([key, entity]) => ({
-        id: key,
-        value: parseFloat(entity.state),
-        unit: entity.attributes?.unit_of_measurement || '°C',
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
-      }));
+      .map(([key, entity]) => {
+        const rawValue = parseFloat(entity.state);
+        const isCelsius = (entity.attributes?.unit_of_measurement || '°C') === '°C';
+        const displayValue = (isCelsius && currentRegion === 'US') 
+          ? celsiusToFahrenheit(rawValue) 
+          : rawValue;
+        const displayUnit = (isCelsius && currentRegion === 'US') ? '°F' : (entity.attributes?.unit_of_measurement || '°C');
+        
+        return {
+          id: key,
+          value: displayValue,
+          unit: displayUnit,
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
+          rawValue: rawValue, // Für getColorForValue
+        };
+      });
 
     // Filter by current room using HA device registry
     if (filterByRoom && currentRoom) {
@@ -64,7 +86,7 @@ const TempCard = ({pause, resume, isPlaying, filterByRoom}) => {
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value) }}>
+              <Value style={{ color: getColorForValue(sensor.rawValue || sensor.value) }}>
                 {sensor.value}
               </Value>
               <Unit>{sensor.unit}</Unit>

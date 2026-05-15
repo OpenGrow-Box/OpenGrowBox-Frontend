@@ -22,7 +22,7 @@ const DutyCycleCard = ({pause, resume, isPlaying, filterByRoom}) => {
       .map(([key, entity]) => ({
         id: key,
         value: parseFloat(entity.state),
-        unit: entity.attributes?.unit_of_measurement,
+        unit: entity.attributes?.unit_of_measurement || '%',
         friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
         entity_id: entity.entity_id,
       }));

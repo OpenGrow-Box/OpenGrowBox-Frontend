@@ -20,7 +20,7 @@ const LightIntensity = ({pause, resume, isPlaying, filterByRoom}) => {
       })
       .map(([key, entity]) => {
         let value = parseFloat(entity.state);
-        let unit = entity.attributes?.unit_of_measurement || '';
+        let unit = entity.attributes?.unit_of_measurement || '%';
         
         if (unit.toLowerCase() === 'v') {
           value = value * 10;

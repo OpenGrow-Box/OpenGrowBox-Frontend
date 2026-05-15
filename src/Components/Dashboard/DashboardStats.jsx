@@ -2,14 +2,35 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import StatCard from '../Cards/StatCard';
 import formatLabel from '../../misc/formatLabel';
 
 
 const DashboardStats = () => {
   const { entities,currentRoom, connection } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [roomSensors, setRoomSensors] = useState([]);
-
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const celsiusToFahrenheit = (celsius) => (celsius * 9/5) + 32;
+  
+  const convertTemperatureValue = (value, unit) => {
+    if (unit === '°C' || unit === 'C' || unit.toLowerCase().includes('celsius')) {
+      const converted = currentRegion === 'US' ? celsiusToFahrenheit(value) : value;
+      return Math.round(converted * 100) / 100; // Max 2 decimal places
+    }
+    return value;
+  };
+  
+  const getTemperatureUnit = (originalUnit) => {
+    if (originalUnit === '°C' || originalUnit === 'C' || originalUnit.toLowerCase().includes('celsius')) {
+      return currentRegion === 'US' ? '°F' : '°C';
+    }
+    return originalUnit;
+  };
+  
   const normalizeStatLabel = (label) => {
     const cleaned = String(label || '')
       .replace(/^Current\s+/i, '')
@@ -30,8 +51,8 @@ const DashboardStats = () => {
       )
       .map(([key, entity]) => ({
         id: key,
-        value: parseFloat(entity.state),
-        unit: entity.attributes?.unit_of_measurement || '',
+        value: convertTemperatureValue(parseFloat(entity.state), entity.attributes?.unit_of_measurement || ''),
+        unit: getTemperatureUnit(entity.attributes?.unit_of_measurement || ''),
         friendlyName: normalizeStatLabel(
           formatLabel(
             entity.attributes?.friendly_name || key,

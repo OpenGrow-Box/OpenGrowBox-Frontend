@@ -1,14 +1,26 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
+import { useGlobalState } from '../../Context/GlobalContext';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 import formatLabel from '../../../misc/formatLabel';
 
 const SoilCard = ({ pause, resume, isPlaying, filterByRoom }) => {
   const { entities, currentRoom } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [ecSensors, setEcSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
 
   useEffect(() => {
     let normalizedSensors = classifyAndNormalize(entities)
@@ -17,11 +29,28 @@ const SoilCard = ({ pause, resume, isPlaying, filterByRoom }) => {
         s.context === "soil"
       );
 
-    if (filterByRoom && currentRoom) {
-      normalizedSensors = filterSensorsByRoom(normalizedSensors, currentRoom);
-    }
+    // Convert temperature to Fahrenheit if region is US
+    const convertedSensors = normalizedSensors.map(sensor => {
+      if (sensor.category === "temperature" && currentRegion === 'US') {
+        return {
+          ...sensor,
+          value: celsiusToFahrenheit(sensor.value),
+          unit: '°F',
+          rawValue: sensor.value // Für getColorForValue
+        };
+      }
+      return {
+        ...sensor,
+        rawValue: sensor.value // Für getColorForValue
+      };
+    });
 
-    setEcSensors(normalizedSensors);
+    if (filterByRoom && currentRoom) {
+      const filteredSensors = filterSensorsByRoom(convertedSensors, currentRoom);
+      setEcSensors(filteredSensors);
+    } else {
+      setEcSensors(convertedSensors);
+    }
   }, [entities, filterByRoom, currentRoom]);
 
   // Farb-Logik nach Einheit
@@ -64,7 +93,7 @@ const SoilCard = ({ pause, resume, isPlaying, filterByRoom }) => {
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{formatLabel(sensor.friendlyName || sensor.id, currentRoom, sensor.id)}</Label>
             <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
+              <Value style={{ color: getColorForValue(sensor.rawValue || sensor.value, sensor.unit) }}>
                 {sensor.value.toFixed(2)}
               </Value>
               <Unit>{sensor.unit}</Unit>

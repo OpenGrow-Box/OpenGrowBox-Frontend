@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useMemo } from 'react';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useGlobalState } from '../Context/GlobalContext';
-import { formatDateTime } from '../../misc/formatDateTime';
+import { formatDateTime, formatDateTimeWithRegion } from '../../misc/formatDateTime';
 import { SiApacheairflow } from "react-icons/si";
 import { MdOutlineWaterDrop, MdAir, MdTune, MdLightbulb, MdWindPower, MdCloud, MdWhatshot } from "react-icons/md";
 import {
@@ -1862,12 +1862,13 @@ const GrowLogs = () => {
   const [isLoading, setIsLoading] = useState(true);
   const [expandedLogs, setExpandedLogs] = useState(new Set());
   const { connection } = useHomeAssistant();
-  const { HASS } = useGlobalState();
+  const { state } = useGlobalState();
+  const currentRegion = state.Settings?.region || 'EU';
 
   // Helper to get room display name (alias if available, otherwise room ID)
   const getRoomDisplayName = (roomId) => {
     if (!roomId) return '';
-    const alias = HASS?.areas?.[roomId]?.aliases?.[0];
+    const alias = state.HASS?.areas?.[roomId]?.aliases?.[0];
     return alias || roomId;
   };
 
@@ -1994,7 +1995,7 @@ const GrowLogs = () => {
       const newLog = {
         id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`, // Stable unique ID
         room: roomName,
-        date: formatDateTime(event.time_fired),
+        date: formatDateTimeWithRegion(event.time_fired, currentRegion),
         info: serializedInfo,
         createdAt,
       };
@@ -2279,23 +2280,23 @@ const SearchInput = styled.input`
 
 const FilterSelect = styled.select`
   padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(255, 255, 255, 0.2);
+  border: 1px solid var(--glass-border);
   border-radius: 6px;
-  background: rgba(255, 255, 255, 0.1);
-  color: var(--main-text-color, #fff);
+  background: var(--glass-bg-secondary);
+  color: var(--main-text-color);
   font-size: 0.9rem;
   cursor: pointer;
   min-width: 120px;
 
   &:focus {
     outline: none;
-    border-color: var(--primary-accent, #007AFF);
-    background: rgba(255, 255, 255, 0.15);
+    border-color: var(--primary-accent);
+    background: var(--active-bg-color);
   }
 
   option {
-    background: var(--input-bg-color, #333);
-    color: var(--main-text-color, #fff);
+    background: var(--main-bg-card-color);
+    color: var(--main-text-color);
   }
 
   @media (max-width: 480px) {

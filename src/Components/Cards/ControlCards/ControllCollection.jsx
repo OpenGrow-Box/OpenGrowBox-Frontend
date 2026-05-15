@@ -16,7 +16,7 @@ const dynamicFilters = {
     conditions: {
       'Drying': {
         includeKeywords: ['drying'],
-        excludeKeywords: ['vpd', 'plant', 'stage', 'light', 'co2', "m2", "leaf", 'feed', 'hydro',"crop"],
+        excludeKeywords: ['vpd', 'plant', 'stage', 'light', 'co2', "m2", "leaf", 'feed', 'hydro',"crop","ambient"],
         additionalTooltips: {}
       },
       'VPD Perfection': {
@@ -66,7 +66,7 @@ const dynamicFilters = {
       },
       'Disabled': {
         includeKeywords: ['Tent Mode'],
-        excludeKeywords: ["hold", "device", "work", "ambient", "target", "vpd", 'hydro','drying','offset',"crop"],
+        excludeKeywords: ["hold", "device", "work", "ambient", "target", "vpd", 'hydro','drying','offset',"crop","plant"],
         additionalTooltips: {}
       }
     }
@@ -612,7 +612,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_dryingmodes_${currentRoom?.toLowerCase()}`]: 'Select your preferred drying technique. Make sure Tent Mode is set to "Drying".',
     [`ogb_workmode_${currentRoom?.toLowerCase()}`]: 'Use this mode when working on your plants. It will dim the lights and reduce device activity until you deactivate it again.',
 
-    [`ogb_leaftemp_offset_${currentRoom?.toLowerCase()}`]: 'Override the detected leaf temperature by automation if needed.',
+    [`ogb_leaftemp_offset_${currentRoom?.toLowerCase()}`]: 'Override it with a Leaf Label device if needed.',
     [`ogb_vpdtarget_${currentRoom?.toLowerCase()}`]: 'Set your target VPD. Works only in "Targeted VPD" Tent Mode Use MinMax setters for temp and Hum as PlantStage change will overwrite it.',
     [`ogb_vpdtolerance_${currentRoom?.toLowerCase()}`]: 'Adjust tolerance between Targeted VPD and Perfect VPD.',
 

@@ -1,5 +1,5 @@
 import styled from 'styled-components';
-import { Shield, ChevronDown, ChevronUp, Palette, Zap, Crown, ArrowRight, Lock } from 'lucide-react';
+import { Shield, ChevronDown, ChevronUp, Palette, Zap, Crown, ArrowRight, Lock, Globe, Thermometer, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useState } from 'react';
 import { useGlobalState } from '../Context/GlobalContext';
@@ -331,6 +331,99 @@ const SafeModeToggleCircle = styled.div`
   box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
 `;
 
+const RegionSection = styled.div`
+  margin-bottom: 0;
+  padding: 1rem;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+`;
+
+const RegionHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 8px;
+`;
+
+const RegionIcon = styled.div`
+  font-size: 24px;
+  filter: drop-shadow(0 0 8px var(--primary-accent));
+`;
+
+const RegionTitle = styled.h4`
+  margin: 0;
+  color: var(--main-text-color);
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+const RegionDescription = styled.p`
+  margin: 0 0 0.75rem 0;
+  color: var(--placeholder-text-color);
+  font-size: 0.8rem;
+  line-height: 1.4;
+  flex: 1;
+`;
+
+const RegionCards = styled.div`
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 0.5rem;
+  
+  @media (max-width: 400px) {
+    grid-template-columns: 1fr;
+  }
+`;
+
+const RegionCard = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.6rem 0.8rem;
+  background: var(--glass-bg-secondary);
+  border: 2px solid ${props => props.$selected ? 'var(--primary-accent)' : 'var(--glass-border)'};
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+
+  &:hover {
+    border-color: var(--primary-accent);
+    background: var(--active-bg-color);
+    transform: translateY(-1px);
+  }
+`;
+
+const RegionIconBox = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: ${props => props.$selected ? 'var(--primary-accent)' : 'var(--glass-bg-primary)'};
+  color: ${props => props.$selected ? 'white' : 'var(--main-text-color)'};
+  transition: all 0.2s ease;
+`;
+
+const RegionText = styled.div`
+  display: flex;
+  flex-direction: column;
+`;
+
+const RegionLabel = styled.span`
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--main-text-color);
+`;
+
+const RegionSublabel = styled.span`
+  font-size: 0.75rem;
+  color: var(--placeholder-text-color);
+`;
+
 const InterfaceModeSection = styled.div`
   margin-bottom: 0;
   padding: 1rem;
@@ -440,6 +533,7 @@ const SettingsPanel = () => {
   const availableThemesPro = state.Design.availableThemesPro || [];
   const safeModeEnabled = state.Settings?.safeModeEnabled ?? true;
   const siteView = state.Settings?.siteView === 'pro' ? 'pro' : 'lite';
+  const currentRegion = state.Settings?.region || 'EU';
 
   // Funktion, um das Theme anzuwenden, indem CSS-Variablen gesetzt werden
 
@@ -584,6 +678,43 @@ const SettingsPanel = () => {
             </SafeModeToggleSlider>
           </SafeModeToggle>
         </SafeModeSection>
+
+        <RegionSection>
+          <RegionHeader>
+            <RegionIcon><Globe size={20} /></RegionIcon>
+            <RegionTitle>Region</RegionTitle>
+          </RegionHeader>
+          <RegionDescription>
+            Configure your region for temperature units and time/date formatting.
+          </RegionDescription>
+          <RegionCards>
+            <RegionCard 
+              onClick={() => setDeep('Settings.region', 'EU')} 
+              $selected={currentRegion === 'EU'}
+            >
+              <RegionIconBox $selected={currentRegion === 'EU'}>
+                <Thermometer size={20} />
+              </RegionIconBox>
+              <RegionText>
+                <RegionLabel>Europe</RegionLabel>
+                <RegionSublabel>Celsius • 24h</RegionSublabel>
+              </RegionText>
+            </RegionCard>
+            <RegionCard 
+              onClick={() => setDeep('Settings.region', 'US')} 
+              $selected={currentRegion === 'US'}
+            >
+              <RegionIconBox $selected={currentRegion === 'US'}>
+                <Clock size={20} />
+              </RegionIconBox>
+              <RegionText>
+                <RegionLabel>America</RegionLabel>
+                <RegionSublabel>Fahrenheit • 12h</RegionSublabel>
+              </RegionText>
+            </RegionCard>
+            
+          </RegionCards>
+        </RegionSection>
       </TopRow>
 
       <ThemeSection>

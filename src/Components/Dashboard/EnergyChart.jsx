@@ -1,7 +1,7 @@
 import { useMemo } from 'react';
 import PropTypes from 'prop-types';
 import styled from 'styled-components';
-import ReactECharts from 'echarts-for-react';
+import EChartsWrapper from '../Common/EChartsWrapper';
 import { getThemeColor } from '../../utils/themeColors';
 
 const EnergyChart = ({ 
@@ -156,7 +156,7 @@ const EnergyChart = ({
 
   return (
     <ChartContainer>
-      <ReactECharts
+      <EChartsWrapper
         option={getOption}
         style={{ height: `${height}px`, width: '100%' }}
         opts={{ renderer: 'svg' }}

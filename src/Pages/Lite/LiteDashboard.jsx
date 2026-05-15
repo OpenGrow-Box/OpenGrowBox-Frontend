@@ -3,6 +3,8 @@ import styled from 'styled-components';
 import BottomBar from '../../Components/Navigation/BottomBar';
 import DashboardTitle from '../../Components/Dashboard/DashboardTitle';
 import { useHomeAssistant } from '../../Components/Context/HomeAssistantContext';
+import { useGlobalState } from '../../Components/Context/GlobalContext';
+import EChartsWrapper from '../../Components/Common/EChartsWrapper';
 import { Thermometer, Droplets, Gauge, Wind } from 'lucide-react';
 
 const getThemeColor = (varName) => {
@@ -31,20 +33,17 @@ const getSensorThemeColor = (sensorType) => {
 };
 
 // Minimalist Chart Component
-const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
-  const [ChartComponent, setChartComponent] = useState(null);
+const MinimalChart = ({ sensorId, title, sensorType, unit, region = 'EU' }) => {
   const [chartData, setChartData] = useState(null);
   const [currentValue, setCurrentValue] = useState('--');
   const [loading, setLoading] = useState(true);
   const { haApiBaseUrl, haToken: token } = useHomeAssistant();
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
 
   const color = getSensorThemeColor(sensorType);
-
-  useEffect(() => {
-    import('echarts-for-react').then((module) => {
-      setChartComponent(() => module.default);
-    });
-  }, []);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -66,7 +65,11 @@ const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
         const sensorData = data?.[0] || [];
         
         if (sensorData.length > 0) {
-          setCurrentValue(parseFloat(sensorData[sensorData.length - 1].state).toFixed(1));
+          const rawValue = parseFloat(sensorData[sensorData.length - 1].state);
+          const displayValue = unit === '°F' && sensorType === 'temperature'
+            ? celsiusToFahrenheit(rawValue)
+            : rawValue;
+          setCurrentValue(displayValue.toFixed(1));
         }
         
         // Sample to 30 points max
@@ -96,7 +99,12 @@ const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
         
         setChartData({
           x: sampled.map(item => formatTime(item.last_changed)),
-          y: sampled.map(item => parseFloat(item.state)),
+          y: sampled.map(item => {
+            const rawValue = parseFloat(item.state);
+            return unit === '°F' && sensorType === 'temperature'
+              ? celsiusToFahrenheit(rawValue)
+              : rawValue;
+          }),
           tooltipTime: sampled.map(item => formatTooltipTime(item.last_changed))
         });
       } catch (err) {
@@ -207,10 +215,10 @@ const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
       </MinimalChartHeader>
       
       <MinimalChartBody>
-        {loading || !ChartComponent ? (
+        {loading ? (
           <MinimalLoading>Loading...</MinimalLoading>
         ) : (
-          <ChartComponent 
+          <EChartsWrapper 
             option={getOption()} 
             style={{ height: '100px', width: '100%' }}
           />
@@ -222,7 +230,18 @@ const MinimalChart = ({ sensorId, title, sensorType, unit }) => {
 
 const LiteDashboard = () => {
   const { currentRoom, entities } = useHomeAssistant();
-
+  const { state } = useGlobalState();
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
+  
   const sensorIds = useMemo(() => {
     const room = currentRoom?.trim()?.toLowerCase() || 'default';
     return {
@@ -275,7 +294,8 @@ const LiteDashboard = () => {
               sensorId={sensorIds.temperature}
               title="Temperature"
               sensorType="temperature"
-              unit="°C"
+              unit={getTemperatureUnit()}
+              region={currentRegion}
             />
             <MinimalChart 
               sensorId={sensorIds.humidity}

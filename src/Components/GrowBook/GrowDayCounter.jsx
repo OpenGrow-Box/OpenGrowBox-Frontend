@@ -4,6 +4,45 @@ import { motion } from 'framer-motion';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useGlobalState } from '../Context/GlobalContext';
 import { useMedium } from '../Context/MediumContext';
+import { formatDateForRegion, parseDateFromRegion } from '../../misc/formatDateTime';
+
+// Helper functions for regional date input handling
+const formatDateInputForRegion = (isoDate, region) => {
+  if (!isoDate) return '';
+  const d = new Date(isoDate);
+  if (isNaN(d.getTime())) return '';
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  if (region === 'US') {
+    return `${month}/${day}/${year}`;
+  }
+  return `${day}.${month}.${year}`;
+};
+
+const parseDateInputToISO = (input, region) => {
+  if (!input || input.length < 8) return '';
+  let day, month, year;
+  if (region === 'US') {
+    const parts = input.split('/');
+    if (parts.length !== 3) return '';
+    month = parseInt(parts[0], 10);
+    day = parseInt(parts[1], 10);
+    year = parseInt(parts[2], 10);
+  } else {
+    const parts = input.split('.');
+    if (parts.length !== 3) return '';
+    day = parseInt(parts[0], 10);
+    month = parseInt(parts[1], 10);
+    year = parseInt(parts[2], 10);
+  }
+  if (isNaN(day) || isNaN(month) || isNaN(year)) return '';
+  if (year < 100) year = 2000 + year;
+  const paddedMonth = month.toString().padStart(2, '0');
+  const paddedDay = day.toString().padStart(2, '0');
+  return `${year}-${paddedMonth}-${paddedDay}`;
+};
+
 import {
   FaCheck, FaTimes, FaEdit, FaSeedling,
   FaChartBar, FaLeaf, FaClock, FaFlagCheckered, FaFlask
@@ -11,7 +50,9 @@ import {
 
 const GrowDayCounter = () => {
   const { connection, currentRoom, isConnectionValid } = useHomeAssistant();
-  const { HASS } = useGlobalState();
+  const { state } = useGlobalState();
+  const currentRegion = state.Settings?.region || 'EU';
+  const { HASS } = state;
   const { 
     currentMedium, 
     currentMediumIndex, 
@@ -45,6 +86,7 @@ const GrowDayCounter = () => {
   const bloomSwitchTimeoutRef = useRef(null);
 
   // Sync local state from currentMedium (only when not editing)
+  // Keep dates in ISO format (YYYY-MM-DD) for native date inputs
   useEffect(() => {
     if (currentMedium) {
       // Only update if not actively editing these fields
@@ -65,6 +107,10 @@ const GrowDayCounter = () => {
       }
     }
   }, [currentMedium, isFieldEditing, isEditingPlant]);
+
+  // Format dates for display in regional format
+  const displayGrowStartDate = formatDateForRegion(growStartDate, currentRegion);
+  const displayBloomSwitchDate = formatDateForRegion(bloomSwitchDate, currentRegion);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -365,11 +411,17 @@ const GrowDayCounter = () => {
           
           <InputRow>
             <InputGroup>
-              <InputLabel>Grow Start</InputLabel>
-              <StyledInput
-                type="date"
-                value={growStartDate}
-                onChange={(e) => handleGrowStartChange(e.target.value)}
+              <InputLabel>Grow Start <DateFormatHint>({currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'})</DateFormatHint></InputLabel>
+              <RegionalDateInput
+                type="text"
+                placeholder={currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'}
+                value={displayGrowStartDate}
+                onChange={(e) => {
+                  const formatted = formatDateInputForRegion(e.target.value, currentRegion);
+                  setGrowStartDate(formatted);
+                  const isoDate = parseDateInputToISO(e.target.value, currentRegion);
+                  if (isoDate) handleGrowStartChange(isoDate);
+                }}
                 onFocus={() => startEditing('grow_start')}
                 onBlur={() => {
                   setTimeout(() => stopEditing('grow_start'), 1000);
@@ -377,11 +429,15 @@ const GrowDayCounter = () => {
               />
             </InputGroup>
             <InputGroup>
-              <InputLabel>Bloom Switch</InputLabel>
-              <StyledInput
-                type="date"
-                value={bloomSwitchDate}
-                onChange={(e) => handleBloomSwitchChange(e.target.value)}
+              <InputLabel>Bloom Switch <DateFormatHint>({currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'})</DateFormatHint></InputLabel>
+              <RegionalDateInput
+                type="text"
+                placeholder={currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'}
+                value={displayBloomSwitchDate}
+                onChange={(e) => {
+                  const isoDate = parseDateInputToISO(e.target.value, currentRegion);
+                  if (isoDate) handleBloomSwitchChange(isoDate);
+                }}
                 onFocus={() => startEditing('bloom_switch')}
                 onBlur={() => {
                   setTimeout(() => stopEditing('bloom_switch'), 1000);
@@ -860,6 +916,51 @@ const InputLabel = styled.label`
   opacity: 0.85;
 `;
 
+const DateInputWrapper = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const DateInputField = styled.input`
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(8px);
+  color: var(--main-text-color);
+  border: 1px solid var(--glass-border-light);
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  &:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    background: var(--main-bg-Innercard-color);
+    box-shadow:
+      0 0 0 3px rgba(59, 130, 246, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+  }
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+  }
+
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+  }
+`;
+
 const StyledInput = styled.input`
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.08) 0%,
@@ -892,6 +993,51 @@ const StyledInput = styled.input`
       rgba(255, 255, 255, 0.1) 0%,
       rgba(255, 255, 255, 0.06) 100%
     );
+  }
+
+  &[type="number"]::-webkit-inner-spin-button,
+  &[type="number"]::-webkit-outer-spin-button {
+    opacity: 1;
+  }
+`;
+
+const RegionalDateInput = styled.input`
+  background: linear-gradient(135deg,
+    rgba(255, 255, 255, 0.08) 0%,
+    rgba(255, 255, 255, 0.04) 100%
+  );
+  backdrop-filter: blur(8px);
+  color: var(--main-text-color);
+  border: 1px solid var(--glass-border-light);
+  padding: 0.875rem 1rem;
+  border-radius: 12px;
+  font-size: 0.875rem;
+  font-weight: 500;
+  width: 100%;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+
+  &:focus {
+    outline: none;
+    border-color: rgba(59, 130, 246, 0.5);
+    background: var(--main-bg-Innercard-color);
+    box-shadow:
+      0 0 0 3px rgba(59, 130, 246, 0.1),
+      0 4px 12px rgba(0, 0, 0, 0.15);
+    transform: translateY(-1px);
+  }
+
+  &:hover {
+    border-color: rgba(255, 255, 255, 0.25);
+    background: linear-gradient(135deg,
+      rgba(255, 255, 255, 0.1) 0%,
+      rgba(255, 255, 255, 0.06) 100%
+    );
+  }
+
+  &::placeholder {
+    color: var(--placeholder-text-color);
+    opacity: 0.7;
   }
 `;
 
@@ -1006,4 +1152,28 @@ const FinishNote = styled.p`
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.4;
+`;
+
+const DateDisplay = styled.div`
+  position: relative;
+  width: 100%;
+`;
+
+const FormattedDateDisplay = styled.div`
+  position: absolute;
+  top: 50%;
+  right: 2.5rem;
+  transform: translateY(-50%);
+  color: var(--main-text-color);
+  font-size: 0.8rem;
+  font-weight: 500;
+  pointer-events: none;
+  opacity: 0.7;
+`;
+
+const DateFormatHint = styled.span`
+  font-size: 0.7rem;
+  font-weight: 400;
+  color: var(--placeholder-text-color);
+  margin-left: 0.25rem;
 `;

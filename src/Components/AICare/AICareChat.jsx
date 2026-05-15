@@ -2020,7 +2020,7 @@ Make sure ${apiProvider} is running and accessible from this device.
 const ChatContainer = styled.div`
   display: flex;
   flex-direction: column;
-  height: calc(100vh - 200px);
+  height: 100%;
   background: var(--main-bg-color);
   border-radius: 12px;
   overflow: hidden;

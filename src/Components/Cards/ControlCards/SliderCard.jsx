@@ -1,13 +1,28 @@
 import { useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
+import { useGlobalState } from "../../Context/GlobalContext";
 import { useSafeMode } from "../../../hooks/useSafeMode";
 import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 import { Shield, Lock } from 'lucide-react';
 
 const SliderCard = ({ entities }) => {
   const { connection, isConnectionValid, sendCommand } = useHomeAssistant();
+  const { state } = useGlobalState();
   const { isSafeModeEnabled, confirmChange, confirmationState, handleConfirm, handleCancel } = useSafeMode();
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
+  
+  const getTemperatureUnit = (originalUnit) => {
+    if (originalUnit === '°C' || originalUnit === 'C' || originalUnit.toLowerCase().includes('celsius')) {
+      return currentRegion === 'US' ? '°F' : originalUnit;
+    }
+    return originalUnit;
+  };
 
   // Local state for visual feedback during slider drag
   const [localValues, setLocalValues] = useState({});
@@ -33,9 +48,37 @@ const SliderCard = ({ entities }) => {
   }
 
   // Get value prefix for offset values
-  const getValuePrefix = (entityId) => {
-    if (entityId.includes('leaftemp_offset')) return '-';
+  // For leaf temp offset: invert sign for display
+  // Backend: -0.3 (Blatt kühler) → Frontend: +0.3
+  // Backend: +0.3 (Blatt wärmer) → Frontend: -0.3
+  const getValuePrefix = (entityId, value) => {
+    if (!entityId.includes('leaftemp_offset')) return '';
+    const num = parseFloat(value);
+    if (num > 0) return '+';
     return '';
+  };
+  
+  // Get display value for leaf temp offset (inverted sign)
+  const getLeafOffsetDisplayValue = (value) => {
+    const num = parseFloat(value);
+    if (isNaN(num)) return value;
+    return Math.abs(num).toString();
+  };
+  
+  // Convert temperature value for display
+  const convertDisplayValue = (value, unit) => {
+    if (unit === '°C' || unit === 'C' || unit.toLowerCase().includes('celsius')) {
+      return currentRegion === 'US' ? celsiusToFahrenheit(parseFloat(value)) : value;
+    }
+    return value;
+  };
+  
+  // Convert slider min/max/step for temperature sliders
+  const convertSliderValue = (value, unit) => {
+    if (unit === '°C' || unit === 'C' || unit.toLowerCase().includes('celsius')) {
+      return currentRegion === 'US' ? celsiusToFahrenheit(parseFloat(value)) : parseFloat(value);
+    }
+    return parseFloat(value);
   };
 
   const handleSliderChange = async (entity, value) => {
@@ -44,6 +87,15 @@ const SliderCard = ({ entities }) => {
     if (isLocked) {
       return;
     }
+
+    // Convert Fahrenheit back to Celsius if necessary before sending to backend
+    let sendValue = value;
+    if (entity.unit === '°C' || entity.unit === 'C' || entity.unit.toLowerCase().includes('celsius')) {
+      if (currentRegion === 'US') {
+        sendValue = (value - 32) * 5/9;
+      }
+    }
+    sendValue = Math.round(sendValue * 100) / 100; // Round to 2 decimal places
 
     // Request confirmation if Safe Mode is enabled
     const confirmed = await confirmChange(
@@ -82,6 +134,16 @@ const SliderCard = ({ entities }) => {
     const step = parseFloat(entity.step) || 1;
     const largeStep = step * 10; // For Page Up/Down
     
+    // Convert step to Fahrenheit if temperature and region is US
+    let adjustedStep = step;
+    let adjustedLargeStep = largeStep;
+    if (entity.unit === '°C' || entity.unit === 'C' || entity.unit.toLowerCase().includes('celsius')) {
+      if (currentRegion === 'US') {
+        adjustedStep = step * 9/5;
+        adjustedLargeStep = largeStep * 9/5;
+      }
+    }
+    
     let newValue = currentValue;
 
     switch (e.key) {
@@ -90,22 +152,22 @@ const SliderCard = ({ entities }) => {
       case '+':
       case '=': // + without shift
         e.preventDefault();
-        newValue = Math.min(max, currentValue + step);
+        newValue = Math.min(max, currentValue + (entity.unit === '°C' && currentRegion === 'US' ? step * 5/9 : step));
         break;
       case 'ArrowLeft':
       case 'ArrowDown':
       case '-':
       case '_': // - without shift on some keyboards
         e.preventDefault();
-        newValue = Math.max(min, currentValue - step);
+        newValue = Math.max(min, currentValue - (entity.unit === '°C' && currentRegion === 'US' ? step * 5/9 : step));
         break;
       case 'PageUp':
         e.preventDefault();
-        newValue = Math.min(max, currentValue + largeStep);
+        newValue = Math.min(max, currentValue + (entity.unit === '°C' && currentRegion === 'US' ? largeStep * 5/9 : largeStep));
         break;
       case 'PageDown':
         e.preventDefault();
-        newValue = Math.max(min, currentValue - largeStep);
+        newValue = Math.max(min, currentValue - (entity.unit === '°C' && currentRegion === 'US' ? largeStep * 5/9 : largeStep));
         break;
       case 'Home':
         e.preventDefault();
@@ -134,14 +196,17 @@ const SliderCard = ({ entities }) => {
     <Container>
       {entities.map((entity) => {
         const isLocked = entity.disabled || entity.attributes?.disabled || entity.attributes?.locked;
+        const displayUnit = getTemperatureUnit(entity.unit);
+        const rawValue = getLocalValue(entity.entity_id) ?? entity.state;
+        const displayValue = convertDisplayValue(rawValue, entity.unit);
         
         return (
           <Card key={entity.entity_id} $isLocked={isLocked} $safeModeEnabled={isSafeModeEnabled}>
             <CardHeader>
               <Tooltip>{entity.tooltip}</Tooltip>
                <Title $hasLockIcons={isSafeModeEnabled || isLocked}>{entity.title}</Title>
-              <Value>{getValuePrefix(entity.entity_id)}{getLocalValue(entity.entity_id) ?? entity.state}</Value>
-              <Unit>{entity.unit}</Unit>
+               <Value>{getValuePrefix(entity.entity_id, rawValue)}{displayValue}</Value>
+               <Unit>{displayUnit}</Unit>
               
               {/* Lock indicators */}
               {isSafeModeEnabled && (
@@ -158,12 +223,22 @@ const SliderCard = ({ entities }) => {
             <SliderWrapper>
               <Slider
                 type="range"
-                min={entity.min}
-                max={entity.max}
+                min={convertSliderValue(entity.min, entity.unit)}
+                max={convertSliderValue(entity.max, entity.unit)}
                 step={entity.step}
-                value={getLocalValue(entity.entity_id) ?? entity.state}
+                value={convertSliderValue(getLocalValue(entity.entity_id) ?? entity.state, entity.unit)}
                 disabled={isLocked}
-                onChange={(e) => setLocalValue(entity.entity_id, parseFloat(e.target.value))}
+                onChange={(e) => {
+                  const sliderValue = parseFloat(e.target.value);
+                  // Convert back to Celsius for internal state
+                  let internalValue = sliderValue;
+                  if (entity.unit === '°C' || entity.unit === 'C' || entity.unit.toLowerCase().includes('celsius')) {
+                    if (currentRegion === 'US') {
+                      internalValue = (sliderValue - 32) * 5/9;
+                    }
+                  }
+                  setLocalValue(entity.entity_id, internalValue);
+                }}
                 onPointerUp={(e) => {
                   const value = parseFloat(e.target.value);
                   clearLocalValue(entity.entity_id);
@@ -172,9 +247,9 @@ const SliderCard = ({ entities }) => {
                 onKeyDown={(e) => handleKeyDown(e, entity)}
                 tabIndex={isLocked ? -1 : 0}
                 aria-label={entity.title}
-                aria-valuemin={entity.min}
-                aria-valuemax={entity.max}
-                aria-valuenow={getLocalValue(entity.entity_id) ?? entity.state}
+                aria-valuemin={convertSliderValue(entity.min, entity.unit)}
+                aria-valuemax={convertSliderValue(entity.max, entity.unit)}
+                aria-valuenow={convertSliderValue(getLocalValue(entity.entity_id) ?? entity.state, entity.unit)}
               />
             </SliderWrapper>
           </Card>

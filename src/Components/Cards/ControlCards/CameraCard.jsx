@@ -2715,8 +2715,8 @@ const TimelapseInput = styled.input`
 const TimelapseSelect = styled.select`
   padding: 10px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-secondary);
   color: var(--main-text-color);
   font-size: 14px;
   outline: none;
@@ -2724,7 +2724,7 @@ const TimelapseSelect = styled.select`
   transition: all 0.2s;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--primary-accent);
   }
 
   &:focus {
@@ -2732,7 +2732,7 @@ const TimelapseSelect = styled.select`
   }
 
   option {
-    background: rgba(20, 20, 20, 0.95);
+    background: var(--main-bg-card-color);
     color: var(--main-text-color);
   }
 `;
@@ -2913,8 +2913,8 @@ const StatusDot = styled.div`
 const CameraSelector = styled.select`
   padding: 6px 12px;
   border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(0, 0, 0, 0.3);
+  border: 1px solid var(--glass-border);
+  background: var(--glass-bg-secondary);
   color: var(--main-text-color);
   font-size: 13px;
   cursor: pointer;
@@ -2922,7 +2922,7 @@ const CameraSelector = styled.select`
   transition: all 0.2s;
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.3);
+    border-color: var(--primary-accent);
   }
 
   &:focus {
@@ -2930,7 +2930,7 @@ const CameraSelector = styled.select`
   }
 
   option {
-    background: rgba(20, 20, 20, 0.95);
+    background: var(--main-bg-card-color);
     color: var(--main-text-color);
   }
 `;

@@ -30,6 +30,7 @@ const initialState = {
   Settings: {
     safeModeEnabled: true, // Enable safe mode by default to prevent accidental mobile changes
     siteView: null, // 'lite' or 'pro' - null means user needs to select
+    region: 'EU', // 'EU' or 'US' - for temperature/time/date formatting
   },
 };
 

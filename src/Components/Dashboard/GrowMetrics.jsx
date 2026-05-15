@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { FaLeaf, FaChartBar, FaCircle, FaSync, FaBullseye, FaCheck, FaExclamationTriangle, FaTimes, FaChartArea, FaSeedling, FaCalendarAlt, FaClock, FaFlask } from 'react-icons/fa';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { useMedium } from '../Context/MediumContext';
 import { usePlantStages } from '../Context/PlantStageContext';
 
@@ -18,14 +19,24 @@ const LoadingIndicator = ({ message = 'Loading...' }) => (
 );
 
 const GrowMetrics = () => {
+  const { entities, currentRoom, handleTabReactivation, haApiBaseUrl, haToken: token } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [selectedMetric, setSelectedMetric] = useState('all');
   const [timeRange, setTimeRange] = useState('last_7d');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [historicalData, setHistoricalData] = useState([]);
   const [targetValues, setTargetValues] = useState({});
-
-  const { entities, currentRoom, handleTabReactivation, haApiBaseUrl, haToken: token } = useHomeAssistant();
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
   const { 
     mediums, 
     currentMedium, 
@@ -272,8 +283,14 @@ const GrowMetrics = () => {
           if (currentStageData.maxCo2 != null) result[metric].max = currentStageData.maxCo2;
         }
         if (metric === 'temp' || metric === 'temperature') {
-          if (currentStageData.minTemp != null) result[metric].min = Number(currentStageData.minTemp.toFixed(1));
-          if (currentStageData.maxTemp != null) result[metric].max = Number(currentStageData.maxTemp.toFixed(1));
+          if (currentStageData.minTemp != null) {
+            const minTemp = currentStageData.minTemp;
+            result[metric].min = Number((currentRegion === 'US' ? celsiusToFahrenheit(minTemp) : minTemp).toFixed(1));
+          }
+          if (currentStageData.maxTemp != null) {
+            const maxTemp = currentStageData.maxTemp;
+            result[metric].max = Number((currentRegion === 'US' ? celsiusToFahrenheit(maxTemp) : maxTemp).toFixed(1));
+          }
         }
         if (metric === 'humidity') {
           if (currentStageData.minHumidity != null) result[metric].min = Number(currentStageData.minHumidity.toFixed(1));
@@ -288,22 +305,34 @@ const GrowMetrics = () => {
       // Priority 2: Lese aus HA Control Entities (überschreibt Plant Stages Werte)
       if (controlEntity && entities) {
         if (controlEntity.min && entities[controlEntity.min]) {
-          const minValue = parseFloat(entities[controlEntity.min].state);
+          let minValue = parseFloat(entities[controlEntity.min].state);
           if (!isNaN(minValue) && minValue > 0) {
+            // Konvertiere Temperature wenn nötig
+            if ((metric === 'temp' || metric === 'temperature') && currentRegion === 'US') {
+              minValue = celsiusToFahrenheit(minValue);
+            }
             result[metric].min = minValue;
           }
         }
 
         if (controlEntity.max && entities[controlEntity.max]) {
-          const maxValue = parseFloat(entities[controlEntity.max].state);
+          let maxValue = parseFloat(entities[controlEntity.max].state);
           if (!isNaN(maxValue) && maxValue > 0) {
+            // Konvertiere Temperature wenn nötig
+            if ((metric === 'temp' || metric === 'temperature') && currentRegion === 'US') {
+              maxValue = celsiusToFahrenheit(maxValue);
+            }
             result[metric].max = maxValue;
           }
         }
 
         if (controlEntity.optimal && entities[controlEntity.optimal]) {
-          const optimalValue = parseFloat(entities[controlEntity.optimal].state);
+          let optimalValue = parseFloat(entities[controlEntity.optimal].state);
           if (!isNaN(optimalValue) && optimalValue > 0) {
+            // Konvertiere Temperature wenn nötig
+            if ((metric === 'temp' || metric === 'temperature') && currentRegion === 'US') {
+              optimalValue = celsiusToFahrenheit(optimalValue);
+            }
             result[metric].optimal = optimalValue;
           }
         }
@@ -568,10 +597,15 @@ const GrowMetrics = () => {
     const results = {};
     
     Object.keys(targetValues).forEach(metric => {
-      const values = historicalData
+      let values = historicalData
         .map(d => d[metric])
         .filter(v => v !== undefined && !isNaN(v));
       
+      // Konvertiere Temperature-Werte zu Fahrenheit wenn Region = US
+      if ((metric === 'temp' || metric === 'temperature') && currentRegion === 'US') {
+        values = values.map(v => celsiusToFahrenheit(v));
+      }
+
       if (values.length === 0) {
         results[metric] = {
           total: 0,
@@ -665,7 +699,7 @@ const GrowMetrics = () => {
     const units = {
       pH: '',
       EC: 'mS/cm',
-      temperature: '°C',
+      temperature: getTemperatureUnit(),
       humidity: '%',
       co2: 'ppm',
       vpd: 'kPa',
@@ -1417,11 +1451,7 @@ const Select = styled.select`
   padding: 0.75rem 1rem;
   border: 2px solid var(--glass-border-light);
   border-radius: 12px;
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(8px);
+  background: var(--input-bg-color);
   color: var(--main-text-color);
   font-size: 0.9rem;
   font-weight: 500;
@@ -1431,11 +1461,8 @@ const Select = styled.select`
 
   &:focus {
     outline: none;
-    border-color: rgba(59, 130, 246, 0.5);
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.12) 0%,
-      rgba(255, 255, 255, 0.08) 100%
-    );
+    border-color: var(--primary-accent);
+    background: var(--active-bg-color);
     box-shadow:
       0 0 0 3px rgba(59, 130, 246, 0.15),
       0 4px 16px rgba(0, 0, 0, 0.15);
@@ -1443,11 +1470,13 @@ const Select = styled.select`
   }
 
   &:hover {
-    border-color: rgba(255, 255, 255, 0.25);
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.06) 100%
-    );
+    border-color: var(--primary-accent);
+    background: var(--active-bg-color);
+  }
+
+  option {
+    background: var(--main-bg-card-color);
+    color: var(--main-text-color);
   }
 
   @media (max-width: 640px) {

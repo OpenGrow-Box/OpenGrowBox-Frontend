@@ -21,12 +21,17 @@ const PPFDCard = ({ pause, resume, isPlaying, filterByRoom }) => {
           (key.toLowerCase().includes('ppfd') || key.toLowerCase().includes('dli')) &&
           !isNaN(parseFloat(entity.state))
       )
-      .map(([key, entity]) => ({
-        id: key,
-        value: parseFloat(entity.state),
-        unit: entity.attributes?.unit_of_measurement || '',
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
-      }));
+      .map(([key, entity]) => {
+        const isPPFD = key.toLowerCase().includes('ppfd');
+        const unit = entity.attributes?.unit_of_measurement || (isPPFD ? 'µmol/m²/s' : 'mol/m²/day');
+        
+        return {
+          id: key,
+          value: parseFloat(entity.state),
+          unit: unit,
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
+        };
+      });
 
     if (filterByRoom && currentRoom) {
       sensors = filterSensorsByRoom(sensors, currentRoom);

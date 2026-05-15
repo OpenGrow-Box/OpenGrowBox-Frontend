@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import styled from 'styled-components';
-import ReactECharts from 'echarts-for-react';
+import EChartsWrapper from '../Common/EChartsWrapper';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
@@ -429,7 +429,7 @@ const CombinedSoilChart = ({
             <div>{error}</div>
           </ErrorState>
         ) : chartOptions ? (
-          <ReactECharts
+          <EChartsWrapper
             ref={chartRef}
             option={chartOptions}
             notMerge={false}

@@ -2,11 +2,15 @@ import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { Shield } from 'lucide-react';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
+import { useGlobalState } from "../../Context/GlobalContext";
+import { formatTimeString, parseTimeStringTo24h } from '../../../utils/regionFormat';
 import { useSafeMode } from '../../../hooks/useSafeMode';
 import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 
 // Single time input component with local state
 const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange }) => {
+  const { state } = useGlobalState();
+  const currentRegion = state.Settings?.region || 'EU';
   const [localValue, setLocalValue] = useState(entity.state || '00:00');
 
   // Sync with entity state when it changes from external source
@@ -24,12 +28,17 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange })
   const handleBlur = async () => {
     // Only send if value actually changed
     if (localValue === entity.state) return;
+    
+    // For duration entities (sunrise/sunset), use value as-is (already HH:MM:SS)
+    // For regular time entities, convert regional format to 24h
+    const isDuration = entity.entity_id.includes('sunrise') || entity.entity_id.includes('sunset');
+    const valueToSend = isDuration ? localValue : parseTimeStringTo24h(localValue, currentRegion);
 
     // Request confirmation if Safe Mode is enabled
     const confirmed = await confirmChange(
       entity.title || entity.entity_id,
       entity.state,
-      localValue
+      valueToSend
     );
 
     if (!confirmed) {
@@ -46,7 +55,7 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange })
           service: 'update_time',
           service_data: {
             entity_id: entity.entity_id,
-            time: localValue,
+            time: valueToSend,
           },
         });
       } catch (error) {
@@ -63,6 +72,9 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange })
     }
   };
 
+  // Check if this is a sunrise/sunset entity - always use 24h HH:MM:SS format
+  const isDuration = entity.entity_id.includes('sunrise') || entity.entity_id.includes('sunset');
+
   return (
     <Card $safeModeEnabled={isSafeModeEnabled}>
       <Tooltip>{entity.tooltip}</Tooltip>
@@ -72,13 +84,25 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange })
         </SafeModeIndicator>
       )}
       <Title $hasLockIcons={isSafeModeEnabled}>{entity.title}</Title>
-      <TimeInput
-        type="time"
-        value={localValue}
-        onChange={handleTimeChange}
-        onBlur={handleBlur}
-        onKeyDown={handleKeyDown}
-      />
+      {isDuration ? (
+        <TimeInput
+          type="text"
+          placeholder="00:30"
+          value={localValue.substring(0, 5)}
+          onChange={handleTimeChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+        />
+      ) : (
+        <TimeInput
+          type="text"
+          placeholder={currentRegion === 'US' ? '6:00 AM' : '06:00'}
+          value={formatTimeString(localValue, currentRegion)}
+          onChange={handleTimeChange}
+          onBlur={handleBlur}
+          onKeyDown={handleKeyDown}
+        />
+      )}
     </Card>
   );
 };

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
+import { useGlobalState } from '../../Context/GlobalContext';
 import formatLabel from '../../../misc/formatLabel';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
@@ -8,8 +9,19 @@ import { getThemeColor } from '../../../utils/themeColors';
 
 const AllTemps = ({ pause, resume, isPlaying, filterByRoom }) => {
   const { entities, currentRoom } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [allTempSensors, setAllTempSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
 
 
   useEffect(() => {
@@ -23,8 +35,25 @@ const AllTemps = ({ pause, resume, isPlaying, filterByRoom }) => {
     if (filterByRoom && currentRoom) {
       normalizedSensors = filterSensorsByRoom(normalizedSensors, currentRoom);
     }
+    
+    // Convert to Fahrenheit if region is US
+    const convertedSensors = normalizedSensors.map(sensor => {
+      const isCelsius = (sensor.unit || '').toLowerCase().includes('celsius') || (sensor.unit || '').includes('°C');
+      if (isCelsius && currentRegion === 'US') {
+        return {
+          ...sensor,
+          value: celsiusToFahrenheit(sensor.value),
+          unit: '°F',
+          rawValue: sensor.value // Für getColorForValue
+        };
+      }
+      return {
+        ...sensor,
+        rawValue: sensor.value // Für getColorForValue
+      };
+    });
 
-    setAllTempSensors(normalizedSensors);
+    setAllTempSensors(convertedSensors);
   }, [entities, currentRoom, filterByRoom]);
 
 
@@ -57,7 +86,7 @@ const AllTemps = ({ pause, resume, isPlaying, filterByRoom }) => {
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{formatLabel(sensor.friendlyName || sensor.id, currentRoom, sensor.id)}</Label>
             <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value, sensor.unit) }}>
+              <Value style={{ color: getColorForValue(sensor.rawValue || sensor.value, sensor.unit) }}>
                 {sensor.value.toFixed(2)}
               </Value>
               <Unit>{sensor.unit}</Unit>

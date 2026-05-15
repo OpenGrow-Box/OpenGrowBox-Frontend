@@ -1,7 +1,9 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { Lightbulb, Thermometer, Droplets, Power, Sunrise, Sunset, Settings2, ChevronDown, ChevronUp, ToggleLeft, ToggleRight, Wind, Leaf, Info } from 'lucide-react';
+import { formatTimeString, parseTimeStringTo24h } from '../../utils/regionFormat';
 
 const HelpTooltip = ({ text }) => (
   <TooltipWrapper>
@@ -14,6 +16,19 @@ const HelpTooltip = ({ text }) => (
 
 const LiteControlCard = () => {
   const { currentRoom, entities, connection } = useHomeAssistant();
+  const { state } = useGlobalState();
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
+  
+  const tempUnit = getTemperatureUnit();
   
   // Section expand states
   const [expandedSections, setExpandedSections] = useState({
@@ -463,10 +478,14 @@ const LiteControlCard = () => {
     }));
   };
 
-  const lightSchedule = lightControlEnabled ? `${lightOnTime} - ${lightOffTime}` : 'Disabled';
+  const lightSchedule = lightControlEnabled ? `${formatTimeString(lightOnTime, currentRegion)} - ${formatTimeString(lightOffTime, currentRegion)}` : 'Disabled';
   const plantSummary = [plantStage, plantSpecies].filter(Boolean).join(' • ') || 'Not configured';
+  
+  const displayTempMin = tempUnit === '°F' ? celsiusToFahrenheit(tempMin) : tempMin;
+  const displayTempMax = tempUnit === '°F' ? celsiusToFahrenheit(tempMax) : tempMax;
+  
   const environmentSummary = minmaxEnabled
-    ? `${tempMin}-${tempMax}°C • ${humMin}-${humMax}%`
+    ? `${displayTempMin}-${displayTempMax}${tempUnit} • ${humMin}-${humMax}%`
     : 'Default automation';
   const co2Summary = co2Enabled ? `${co2Target} ppm target` : 'Disabled';
   const fanSummary = fanEntityId ? `${fanOn ? 'On' : 'Off'} • ${fanSpeed}%` : 'Not available';
@@ -663,12 +682,14 @@ const LiteControlCard = () => {
                       <HelpTooltip text={tooltips.lightOn} />
                     </LabelWithTooltip>
                     <TimeInput
-                      type="time"
-                      value={lightOnTime}
+                      type="text"
+                      placeholder={currentRegion === 'US' ? '6:00 AM' : '06:00'}
+                      value={formatTimeString(lightOnTime, currentRegion)}
                       onChange={(e) => {
-                        setLightOnTime(e.target.value);
+                        const value24h = parseTimeStringTo24h(e.target.value, currentRegion);
+                        setLightOnTime(value24h);
                         const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_lightontime_${room}`, e.target.value);
+                        updateTimeEntity(`input_datetime.ogb_lightontime_${room}`, value24h);
                       }}
                     />
                   </TimeControl>
@@ -678,12 +699,14 @@ const LiteControlCard = () => {
                       <HelpTooltip text={tooltips.lightOff} />
                     </LabelWithTooltip>
                     <TimeInput
-                      type="time"
-                      value={lightOffTime}
+                      type="text"
+                      placeholder={currentRegion === 'US' ? '10:00 PM' : '22:00'}
+                      value={formatTimeString(lightOffTime, currentRegion)}
                       onChange={(e) => {
-                        setLightOffTime(e.target.value);
+                        const value24h = parseTimeStringTo24h(e.target.value, currentRegion);
+                        setLightOffTime(value24h);
                         const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_lightofftime_${room}`, e.target.value);
+                        updateTimeEntity(`input_datetime.ogb_lightofftime_${room}`, value24h);
                       }}
                     />
                   </TimeControl>
@@ -698,13 +721,14 @@ const LiteControlCard = () => {
                       <HelpTooltip text={tooltips.sunrise} />
                     </LabelWithTooltip>
                     <SunTimeInput
-                      type="time"
-                      step="1"
-                      value={sunriseTime}
+                      type="text"
+                      placeholder="00:30"
+                      value={sunriseTime.substring(0, 5)}
                       onChange={(e) => {
-                        setSunriseTime(e.target.value);
+                        const value = e.target.value;
+                        setSunriseTime(value);
                         const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_sunrisetime_${room}`, e.target.value);
+                        updateTimeEntity(`input_datetime.ogb_sunrisetime_${room}`, value);
                       }}
                     />
                   </SunControl>
@@ -717,13 +741,14 @@ const LiteControlCard = () => {
                       <HelpTooltip text={tooltips.sunset} />
                     </LabelWithTooltip>
                     <SunTimeInput
-                      type="time"
-                      step="1"
-                      value={sunsetTime}
+                      type="text"
+                      placeholder="00:30"
+                      value={sunsetTime.substring(0, 5)}
                       onChange={(e) => {
-                        setSunsetTime(e.target.value);
+                        const value = e.target.value;
+                        setSunsetTime(value);
                         const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_sunsettime_${room}`, e.target.value);
+                        updateTimeEntity(`input_datetime.ogb_sunsettime_${room}`, value);
                       }}
                     />
                   </SunControl>
@@ -887,7 +912,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(tempMin, -1, 15, 35, updateTempMin)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{tempMin}°C</ValueDisplay>
+                      <ValueDisplay>{displayTempMin}{tempUnit}</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(tempMin, 1, 15, 35, updateTempMin)}>
                         <ChevronUp size={16} />
                       </ValueButton>
@@ -902,7 +927,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(tempMax, -1, 20, 40, updateTempMax)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{tempMax}°C</ValueDisplay>
+                      <ValueDisplay>{displayTempMax}{tempUnit}</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(tempMax, 1, 20, 40, updateTempMax)}>
                         <ChevronUp size={16} />
                       </ValueButton>

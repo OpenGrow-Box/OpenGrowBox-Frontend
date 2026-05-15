@@ -1147,6 +1147,7 @@ const GlobalDarkModeStyle = createTheme({
 });
 
 const GlobalCrystalStyle = createTheme({
+  colorScheme: 'light',
   background: `
     radial-gradient(circle at top left, rgba(59, 130, 246, 0.08), transparent 30%),
     radial-gradient(circle at top right, rgba(6, 182, 212, 0.06), transparent 28%),
@@ -1236,6 +1237,7 @@ const GlobalCrystalStyle = createTheme({
 });
 
 const GlobalLuminaStyle = createTheme({
+  colorScheme: 'light',
   background: `
     radial-gradient(circle at top left, rgba(251, 191, 36, 0.12), transparent 32%),
     radial-gradient(circle at top right, rgba(253, 230, 138, 0.1), transparent 30%),
@@ -1325,6 +1327,7 @@ const GlobalLuminaStyle = createTheme({
 });
 
 const GlobalRadianceStyle = createTheme({
+  colorScheme: 'light',
   background: `
     radial-gradient(circle at top left, rgba(34, 197, 94, 0.1), transparent 34%),
     radial-gradient(circle at top right, rgba(56, 189, 248, 0.08), transparent 32%),
@@ -1774,6 +1777,7 @@ const GlobalForestDreamStyle = createTheme({
 });
 
 const GlobalOceanBreezeStyle = createTheme({
+  colorScheme: 'light',
   background: `
     radial-gradient(circle at top left, rgba(14, 165, 233, 0.16), transparent 34%),
     radial-gradient(circle at top right, rgba(56, 189, 248, 0.12), transparent 32%),
@@ -1952,6 +1956,7 @@ const GlobalMidnightRoseStyle = createTheme({
 });
 
 const GlobalArcticFrostStyle = createTheme({
+  colorScheme: 'light',
   background: `
     radial-gradient(circle at top left, rgba(186, 230, 253, 0.18), transparent 34%),
     radial-gradient(circle at top right, rgba(224, 242, 254, 0.14), transparent 32%),
@@ -2041,6 +2046,7 @@ const GlobalArcticFrostStyle = createTheme({
 });
 
 const GlobalCherryBlossomStyle = createTheme({
+  colorScheme: 'light',
   background: `
     radial-gradient(circle at top left, rgba(244, 114, 182, 0.14), transparent 32%),
     radial-gradient(circle at top right, rgba(251, 207, 232, 0.1), transparent 30%),

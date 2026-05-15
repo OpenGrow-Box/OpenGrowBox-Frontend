@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
+import { useGlobalState } from '../../Context/GlobalContext';
 import HistoryChart from '../HistoryChart';
 import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
 import { getThemeColor } from '../../../utils/themeColors';
@@ -8,6 +9,17 @@ import formatLabel from '../../../misc/formatLabel';
 
 const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
+  const { state } = useGlobalState();
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
   const [waterSensors, setWaterensors] = useState([]);
   const [tankLevelSensor, setTankLevelSensor] = useState(null);
   const [selectedSensor, setSelectedSensor] = useState(null);
@@ -167,6 +179,16 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
   // Formatierung mit Einheitskonvertierung
   const getFormattedValueWithUnit = (value, unit) => {
     const unitLower = unit.toLowerCase();
+    
+    // Temperatur-Konvertierung
+    if (unitLower.includes('celsius') || unitLower.includes('°c')) {
+      const isFahrenheit = currentRegion === 'US';
+      const convertedValue = isFahrenheit ? celsiusToFahrenheit(value) : value;
+      return {
+        value: convertedValue % 1 === 0 ? convertedValue.toFixed(0) : convertedValue.toFixed(2),
+        unit: isFahrenheit ? '°F' : unit
+      };
+    }
     
     if (unitLower.includes('µs') || unitLower.includes('us') || unitLower.includes('ms/us')) {
       const mSValue = value / 1000;

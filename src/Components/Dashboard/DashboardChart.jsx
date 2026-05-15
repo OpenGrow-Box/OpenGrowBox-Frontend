@@ -1,7 +1,8 @@
 import { useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
-import ReactECharts from 'echarts-for-react';
+import EChartsWrapper from '../Common/EChartsWrapper';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
+import { useGlobalState } from '../Context/GlobalContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
 import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaChartBar, FaDownload } from 'react-icons/fa';
@@ -23,8 +24,37 @@ const SensorChart = ({
   };
 
   const { haApiBaseUrl, haToken: accessToken, entities, connection } = useHomeAssistant();
+  const { state } = useGlobalState();
   const isDev = import.meta.env.DEV;
   const HISTORY_FETCH_TIMEOUT_MS = 15000;
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 100) / 100;
+  };
+  
+  const isTemperature = (unit) => {
+    if (!unit) return false;
+    const tempUnits = ['°C', 'C', '°F', 'F', 'celsius', 'fahrenheit', 'Celsius', 'Fahrenheit'];
+    return tempUnits.some(tu => unit.includes(tu));
+  };
+  
+  const convertTemperatureValue = (value, unit) => {
+    // Convert if current region is US and it's a temperature sensor
+    // Note: unit might already be '°F' but data is still in Celsius from backend
+    if (currentRegion === 'US' && isTemperature(unit)) {
+      return celsiusToFahrenheit(value);
+    }
+    return value;
+  };
+  
+  const getDisplayUnit = (unit) => {
+    if (isTemperature(unit) && currentRegion === 'US') {
+      return '°F';
+    }
+    return unit;
+  };
 
   // Store chart data in ref for live updates
   const chartDataRef = useRef({ xData: [], yData: [] });
@@ -80,10 +110,11 @@ const SensorChart = ({
     const option = chartInstance.getOption();
     const xData = option.xAxis[0].data;
     const yData = option.series[0].data;
+    const displayUnit = getDisplayUnit(unit);
     
     const csvContent = [
       ['Timestamp', 'Value', 'Unit'].join(','),
-      ...xData.map((x, i) => `${x},${yData[i]},${unit}`)
+      ...xData.map((x, i) => `${x},${yData[i]},${displayUnit}`)
     ].join('\n');
     
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
@@ -171,12 +202,18 @@ const SensorChart = ({
         const firstAvg = firstHalf.length > 0 ? firstHalf.reduce((a, b) => a + b, 0) / firstHalf.length : 0;
         const secondAvg = secondHalf.length > 0 ? secondHalf.reduce((a, b) => a + b, 0) / secondHalf.length : 0;
         const trend = secondAvg > firstAvg * 1.05 ? 'up' : secondAvg < firstAvg * 0.95 ? 'down' : 'stable';
-        
+
+        // Convert values if temperature and region is US
+        const displayCurrent = convertTemperatureValue(current, unit);
+        const displayMin = convertTemperatureValue(min, unit);
+        const displayMax = convertTemperatureValue(max, unit);
+        const displayAvg = convertTemperatureValue(avg, unit);
+
         setStats({
-          current: current.toFixed(2),
-          min: min.toFixed(2),
-          max: max.toFixed(2),
-          avg: avg.toFixed(2),
+          current: displayCurrent.toFixed(2),
+          min: displayMin.toFixed(2),
+          max: displayMax.toFixed(2),
+          avg: displayAvg.toFixed(2),
           trend
         });
 
@@ -192,11 +229,15 @@ const SensorChart = ({
         });
         
         const xData = sensorData.map(item => item.last_changed);
-        const yData = filledYData;
+        
+        // Convert temperature values if region is US
+        const yData = filledYData.map(val => convertTemperatureValue(val, unit));
 
         // Store data in ref for live updates
         chartDataRef.current = { xData, yData };
-        currentValueRef.current = current;
+        currentValueRef.current = convertTemperatureValue(current, unit);
+
+        // Get colors - different colors for different sensor types (using theme colors)
 
         // Get colors - different colors for different sensor types (using theme colors)
         const textColor = getThemeColor('--main-text-color');
@@ -233,11 +274,12 @@ const SensorChart = ({
             formatter: (params) => {
               const p = params[0];
               const date = formatDateTime(p.axisValue);
+              const displayUnit = getDisplayUnit(unit);
               return `
                 <div style="font-weight:600;margin-bottom:4px">${date}</div>
                 <div style="display:flex;align-items:center;gap:8px">
                   <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${accentColor}"></span>
-                  <span style="font-size:16px;font-weight:700">${p.value} ${unit}</span>
+                  <span style="font-size:16px;font-weight:700">${p.value} ${displayUnit}</span>
                 </div>
               `;
             }
@@ -405,12 +447,15 @@ const SensorChart = ({
 
     // Only update if value changed
     if (currentValueRef.current === newValue) return;
-    currentValueRef.current = newValue;
+    
+    // Convert temperature value if needed
+    const convertedValue = convertTemperatureValue(newValue, unit);
+    currentValueRef.current = convertedValue;
 
     // Update stats immediately
     setStats(prev => ({
       ...prev,
-      current: newValue.toFixed(2)
+      current: convertedValue.toFixed(2)
     }));
 
     // Update chart data if we have existing data
@@ -418,7 +463,7 @@ const SensorChart = ({
     if (chartInstance && chartDataRef.current.xData.length > 0) {
       const now = new Date().toISOString();
       const xData = [...chartDataRef.current.xData, now];
-      const yData = [...chartDataRef.current.yData, newValue];
+      const yData = [...chartDataRef.current.yData, convertedValue];
 
       // Keep only last 1000 points for performance
       if (xData.length > 1000) {
@@ -450,10 +495,11 @@ const SensorChart = ({
         ]
       });
 
-      // Also update the stats avg
+      // Also update the stats avg - convert if temperature
+      const convertedAvg = convertTemperatureValue(newAvg, unit);
       setStats(prev => ({
         ...prev,
-        avg: newAvg.toFixed(2)
+        avg: convertedAvg.toFixed(2)
       }));
     }
   }, [entities, sensorId]);
@@ -553,7 +599,7 @@ const SensorChart = ({
             <span>Loading sensor data...</span>
           </LoadingState>
         ) : hasValidData ? (
-          <ReactECharts
+          <EChartsWrapper
             ref={chartRef}
             option={chartOptions}
             notMerge={false}
@@ -572,15 +618,15 @@ const SensorChart = ({
       <StatsBar>
         <StatBox>
           <StatLabel>Min</StatLabel>
-          <StatValue style={{ color: getThemeColor('--chart-error-color') }}>{stats.min}{unit}</StatValue>
+          <StatValue style={{ color: getThemeColor('--chart-error-color') }}>{stats.min}{getDisplayUnit(unit)}</StatValue>
         </StatBox>
         <StatBox>
           <StatLabel>Avg</StatLabel>
-          <StatValue style={{ color: getThemeColor('--chart-warning-color') }}>{stats.avg}{unit}</StatValue>
+          <StatValue style={{ color: getThemeColor('--chart-warning-color') }}>{stats.avg}{getDisplayUnit(unit)}</StatValue>
         </StatBox>
         <StatBox>
           <StatLabel>Max</StatLabel>
-          <StatValue style={{ color: getThemeColor('--chart-success-color') }}>{stats.max}{unit}</StatValue>
+          <StatValue style={{ color: getThemeColor('--chart-success-color') }}>{stats.max}{getDisplayUnit(unit)}</StatValue>
         </StatBox>
       </StatsBar>
     </ChartCard>

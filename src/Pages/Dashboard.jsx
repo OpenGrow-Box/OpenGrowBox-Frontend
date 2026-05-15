@@ -10,6 +10,7 @@ import CombinedWaterChart from '../Components/Dashboard/CombinedWaterChart';
 import RoomPowerSensors from '../Components/Dashboard/RoomPowerSensors';
 import BottomBar from '../Components/Navigation/BottomBar';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
+import { useGlobalState } from '../Components/Context/GlobalContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
 import CropSteeringOverview from '../Components/Dashboard/CropSteeringOverview';
@@ -18,12 +19,23 @@ import { FaSpinner, FaLeaf } from 'react-icons/fa';
 
 const Dashboard = () => {
   const { currentRoom, entities, connectionState } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [isLoading, setIsLoading] = useState(true);
   const [, setError] = useState(null);
   const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
   const [activeDashboardTab, setActiveDashboardTab] = useState(() => localStorage.getItem('dashboardActiveTab') || 'analytics');
   const [selectedCO2SensorIndex, setSelectedCO2SensorIndex] = useState(0);
   const roomDropdownRef = useRef(null);
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
 
   // Global live mode state - shared across all charts
   const [isGlobalLiveMode, setIsGlobalLiveMode] = useState(false);
@@ -394,7 +406,7 @@ const Dashboard = () => {
                 key={`temp-${waterSensors.temp.id}`}
                 sensorId={waterSensors.temp.id}
                 title="Water Temp"
-                unit="°C"
+                unit={getTemperatureUnit()}
                 priority="medium"
                 isGlobalLiveMode={isGlobalLiveMode}
                 globalLiveRefreshTrigger={globalLiveRefreshTrigger}
@@ -460,7 +472,7 @@ const Dashboard = () => {
             <DashboardChart
               sensorId={sensorIds.temperature}
               title="Avg Temp"
-              unit="°C"
+              unit={getTemperatureUnit()}
               priority="high"
               isGlobalLiveMode={isGlobalLiveMode}
               globalLiveRefreshTrigger={globalLiveRefreshTrigger}

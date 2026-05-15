@@ -14,6 +14,16 @@ const LiteHome = () => {
   const { currentRoom, entities, connection, haBaseUrl, haToken: accessToken, haApiBaseUrl, areas } = useHomeAssistant();
   const { state } = useGlobalState();
   
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
+  
   const [cameraImage, setCameraImage] = useState(null);
   const [cameraError, setCameraError] = useState(false);
   const [selectedCamera, setSelectedCamera] = useState(null);
@@ -129,7 +139,15 @@ const LiteHome = () => {
     const entity = entities[entityId];
     if (!entity) return '--';
     const value = entity.state;
-    return value !== undefined && value !== null ? `${value}${unit}` : '--';
+    
+    // Konvertiere Temperatur wenn Region = US
+    let displayValue = value;
+    if (unit === '°C' && currentRegion === 'US') {
+      displayValue = celsiusToFahrenheit(parseFloat(value));
+    }
+    
+    const displayUnit = unit === '°C' && currentRegion === 'US' ? '°F' : unit;
+    return value !== undefined && value !== null ? `${displayValue}${displayUnit}` : '--';
   };
 
   const devices = useMemo(() => {

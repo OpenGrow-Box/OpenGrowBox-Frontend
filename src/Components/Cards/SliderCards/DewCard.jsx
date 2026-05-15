@@ -1,14 +1,26 @@
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
+import { useGlobalState } from '../../Context/GlobalContext';
 import HistoryChart from '../HistoryChart';
 import formatLabel from '../../../misc/formatLabel';
 import { filterSensorsByRoom } from './sensorClassifier';
 
 const DewCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
+  const { state } = useGlobalState();
   const [dewSensors, setDewSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
+  
+  const currentRegion = state.Settings?.region || 'EU';
+  
+  const getTemperatureUnit = () => {
+    return currentRegion === 'US' ? '°F' : '°C';
+  };
+  
+  const celsiusToFahrenheit = (celsius) => {
+    return Math.round((celsius * 9/5 + 32) * 10) / 10;
+  };
 
   useEffect(() => {
     let sensors = Object.entries(entities)
@@ -19,13 +31,24 @@ const DewCard = ({pause, resume, isPlaying, filterByRoom}) => {
           !isNaN(parseFloat(entity.state)) && 
           entity.state != 0
       )
-      .map(([key, entity]) => ({
-        id: key,
-        value: parseFloat(entity.state),
-        unit: entity.attributes?.unit_of_measurement,
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
-        entity_id: entity.entity_id,
-      }));
+      .map(([key, entity]) => {
+        const rawValue = parseFloat(entity.state);
+        const unit = entity.attributes?.unit_of_measurement || '°C';
+        const isCelsius = unit === '°C' || unit.toLowerCase().includes('celsius');
+        const displayValue = (isCelsius && currentRegion === 'US') 
+          ? celsiusToFahrenheit(rawValue) 
+          : rawValue;
+        const displayUnit = (isCelsius && currentRegion === 'US') ? '°F' : unit;
+        
+        return {
+          id: key,
+          value: displayValue,
+          unit: displayUnit,
+          friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
+          entity_id: entity.entity_id,
+          rawValue: rawValue, // Für getColorForValue
+        };
+      });
 
     if (filterByRoom && currentRoom) {
       sensors = filterSensorsByRoom(sensors, currentRoom);
@@ -64,7 +87,7 @@ const DewCard = ({pause, resume, isPlaying, filterByRoom}) => {
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.entity_id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
-              <Value style={{ color: getColorForValue(sensor.value) }}>
+              <Value style={{ color: getColorForValue(sensor.rawValue || sensor.value) }}>
                 {sensor.value}
               </Value>
               <Unit>{sensor.unit}</Unit>

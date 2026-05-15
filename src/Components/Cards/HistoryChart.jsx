@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import styled from 'styled-components';
-import ReactECharts from 'echarts-for-react';
+import EChartsWrapper from '../Common/EChartsWrapper';
 
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { FaLeaf, FaTimes, FaChartLine, FaChartBar, FaExclamationTriangle, FaChartArea } from 'react-icons/fa';
@@ -558,7 +558,7 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 250
         {loading && <LoadingIndicator />} 
          {error && <ErrorMessage><FaExclamationTriangle size={16} /> {error}</ErrorMessage>}
         {chartOptions && !loading && !error ? (
-          <ReactECharts 
+          <EChartsWrapper 
             option={chartOptions} 
             style={{ height: '100%', width: '100%' }} 
             opts={{ renderer: 'canvas' }}

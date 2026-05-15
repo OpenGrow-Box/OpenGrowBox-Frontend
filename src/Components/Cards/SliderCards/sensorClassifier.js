@@ -74,6 +74,13 @@ const detectCategory = (key, name = "") => {
 
 const guessUnit = (category) =>
   category === "moisture" ? "%" :
+  category === "humidity" ? "%" :
+  category === "temperature" ? "°C" :
+  category === "co2" ? "ppm" :
+  category === "ph" ? "pH" :
+  category === "tds" ? "ppm" :
+  category === "oxidation" ? "mV" :
+  category === "salinity" ? "ppt" :
   category === "ec" ? "mS/cm" : "";
 
 const convertUnit = (value, unit, category) => {
