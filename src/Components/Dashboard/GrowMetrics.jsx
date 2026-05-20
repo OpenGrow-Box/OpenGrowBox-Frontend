@@ -28,6 +28,11 @@ const GrowMetrics = () => {
   const [historicalData, setHistoricalData] = useState([]);
   const [targetValues, setTargetValues] = useState({});
   
+  // Refs for aborting fetches on unmount
+  const isMountedRef = useRef(true);
+  const abortControllersRef = useRef([]);
+  const fetchTimeoutRef = useRef(null);
+  
   const currentRegion = state.Settings?.region || 'EU';
   
   const getTemperatureUnit = () => {
@@ -56,18 +61,29 @@ const GrowMetrics = () => {
   useEffect(() => {
     let interval;
 
-    if (isLive) {
+    if (isLive && isMountedRef.current) {
       // Initiales Laden
       fetchAllGrowData();
 
       // Alle 30 Sekunden neu laden
       interval = setInterval(() => {
-        fetchAllGrowData();
+        if (isMountedRef.current) {
+          fetchAllGrowData();
+        }
       }, 30000);
     }
 
     return () => {
       if (interval) clearInterval(interval);
+      // Abort any pending fetches when live mode changes
+      abortControllersRef.current.forEach(controller => {
+        try {
+          controller.abort();
+        } catch (e) {
+          // Ignore errors
+        }
+      });
+      abortControllersRef.current = [];
     };
   }, [isLive]);
 
@@ -497,12 +513,14 @@ const GrowMetrics = () => {
   };
 
   const fetchSensorData = async (entityId, startTime, endTime) => {
+    if (!isMountedRef.current) return [];
+    
     // Build URL - in dev mode, use relative path for proxy
     const baseUrlPart = apiBaseUrl ? apiBaseUrl : '';
     const url = `${baseUrlPart}/api/history/period/${encodeURIComponent(startTime)}?filter_entity_id=${entityId}&end_time=${encodeURIComponent(endTime)}&minimal_response&no_attributes&significant_changes_only`;
-    // console.log('GrowMetrics fetching from:', url, 'isDev:', isDev);
 
     const controller = new AbortController();
+    abortControllersRef.current.push(controller);
     const timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
 
     try {
@@ -514,6 +532,8 @@ const GrowMetrics = () => {
         signal: controller.signal,
       });
 
+      if (!isMountedRef.current) return [];
+
       if (!response.ok) {
         throw new Error(`Error fetching ${entityId}: ${response.statusText}`);
       }
@@ -521,31 +541,42 @@ const GrowMetrics = () => {
       const data = await response.json();
       return data && data.length > 0 ? data[0] : [];
     } catch (err) {
+      if (!isMountedRef.current) return [];
       if (err?.name === 'AbortError') {
-        console.warn(`Fetch timeout for ${entityId} after ${HISTORY_FETCH_TIMEOUT_MS}ms`);
+        // Silently abort - component unmounted
       } else {
         console.warn(`Failed to fetch data for ${entityId}:`, err);
       }
       return [];
     } finally {
       clearTimeout(timeoutId);
+      // Remove controller from array
+      const index = abortControllersRef.current.indexOf(controller);
+      if (index > -1) {
+        abortControllersRef.current.splice(index, 1);
+      }
     }
   };
 
   const fetchAllGrowData = async () => {
+    if (!isMountedRef.current) return;
     if (!token) {
-      setError('Home Assistant Server oder Token nicht konfiguriert');
+      if (isMountedRef.current) setError('Home Assistant Server oder Token nicht konfiguriert');
       return;
     }
 
     if (!sensorEntityIds.length) {
-      setHistoricalData([]);
-      setLoading(false);
+      if (isMountedRef.current) {
+        setHistoricalData([]);
+        setLoading(false);
+      }
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    if (isMountedRef.current) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const { start, end } = getTimeRangeDate();
@@ -564,6 +595,8 @@ const GrowMetrics = () => {
       });
 
       const sensorResults = await Promise.all(sensorPromises);
+
+      if (!isMountedRef.current) return;
 
       // Daten zu einem Timeline-Format kombinieren
       const timelineData = {};
@@ -604,19 +637,23 @@ const GrowMetrics = () => {
       if (sortedData.length > maxReadings) {
         const step = Math.ceil(sortedData.length / maxReadings);
         sampledData = sortedData.filter((_, index) => index % step === 0);
-        // console.log(`[GrowMetrics] Sampled data from ${sortedData.length} to ${sampledData.length} readings (step: ${step})`);
       }
 
-      setHistoricalData(sampledData);
-
-      // Target Values setzen
-      setTargetValues(loadedTargetValues);
+      if (isMountedRef.current) {
+        setHistoricalData(sampledData);
+        // Target Values setzen
+        setTargetValues(loadedTargetValues);
+      }
 
     } catch (err) {
-      console.error('Error fetching grow data:', err);
-      setError('Fehler beim Laden der Grow-Daten');
+      if (isMountedRef.current) {
+        console.error('Error fetching grow data:', err);
+        setError('Fehler beim Laden der Grow-Daten');
+      }
     } finally {
-      setLoading(false);
+      if (isMountedRef.current) {
+        setLoading(false);
+      }
     }
   };
 
@@ -624,6 +661,18 @@ const GrowMetrics = () => {
   // Fetch data only when fetch parameters change
   useEffect(() => {
     fetchAllGrowData();
+    
+    return () => {
+      // Abort all pending requests when dependencies change
+      abortControllersRef.current.forEach(controller => {
+        try {
+          controller.abort();
+        } catch (e) {
+          // Ignore errors from already-aborted controllers
+        }
+      });
+      abortControllersRef.current = [];
+    };
   }, [timeRange, currentRoom, apiBaseUrl, token, currentMediumIndex, growStartDate, sensorEntityKey]);
 
   // Update target values separately (doesn't trigger data fetch)
@@ -631,16 +680,33 @@ const GrowMetrics = () => {
     setTargetValues(loadedTargetValues);
   }, [loadedTargetValues]);
 
+  // Handle component unmount - cleanup
+  useEffect(() => {
+    return () => {
+      isMountedRef.current = false;
+      // Abort all pending requests
+      abortControllersRef.current.forEach(controller => {
+        try {
+          controller.abort();
+        } catch (e) {
+          // Ignore errors from already-aborted controllers
+        }
+      });
+      abortControllersRef.current = [];
+      if (fetchTimeoutRef.current) {
+        clearTimeout(fetchTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // Handle tab visibility changes to prevent black screens
   useEffect(() => {
     const handleVisibilityChange = () => {
-      if (!document.hidden) {
+      if (!document.hidden && isMountedRef.current) {
         // Tab became active - validate data and refresh if needed
-        // console.log('GrowMetrics: Tab became active, validating data...');
 
         // If we have no data or connection issues, refresh
         if (!historicalData.length && !loading && !error) {
-          // console.log('GrowMetrics: No data found, refreshing...');
           fetchAllGrowData();
         }
 
