@@ -4,12 +4,12 @@ import { motion } from 'framer-motion';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useGlobalState } from '../Context/GlobalContext';
 import { useMedium } from '../Context/MediumContext';
-import { formatDateForRegion, parseDateFromRegion } from '../../misc/formatDateTime';
 
-// Helper functions for regional date input handling
-const formatDateInputForRegion = (isoDate, region) => {
+
+// Helper: Format ISO date for display (YYYY-MM-DD -> DD.MM.YYYY or MM/DD/YYYY)
+const formatDateDisplay = (isoDate, region) => {
   if (!isoDate) return '';
-  const d = new Date(isoDate);
+  const d = new Date(isoDate + 'T00:00:00'); // Prevent timezone issues
   if (isNaN(d.getTime())) return '';
   const day = d.getDate().toString().padStart(2, '0');
   const month = (d.getMonth() + 1).toString().padStart(2, '0');
@@ -20,27 +20,15 @@ const formatDateInputForRegion = (isoDate, region) => {
   return `${day}.${month}.${year}`;
 };
 
-const parseDateInputToISO = (input, region) => {
-  if (!input || input.length < 8) return '';
-  let day, month, year;
-  if (region === 'US') {
-    const parts = input.split('/');
-    if (parts.length !== 3) return '';
-    month = parseInt(parts[0], 10);
-    day = parseInt(parts[1], 10);
-    year = parseInt(parts[2], 10);
-  } else {
-    const parts = input.split('.');
-    if (parts.length !== 3) return '';
-    day = parseInt(parts[0], 10);
-    month = parseInt(parts[1], 10);
-    year = parseInt(parts[2], 10);
-  }
-  if (isNaN(day) || isNaN(month) || isNaN(year)) return '';
-  if (year < 100) year = 2000 + year;
-  const paddedMonth = month.toString().padStart(2, '0');
-  const paddedDay = day.toString().padStart(2, '0');
-  return `${year}-${paddedMonth}-${paddedDay}`;
+// Helper: Format ISO date for native date input (always YYYY-MM-DD)
+const formatDateForInput = (isoDate) => {
+  if (!isoDate) return '';
+  // If already in YYYY-MM-DD format, return as-is
+  if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
+  // Otherwise try to parse
+  const d = new Date(isoDate + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
 };
 
 import {
@@ -109,8 +97,10 @@ const GrowDayCounter = () => {
   }, [currentMedium, isFieldEditing, isEditingPlant]);
 
   // Format dates for display in regional format
-  const displayGrowStartDate = formatDateForRegion(growStartDate, currentRegion);
-  const displayBloomSwitchDate = formatDateForRegion(bloomSwitchDate, currentRegion);
+  const displayGrowStartDate = formatDateDisplay(growStartDate, currentRegion);
+  const displayBloomSwitchDate = formatDateDisplay(bloomSwitchDate, currentRegion);
+  const inputGrowStartDate = formatDateForInput(growStartDate);
+  const inputBloomSwitchDate = formatDateForInput(bloomSwitchDate);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -412,37 +402,45 @@ const GrowDayCounter = () => {
           <InputRow>
             <InputGroup>
               <InputLabel>Grow Start <DateFormatHint>({currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'})</DateFormatHint></InputLabel>
-              <RegionalDateInput
-                type="text"
-                placeholder={currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'}
-                value={displayGrowStartDate}
-                onChange={(e) => {
-                  const formatted = formatDateInputForRegion(e.target.value, currentRegion);
-                  setGrowStartDate(formatted);
-                  const isoDate = parseDateInputToISO(e.target.value, currentRegion);
-                  if (isoDate) handleGrowStartChange(isoDate);
-                }}
-                onFocus={() => startEditing('grow_start')}
-                onBlur={() => {
-                  setTimeout(() => stopEditing('grow_start'), 1000);
-                }}
-              />
+              <DateInputWrapper>
+                <RegionalDateInput
+                  type="date"
+                  value={inputGrowStartDate}
+                  onChange={(e) => {
+                    const isoDate = e.target.value;
+                    if (isoDate) {
+                      setGrowStartDate(isoDate);
+                      handleGrowStartChange(isoDate);
+                    }
+                  }}
+                  onFocus={() => startEditing('grow_start')}
+                  onBlur={() => {
+                    setTimeout(() => stopEditing('grow_start'), 1000);
+                  }}
+                />
+                <DateDisplay>{displayGrowStartDate}</DateDisplay>
+              </DateInputWrapper>
             </InputGroup>
             <InputGroup>
               <InputLabel>Bloom Switch <DateFormatHint>({currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'})</DateFormatHint></InputLabel>
-              <RegionalDateInput
-                type="text"
-                placeholder={currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'}
-                value={displayBloomSwitchDate}
-                onChange={(e) => {
-                  const isoDate = parseDateInputToISO(e.target.value, currentRegion);
-                  if (isoDate) handleBloomSwitchChange(isoDate);
-                }}
-                onFocus={() => startEditing('bloom_switch')}
-                onBlur={() => {
-                  setTimeout(() => stopEditing('bloom_switch'), 1000);
-                }}
-              />
+              <DateInputWrapper>
+                <RegionalDateInput
+                  type="date"
+                  value={inputBloomSwitchDate}
+                  onChange={(e) => {
+                    const isoDate = e.target.value;
+                    if (isoDate) {
+                      setBloomSwitchDate(isoDate);
+                      handleBloomSwitchChange(isoDate);
+                    }
+                  }}
+                  onFocus={() => startEditing('bloom_switch')}
+                  onBlur={() => {
+                    setTimeout(() => stopEditing('bloom_switch'), 1000);
+                  }}
+                />
+                <DateDisplay>{displayBloomSwitchDate}</DateDisplay>
+              </DateInputWrapper>
             </InputGroup>
           </InputRow>
         </InputSection>
@@ -916,10 +914,7 @@ const InputLabel = styled.label`
   opacity: 0.85;
 `;
 
-const DateInputWrapper = styled.div`
-  position: relative;
-  width: 100%;
-`;
+
 
 const DateInputField = styled.input`
   background: linear-gradient(135deg,
@@ -1001,6 +996,20 @@ const StyledInput = styled.input`
   }
 `;
 
+const DateInputWrapper = styled.div`
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const DateDisplay = styled.span`
+  color: var(--main-text-color);
+  font-size: 0.875rem;
+  font-weight: 500;
+  white-space: nowrap;
+`;
+
 const RegionalDateInput = styled.input`
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.08) 0%,
@@ -1013,9 +1022,10 @@ const RegionalDateInput = styled.input`
   border-radius: 12px;
   font-size: 0.875rem;
   font-weight: 500;
-  width: 100%;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  cursor: pointer;
+  min-width: 140px;
 
   &:focus {
     outline: none;
@@ -1035,9 +1045,16 @@ const RegionalDateInput = styled.input`
     );
   }
 
-  &::placeholder {
-    color: var(--placeholder-text-color);
-    opacity: 0.7;
+  // Style the date picker icon
+  &::-webkit-calendar-picker-indicator {
+    filter: invert(1);
+    cursor: pointer;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+
+    &:hover {
+      opacity: 1;
+    }
   }
 `;
 
@@ -1154,22 +1171,7 @@ const FinishNote = styled.p`
   line-height: 1.4;
 `;
 
-const DateDisplay = styled.div`
-  position: relative;
-  width: 100%;
-`;
 
-const FormattedDateDisplay = styled.div`
-  position: absolute;
-  top: 50%;
-  right: 2.5rem;
-  transform: translateY(-50%);
-  color: var(--main-text-color);
-  font-size: 0.8rem;
-  font-weight: 500;
-  pointer-events: none;
-  opacity: 0.7;
-`;
 
 const DateFormatHint = styled.span`
   font-size: 0.7rem;
