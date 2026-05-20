@@ -48,6 +48,7 @@ const CombinedSoilChart = ({
   const [chartType, setChartType] = useState('line');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
+  const prevSensorIdsRef = useRef('');
   const chartRef = useRef(null);
 
   const handleViewChange = (view) => {
@@ -77,6 +78,16 @@ const CombinedSoilChart = ({
   };
 
   useEffect(() => {
+    // Get current sensor IDs
+    const currentSensorIds = ['moisture', 'ec', 'ph', 'temperature']
+      .map(s => soilSensors?.[s]?.id)
+      .filter(Boolean)
+      .join(',');
+    
+    // Only fetch if sensors changed or time changed
+    const sensorsChanged = currentSensorIds !== prevSensorIdsRef.current;
+    prevSensorIdsRef.current = currentSensorIds;
+    
     const fetchSoilData = async () => {
       if ((!isDev && !haApiBaseUrl) || !accessToken) {
         setError('Connection not configured');
@@ -285,7 +296,10 @@ const CombinedSoilChart = ({
       }
     };
 
-    fetchSoilData();
+    // Only fetch if sensors actually changed or time changed
+    if (sensorsChanged || !chartOptions) {
+      fetchSoilData();
+    }
   }, [startDate, endDate, soilSensors, haApiBaseUrl, accessToken]);
 
   useEffect(() => {

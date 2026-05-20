@@ -371,21 +371,30 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
     };
   }, [plantStages, currentStage]);
 
-  // Enhanced sensor detection - like GrowLogs
+  // Enhanced sensor detection with room filtering
   const soilSensors = useMemo(() => {
     if (!entities) return null;
 
     const sensors = {};
     const roomLower = (currentRoom || '').toLowerCase();
+    const roomSlug = roomLower.replace(/\s+/g, '_');
 
     Object.entries(entities).forEach(([key, entity]) => {
       if (!key.startsWith('sensor.')) return;
       
       const keyLower = key.toLowerCase();
+      const name = key.split('.')[1] || '';
       const value = parseFloat(entity.state);
       if (isNaN(value)) return;
       
-      // Moisture/VWC - Extended patterns like GrowLogs
+      // Room matching - check if sensor belongs to current room
+      const belongsToRoom = !roomLower || 
+        name.includes(roomLower) || 
+        name.includes(roomSlug);
+      
+      if (!belongsToRoom) return;
+      
+      // Moisture/VWC - soil/medium patterns
       if (!sensors.moisture && (
         keyLower.includes('moisture') || 
         keyLower.includes('vwc') ||
@@ -395,38 +404,45 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
         sensors.moisture = { id: key, value };
       }
       
-      // EC - Extended patterns like GrowLogs
+      // EC - soil/medium patterns (exclude water_ec, co2, etc)
       if (!sensors.ec && !keyLower.includes('water') && !keyLower.includes('co2') && (
         keyLower.includes('soil_ec') ||
         keyLower.includes('ec_soil') ||
         keyLower.includes('medium_ec') ||
-        (keyLower.includes('ec') && keyLower.includes('soil'))
+        (keyLower.includes('ec') && keyLower.includes('soil')) ||
+        keyLower.includes('_ec_') ||
+        keyLower.includes('conductivity')
       )) {
         sensors.ec = { id: key, value };
       }
       
-      // pH - Extended patterns
+      // pH - soil/medium patterns
       if (!sensors.ph && !keyLower.includes('water') && !keyLower.includes('phase') && (
         keyLower.includes('soil_ph') ||
+        keyLower.includes('ph_soil') ||
         keyLower.includes('medium_ph') ||
-        (keyLower.includes('ph') && keyLower.includes('soil'))
+        (keyLower.includes('ph') && keyLower.includes('soil')) ||
+        keyLower.includes('_ph_')
       )) {
         sensors.ph = { id: key, value };
       }
       
-      // Temperature - Extended patterns
+      // Temperature - soil/medium patterns (exclude avg/ambient)
       if (!sensors.temperature && (
         keyLower.includes('soil_temp') ||
         keyLower.includes('soil_temperature') ||
         keyLower.includes('temperature_soil') ||
-        keyLower.includes('medium_temp')
-      )) {
+        keyLower.includes('medium_temp') ||
+        keyLower.includes('_temp_') ||
+        keyLower.includes('_temperature_')
+      ) && !keyLower.includes('avg') && !keyLower.includes('ambient')) {
         sensors.temperature = { id: key, value };
       }
     });
 
     return sensors;
-  }, [entities, currentRoom]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [entities]);
 
   const hasSensors = soilSensors && Object.keys(soilSensors).length > 0;
   const hasCombinedChart = soilSensors?.moisture;
