@@ -319,7 +319,6 @@ const dynamicFilters = {
     }
   },
 
-
   cooler_control: {
     selectEntity: 'ogb_cooler_minmax_',
     activeInGroups: ['Targets'], 
@@ -377,9 +376,7 @@ const dynamicFilters = {
     }
   },
 
-
-
-    dehumidifier_control: {
+  humidifier_control: {
     selectEntity: 'ogb_dehumidifier_minmax_',
     activeInGroups: ['Targets'], 
     conditions: {
@@ -397,11 +394,6 @@ const dynamicFilters = {
       }
     }
   },
-
-
-
-
-
 
   hydro_mode: {
     selectEntity: 'ogb_hydro_mode_',
@@ -561,7 +553,7 @@ const dynamicFilters = {
 
 const groupMappings = {
   'Main Control': {
-    includeKeywords: ['vpd', 'plant', 'mode', 'leaf', 'ambient'],
+    includeKeywords: ['vpd', 'plant', 'mode', 'leaf', 'ambient',],
     excludeKeywords: ['proportional', 'derivativ', 'integral', 'light', 'food', 'days', 'hydro', 'Count', 'Borrow',"determination"],
   },
   'Lights': {
@@ -581,7 +573,7 @@ const groupMappings = {
     excludeKeywords: ['Device', 'water', 'hydro','tolerance','nutrient'],
   },
   'Special Settings': {
-    includeKeywords: ['area','medium','console','planttype','season'],
+    includeKeywords: ['area','medium','planttype','season','energy',],
     excludeKeywords: ["mediumctrl",'determination'],
   },
   'Targets': {
@@ -734,8 +726,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_hydro_plant_watering_${currentRoom?.toLowerCase()}`]: 'Select your Plant Watering Method - Needs binded Sensors to Medium',
     [`ogb_multi_mediumctrl_${currentRoom?.toLowerCase()}`]: 'Select your if we calc AVG or Single Multi Medium Control - UPCOMMING', 
     [`ogb_planttype_${currentRoom?.toLowerCase()}`]: 'Select your Plant Geno Type', 
-
-
+    [`ogb_energy_price_${currentRoom?.toLowerCase()}`]: 'Set your energy coust per KWH', 
 
   };
 
@@ -883,7 +874,8 @@ const ControllCollection = ({ option }) => {
           ? lowerKey.includes(currentRoom.toLowerCase())
           : true;
         
-        return matchesInclude && !matchesExclude && roomMatches;
+        const result = matchesInclude && !matchesExclude && roomMatches;
+        return result;
       })
       .map(([key, entity]) => {
         const cleanKey = entity.entity_id.split('.').pop();
@@ -937,7 +929,8 @@ const ControllCollection = ({ option }) => {
     currentRoom,
     getActiveDynamicFilters
   ).filter(
-    (entity) => entity.entity_id.startsWith('number.') && entity.max > entity.min
+    (entity) => entity.entity_id.startsWith('number.') && 
+               (entity.attributes?.max ?? 100) > (entity.attributes?.min ?? 0)
   );
 
   const timeEntities = filterEntitiesByKeywords(

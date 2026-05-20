@@ -72,7 +72,7 @@ const LightIntensity = ({pause, resume, isPlaying, filterByRoom}) => {
       <Header><h3>Light Intensity</h3></Header>
       <Content>
         {lightIntesity.map((sensor) => (
-          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.entity_id)}>
+          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
               <Value style={{ color: getColorForValue(sensor.value) }}>

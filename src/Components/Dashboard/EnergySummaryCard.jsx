@@ -30,7 +30,7 @@ const EnergySummaryCard = ({
   const TrendIcon = getTrendIcon();
 
   return (
-    <Card highlight={highlight}>
+    <Card $highlight={highlight}>
       <CardIconContainer>
         <IconWrapper color={color}>
           <Icon size={20} />
@@ -121,11 +121,11 @@ const Card = styled.div`
   flex-direction: column;
   padding: 1.25rem;
   min-height: 140px;
-  background: ${props => props.highlight 
+  background: ${props => props.$highlight 
     ? 'linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(96, 165, 250, 0.1) 100%)' 
     : 'var(--glass-bg-secondary)'
   };
-  border: 1px solid ${props => props.highlight 
+  border: 1px solid ${props => props.$highlight 
     ? 'var(--primary-accent)' 
     : 'var(--glass-border)'
   };
@@ -140,7 +140,7 @@ const Card = styled.div`
     left: 0;
     right: 0;
     height: 3px;
-    background: ${props => props.highlight 
+    background: ${props => props.$highlight 
       ? 'linear-gradient(90deg, var(--primary-accent) 0%, var(--secondary-accent) 100%)' 
       : 'transparent'
     };
@@ -150,7 +150,7 @@ const Card = styled.div`
   &:hover {
     transform: translateY(-4px);
     box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-    border-color: ${props => props.highlight ? 'var(--primary-accent)' : 'var(--glass-border-light)'};
+    border-color: ${props => props.$highlight ? 'var(--primary-accent)' : 'var(--glass-border-light)'};
   }
 
   @media (max-width: 768px) {

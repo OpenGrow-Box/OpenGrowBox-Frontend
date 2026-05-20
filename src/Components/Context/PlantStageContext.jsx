@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useCallback, useEffect, useRef } from 'react';
-import { createDefaultPlantStages, PLANT_CONFIG_EVENT, PLANT_CONFIG_RESULT_EVENT } from '../Wizard/wizardHelpers';
+import { createDefaultPlantStages, PLANT_CONFIG_EVENT, PLANT_CONFIG_RESULT_EVENT, REMOTE_STAGE_KEY_MAP } from '../Wizard/wizardHelpers';
 import { useHomeAssistant } from './HomeAssistantContext';
 
 const PlantStageContext = createContext();
@@ -8,10 +8,43 @@ const normalizePlantStages = (data) => {
   if (!data) return null;
   if (typeof data !== 'object') return null;
 
-  // Check for stage keys (case-insensitive)
-  const dataKeys = Object.keys(data).map(k => k.toLowerCase());
-  if (dataKeys.includes('germination') || dataKeys.includes('clones') || dataKeys.includes('earlyveg')) {
-    return data; // Data already in correct format from HA
+  // Check for stage keys (case-insensitive) - ALLE moeglichen Stage Keys pruefen
+  const VALID_STAGE_KEYS = ['germination', 'clones', 'earlyveg', 'midveg', 'lateveg', 'earlyflower', 'midflower', 'lateflower'];
+  const dataKeys = Object.keys(data);
+  const dataKeysLower = dataKeys.map(k => k.toLowerCase());
+  const hasStageKeys = dataKeysLower.some(k => VALID_STAGE_KEYS.includes(k));
+  
+  if (hasStageKeys) {
+    // Keys koennten CamelCase sein (z.B. "LateVeg"), wir muessen sie zu camelCase normalisieren
+    const needsNormalization = dataKeys.some(k => {
+      const lowerK = k.toLowerCase();
+      return VALID_STAGE_KEYS.includes(lowerK) && k !== lowerK && lowerK !== 'germination' && lowerK !== 'clones';
+    });
+    if (!needsNormalization) return data;
+    
+    // Keys normalisieren: LateVeg -> lateVeg
+    const normalized = {};
+    dataKeys.forEach(key => {
+      const lowerKey = key.toLowerCase();
+      if (lowerKey === 'germination' || lowerKey === 'clones') {
+        normalized[lowerKey] = data[key];
+      } else if (lowerKey === 'earlyveg') {
+        normalized['earlyVeg'] = data[key];
+      } else if (lowerKey === 'midveg') {
+        normalized['midVeg'] = data[key];
+      } else if (lowerKey === 'lateveg') {
+        normalized['lateVeg'] = data[key];
+      } else if (lowerKey === 'earlyflower') {
+        normalized['earlyFlower'] = data[key];
+      } else if (lowerKey === 'midflower') {
+        normalized['midFlower'] = data[key];
+      } else if (lowerKey === 'lateflower') {
+        normalized['lateFlower'] = data[key];
+      } else {
+        normalized[key] = data[key];
+      }
+    });
+    return normalized;
   }
 
   if (Array.isArray(data)) {
@@ -145,13 +178,19 @@ export const PlantStageProvider = ({ children }) => {
           } else {
             // console.log('⚠️ HA response but no stages:', data.plantStages);
             setError('No plant stages in HA response');
-            setPlantStages(createDefaultPlantStages());
-            setSource('default');
+            // Nur Defaults setzen wenn noch keine Daten vorhanden
+            if (!plantStages) {
+              setPlantStages(createDefaultPlantStages());
+              setSource('default');
+            }
           }
         } else {
           setError(data.error || 'Failed to load plant stages from HA');
-          setPlantStages(createDefaultPlantStages());
-          setSource('default');
+          // Nur Defaults setzen wenn noch keine Daten vorhanden
+          if (!plantStages) {
+            setPlantStages(createDefaultPlantStages());
+            setSource('default');
+          }
         }
         setLoading(false);
       }
@@ -166,14 +205,17 @@ export const PlantStageProvider = ({ children }) => {
       }
       setIsSubscribed(false);
     };
-  }, [connection, connectionState]);
+  }, [connection, connectionState, plantStages]);
 
   // Manually trigger load - components call this when they need stages
   const requestPlantStages = useCallback(async (room = null, mode = 'default') => {
     if (connectionState !== 'connected') {
       setError('No Home Assistant connection');
-      setPlantStages(createDefaultPlantStages());
-      setSource('default');
+      // Nur Defaults setzen wenn noch keine Daten vorhanden
+      if (!plantStages) {
+        setPlantStages(createDefaultPlantStages());
+        setSource('default');
+      }
       return;
     }
 
@@ -202,8 +244,11 @@ export const PlantStageProvider = ({ children }) => {
         if (pendingRequestRef.current === requestId) {
           pendingRequestRef.current = null;
           setError('No response from HA - using defaults');
-          setPlantStages(createDefaultPlantStages());
-          setSource('default');
+          // Nur Defaults setzen wenn noch keine Daten vorhanden
+          if (!plantStages) {
+            setPlantStages(createDefaultPlantStages());
+            setSource('default');
+          }
           setLoading(false);
         }
       }, 10000);
@@ -215,20 +260,26 @@ export const PlantStageProvider = ({ children }) => {
       }
       pendingRequestRef.current = null;
       setError(err.message || 'Failed to request plant stages');
-      setPlantStages(createDefaultPlantStages());
-      setSource('default');
+      // Nur Defaults setzen wenn noch keine Daten vorhanden
+      if (!plantStages) {
+        setPlantStages(createDefaultPlantStages());
+        setSource('default');
+      }
       setLoading(false);
     }
-  }, [connection, connectionState, currentRoom]);
+  }, [connection, connectionState, currentRoom, plantStages]);
 
   // Get stage config with fallback - NEVER returns null
   const getStageConfig = useCallback((stage = null) => {
     const targetStage = stage || currentStage;
-    const config = plantStages?.[targetStage];
+    // Normalize stage name (e.g., "LateVeg" -> "lateVeg")
+    const normalizedStage = REMOTE_STAGE_KEY_MAP[targetStage] || targetStage;
+    
+    const config = plantStages?.[normalizedStage];
     if (config) return config;
     
     const defaults = createDefaultPlantStages();
-    return defaults?.[targetStage] || defaults?.lateVeg || {
+    return defaults?.[normalizedStage] || defaults?.lateVeg || {
       minVPD: 0.9,
       maxVPD: 1.65,
       minTemp: 24,
@@ -244,11 +295,14 @@ export const PlantStageProvider = ({ children }) => {
 
   const getStageConfigWithFallback = useCallback((stage = null) => {
     const targetStage = stage || currentStage;
-    const config = plantStages?.[targetStage];
+    // Normalize stage name (e.g., "LateVeg" -> "lateVeg")
+    const normalizedStage = REMOTE_STAGE_KEY_MAP[targetStage] || targetStage;
+    
+    const config = plantStages?.[normalizedStage];
     if (config) return config;
     
     const defaults = createDefaultPlantStages();
-    return defaults?.[targetStage] || defaults?.lateVeg || {
+    return defaults?.[normalizedStage] || defaults?.lateVeg || {
       minVPD: 0.9,
       maxVPD: 1.65,
       minTemp: 24,

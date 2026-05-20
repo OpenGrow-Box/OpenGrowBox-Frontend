@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { usePlantStages } from '../Context/PlantStageContext';
+import { REMOTE_STAGE_KEY_MAP } from '../Wizard/wizardHelpers';
 import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 
 let updateTimeout = null;
@@ -80,7 +81,7 @@ const VPDTargets = () => {
           setPlantStage(selected[0]);
         }
       } catch (err) {
-        console.error('Plant stage update error:', err);
+        // Silent fail
       }
     };
 
@@ -98,7 +99,7 @@ const VPDTargets = () => {
           setTolerance(tol[0]);
         }
       } catch (err) {
-        console.error('Tolerance update error:', err);
+        // Silent fail
       }
     };
 
@@ -116,7 +117,7 @@ const VPDTargets = () => {
           setVpdTarget(target[0]);
         }
       } catch (err) {
-        console.error('VPD target update error:', err);
+        // Silent fail
       }
     };
 
@@ -133,7 +134,7 @@ const VPDTargets = () => {
           setTentMode(mode[0]);
         }
       } catch (err) {
-        console.error('Tent mode update error:', err);
+        // Silent fail
       }
     };
 
@@ -209,7 +210,9 @@ const VPDTargets = () => {
     if (isVpdTargetMode && typeof vpdTarget === 'number' && !isNaN(vpdTarget)) {
       vpdResults = calculatePerfectVpd([vpdTarget, vpdTarget], tolerance);
     } else {
-      const selectedStage = plantStages[plantStage];
+      // Use getStageConfig which handles normalization and fallback
+      const selectedStage = getStageConfig(plantStage);
+      
       if (!selectedStage) {
         return (
           <Container>
@@ -219,10 +222,20 @@ const VPDTargets = () => {
           </Container>
         );
       }
-      vpdResults = calculatePerfectVpd(selectedStage.vpdRange, tolerance);
+      // vpdRange kann ein Array sein oder minVPD/maxVPD properties haben
+      const vpdRange = selectedStage.vpdRange || [selectedStage.minVPD, selectedStage.maxVPD];
+      if (!vpdRange || vpdRange.length !== 2 || vpdRange.some(v => v === undefined || v === null)) {
+        return (
+          <Container>
+            <ErrorText>
+              <FaExclamationTriangle /> No VPD data for stage: {plantStage}
+            </ErrorText>
+          </Container>
+        );
+      }
+      vpdResults = calculatePerfectVpd(vpdRange, tolerance);
     }
   } catch (err) {
-    console.error(err);
     errorMsg = err?.message || 'Unknown error';
   }
 

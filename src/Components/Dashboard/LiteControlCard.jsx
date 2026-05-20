@@ -16,7 +16,7 @@ const HelpTooltip = ({ text }) => (
 
 const LiteControlCard = () => {
   const { currentRoom, entities, connection } = useHomeAssistant();
-  const { state } = useGlobalState();
+  const { state, HASS } = useGlobalState();
   
   const currentRegion = state.Settings?.region || 'EU';
   
@@ -42,14 +42,14 @@ const LiteControlCard = () => {
   });
   
   const [lightOn, setLightOn] = useState(false);
-  const [tempMin, setTempMin] = useState(20);
-  const [tempMax, setTempMax] = useState(28);
-  const [humMin, setHumMin] = useState(40);
-  const [humMax, setHumMax] = useState(60);
-  const [lightOnTime, setLightOnTime] = useState('06:00');
-  const [lightOffTime, setLightOffTime] = useState('22:00');
-  const [sunriseTime, setSunriseTime] = useState('00:30:00');
-  const [sunsetTime, setSunsetTime] = useState('00:30:00');
+  const [tempMin, setTempMin] = useState(null);
+  const [tempMax, setTempMax] = useState(null);
+  const [humMin, setHumMin] = useState(null);
+  const [humMax, setHumMax] = useState(null);
+  const [lightOnTime, setLightOnTime] = useState('');
+  const [lightOffTime, setLightOffTime] = useState('');
+  const [sunriseTime, setSunriseTime] = useState('');
+  const [sunsetTime, setSunsetTime] = useState('');
   const [tentMode, setTentMode] = useState('');
   const [tentModeOptions, setTentModeOptions] = useState([]);
   const [minmaxEnabled, setMinmaxEnabled] = useState(false);
@@ -59,27 +59,49 @@ const LiteControlCard = () => {
   // Fan & PlantStage
   const [fanEntityId, setFanEntityId] = useState(null);
   const [fanOn, setFanOn] = useState(false);
-  const [fanSpeed, setFanSpeed] = useState(50);
+  const [fanSpeed, setFanSpeed] = useState(null);
   const [plantStage, setPlantStage] = useState('');
   const [plantStageOptions, setPlantStageOptions] = useState([]);
   const [plantSpecies, setPlantSpecies] = useState('');
   const [plantSpeciesOptions, setPlantSpeciesOptions] = useState([]);
   
   // Ventilation
-  const [exhaustMinMax, setExhaustMinMax] = useState({ min: 30, max: 100 });
-  const [intakeMinMax, setIntakeMinMax] = useState({ min: 30, max: 100 });
-  const [ventilationMinMax, setVentilationMinMax] = useState({ min: 30, max: 100 });
+  const [exhaustMinMax, setExhaustMinMax] = useState({ min: null, max: null });
+  const [intakeMinMax, setIntakeMinMax] = useState({ min: null, max: null });
+  const [ventilationMinMax, setVentilationMinMax] = useState({ min: null, max: null });
   const [exhaustMinMaxEnabled, setExhaustMinMaxEnabled] = useState(false);
   const [intakeMinMaxEnabled, setIntakeMinMaxEnabled] = useState(false);
   const [ventilationMinMaxEnabled, setVentilationMinMaxEnabled] = useState(false);
 
   // CO2 Control
   const [co2Enabled, setCo2Enabled] = useState(false);
-  const [co2Min, setCo2Min] = useState(400);
-  const [co2Max, setCo2Max] = useState(1500);
-  const [co2Target, setCo2Target] = useState(1200);
+  const [co2Min, setCo2Min] = useState(null);
+  const [co2Max, setCo2Max] = useState(null);
+  const [co2Target, setCo2Target] = useState(null);
 
-  const room = currentRoom?.trim()?.toLowerCase() || 'default';
+  const room = (currentRoom?.trim()?.toLowerCase() || 'default').replace(/\s+/g, '_');
+
+  // Hilfsfunktion: Sicheres parsen von Zahlen aus Entity States
+  const safeParseFloat = (value) => {
+    if (value === undefined || value === null || value === '' || value === 'unknown' || value === 'unavailable') {
+      return null;
+    }
+    const parsed = parseFloat(value);
+    return !isNaN(parsed) && isFinite(parsed) ? parsed : null;
+  };
+
+  // Hilfsfunktion: Prüft ob eine Entity zum aktuellen Raum gehört (via HA Device-Registry)
+  const isEntityInRoom = (entityKey) => {
+    if (!import.meta.env.PROD || !HASS?.devices || !HASS?.entities) return true;
+
+    const haEntity = HASS.entities[entityKey];
+    if (!haEntity?.device_id) return true; // Keine Device-Zuordnung = nicht filtern
+
+    const device = HASS.devices[haEntity.device_id];
+    const areaId = device?.area_id || '';
+    const roomOriginal = currentRoom?.trim()?.toLowerCase() || '';
+    return areaId === room || areaId === roomOriginal || areaId.replace(/_/g, ' ') === roomOriginal;
+  };
 
   const tooltips = {
     tentMode: 'Select a grow mode to activate automated control.',
@@ -110,10 +132,10 @@ const LiteControlCard = () => {
   useEffect(() => {
     if (!entities) return;
     // Load current values from entities
-    const lightOnEntity = entities[`input_datetime.ogb_lightontime_${room}`];
-    const lightOffEntity = entities[`input_datetime.ogb_lightofftime_${room}`];
-    const sunriseEntity = entities[`input_datetime.ogb_sunrisetime_${room}`];
-    const sunsetEntity = entities[`input_datetime.ogb_sunsettime_${room}`];
+    const lightOnEntity = entities[`time.ogb_lightontime_${room}`];
+    const lightOffEntity = entities[`time.ogb_lightofftime_${room}`];
+    const sunriseEntity = entities[`time.ogb_sunrisetime_${room}`];
+    const sunsetEntity = entities[`time.ogb_sunsettime_${room}`];
     const tentModeEntity = entities[`select.ogb_tentmode_${room}`];
     const minmaxEntity = entities[`select.ogb_minmax_control_${room}`];
     const lightControlEntity = entities[`select.ogb_lightcontrol_${room}`];
@@ -121,6 +143,8 @@ const LiteControlCard = () => {
     // Check if light control is enabled
     if (lightControlEntity) {
       setLightControlEnabled(lightControlEntity.state === 'YES');
+    } else {
+      setLightControlEnabled(false);
     }
     
     // Try multiple entity patterns for light
@@ -134,7 +158,7 @@ const LiteControlCard = () => {
       for (const key of entityKeys) {
         const isLightEntity = (key.startsWith('switch.ogb_light') || key.startsWith('light.ogb_light')) && key.includes(room);
         const isGenericLight = (key.startsWith('switch.') || key.startsWith('light.')) && !key.includes('template') && !key.includes('scene');
-        if (isLightEntity || (isGenericLight && key.toLowerCase().includes(room.toLowerCase()))) {
+        if ((isLightEntity || (isGenericLight && key.toLowerCase().includes(room.toLowerCase()))) && isEntityInRoom(key)) {
           foundLightEntity = entities[key];
           break;
         }
@@ -150,24 +174,40 @@ const LiteControlCard = () => {
       setLightEntityId(null);
     }
     
-    if (lightOnEntity?.state) setLightOnTime(lightOnEntity.state);
-    if (lightOffEntity?.state) setLightOffTime(lightOffEntity.state);
-    if (sunriseEntity?.state) setSunriseTime(sunriseEntity.state);
-    if (sunsetEntity?.state) setSunsetTime(sunsetEntity.state);
+    setLightOnTime(lightOnEntity?.state || '');
+    setLightOffTime(lightOffEntity?.state || '');
+    setSunriseTime(sunriseEntity?.state || '');
+    setSunsetTime(sunsetEntity?.state || '');
+
+    // Load Environment values
+    const tempMinEntity = entities[`input_number.ogb_tempmin_${room}`];
+    const tempMaxEntity = entities[`input_number.ogb_tempmax_${room}`];
+    const humMinEntity = entities[`input_number.ogb_hummin_${room}`];
+    const humMaxEntity = entities[`input_number.ogb_hummax_${room}`];
+
+    setTempMin(safeParseFloat(tempMinEntity?.state));
+    setTempMax(safeParseFloat(tempMaxEntity?.state));
+    setHumMin(safeParseFloat(humMinEntity?.state));
+    setHumMax(safeParseFloat(humMaxEntity?.state));
     
     if (tentModeEntity) {
       setTentMode(tentModeEntity.state);
       setTentModeOptions(tentModeEntity.attributes?.options || []);
+    } else {
+      setTentMode('');
+      setTentModeOptions([]);
     }
     
     if (minmaxEntity) {
       setMinmaxEnabled(minmaxEntity.state === 'YES');
+    } else {
+      setMinmaxEnabled(false);
     }
     
     // Load Fan entity
     let foundFanEntity = null;
     for (const key of entityKeys) {
-      if ((key.startsWith('fan.ogb_') || key.startsWith('switch.ogb_fan')) && key.includes(room)) {
+      if ((key.startsWith('fan.ogb_') || key.startsWith('switch.ogb_fan')) && key.includes(room) && isEntityInRoom(key)) {
         foundFanEntity = entities[key];
         break;
       }
@@ -175,9 +215,11 @@ const LiteControlCard = () => {
     if (foundFanEntity) {
       setFanEntityId(foundFanEntity.entity_id);
       setFanOn(foundFanEntity.state === 'on');
-      if (foundFanEntity.attributes?.percentage !== undefined) {
-        setFanSpeed(foundFanEntity.attributes.percentage);
-      }
+      setFanSpeed(foundFanEntity.attributes?.percentage ?? null);
+    } else {
+      setFanEntityId(null);
+      setFanOn(false);
+      setFanSpeed(null);
     }
     
     // Load Plant Stage
@@ -210,15 +252,21 @@ const LiteControlCard = () => {
     const intakeMinMaxEntity = entities[`select.ogb_intake_minmax_${room}`];
     const ventilationMinMaxEntity = entities[`select.ogb_ventilation_minmax_${room}`];
     
-    if (exhaustMinEntity) setExhaustMinMax(prev => ({ ...prev, min: parseFloat(exhaustMinEntity.state) || 30 }));
-    if (exhaustMaxEntity) setExhaustMinMax(prev => ({ ...prev, max: parseFloat(exhaustMaxEntity.state) || 100 }));
-    if (intakeMinEntity) setIntakeMinMax(prev => ({ ...prev, min: parseFloat(intakeMinEntity.state) || 30 }));
-    if (intakeMaxEntity) setIntakeMinMax(prev => ({ ...prev, max: parseFloat(intakeMaxEntity.state) || 100 }));
-    if (ventilationMinEntity) setVentilationMinMax(prev => ({ ...prev, min: parseFloat(ventilationMinEntity.state) || 30 }));
-    if (ventilationMaxEntity) setVentilationMinMax(prev => ({ ...prev, max: parseFloat(ventilationMaxEntity.state) || 100 }));
-    if (exhaustMinMaxEntity) setExhaustMinMaxEnabled(exhaustMinMaxEntity.state === 'YES');
-    if (intakeMinMaxEntity) setIntakeMinMaxEnabled(intakeMinMaxEntity.state === 'YES');
-    if (ventilationMinMaxEntity) setVentilationMinMaxEnabled(ventilationMinMaxEntity.state === 'YES');
+    setExhaustMinMax({
+      min: safeParseFloat(exhaustMinEntity?.state),
+      max: safeParseFloat(exhaustMaxEntity?.state)
+    });
+    setIntakeMinMax({
+      min: safeParseFloat(intakeMinEntity?.state),
+      max: safeParseFloat(intakeMaxEntity?.state)
+    });
+    setVentilationMinMax({
+      min: safeParseFloat(ventilationMinEntity?.state),
+      max: safeParseFloat(ventilationMaxEntity?.state)
+    });
+    setExhaustMinMaxEnabled(exhaustMinMaxEntity?.state === 'YES');
+    setIntakeMinMaxEnabled(intakeMinMaxEntity?.state === 'YES');
+    setVentilationMinMaxEnabled(ventilationMinMaxEntity?.state === 'YES');
     
     // Load CO2 Control settings
     const co2ControlEntity = entities[`select.ogb_co2_control_${room}`];
@@ -226,10 +274,10 @@ const LiteControlCard = () => {
     const co2MaxEntity = entities[`input_number.ogb_co2maxvalue_${room}`];
     const co2TargetEntity = entities[`input_number.ogb_co2targetvalue_${room}`];
     
-    if (co2ControlEntity) setCo2Enabled(co2ControlEntity.state === 'YES');
-    if (co2MinEntity) setCo2Min(parseFloat(co2MinEntity.state) || 400);
-    if (co2MaxEntity) setCo2Max(parseFloat(co2MaxEntity.state) || 1500);
-    if (co2TargetEntity) setCo2Target(parseFloat(co2TargetEntity.state) || 1200);
+    setCo2Enabled(co2ControlEntity?.state === 'YES');
+    setCo2Min(safeParseFloat(co2MinEntity?.state));
+    setCo2Max(safeParseFloat(co2MaxEntity?.state));
+    setCo2Target(safeParseFloat(co2TargetEntity?.state));
   }, [entities, currentRoom]);
 
   const handleCallService = async (domain, service, serviceData) => {
@@ -467,6 +515,10 @@ const LiteControlCard = () => {
   };
 
   const adjustValue = (value, delta, min, max, callback) => {
+    if (value === null || value === undefined || isNaN(value)) {
+      callback(min);
+      return;
+    }
     const newValue = Math.max(min, Math.min(max, value + delta));
     callback(newValue);
   };
@@ -481,14 +533,14 @@ const LiteControlCard = () => {
   const lightSchedule = lightControlEnabled ? `${formatTimeString(lightOnTime, currentRegion)} - ${formatTimeString(lightOffTime, currentRegion)}` : 'Disabled';
   const plantSummary = [plantStage, plantSpecies].filter(Boolean).join(' • ') || 'Not configured';
   
-  const displayTempMin = tempUnit === '°F' ? celsiusToFahrenheit(tempMin) : tempMin;
-  const displayTempMax = tempUnit === '°F' ? celsiusToFahrenheit(tempMax) : tempMax;
+  const displayTempMin = tempMin !== null ? (tempUnit === '°F' ? celsiusToFahrenheit(tempMin) : tempMin) : '--';
+  const displayTempMax = tempMax !== null ? (tempUnit === '°F' ? celsiusToFahrenheit(tempMax) : tempMax) : '--';
   
   const environmentSummary = minmaxEnabled
-    ? `${displayTempMin}-${displayTempMax}${tempUnit} • ${humMin}-${humMax}%`
+    ? `${displayTempMin}-${displayTempMax}${tempUnit} • ${humMin !== null ? humMin : '--'}-${humMax !== null ? humMax : '--'}%`
     : 'Default automation';
   const co2Summary = co2Enabled ? `${co2Target} ppm target` : 'Disabled';
-  const fanSummary = fanEntityId ? `${fanOn ? 'On' : 'Off'} • ${fanSpeed}%` : 'Not available';
+  const fanSummary = fanEntityId ? `${fanOn ? 'On' : 'Off'} • ${fanSpeed !== null ? fanSpeed : '--'}%` : 'Not available';
   const ventilationSummary = [
     exhaustMinMaxEnabled && 'Exhaust',
     intakeMinMaxEnabled && 'Intake',
@@ -681,34 +733,40 @@ const LiteControlCard = () => {
                       <Label>Light ON</Label>
                       <HelpTooltip text={tooltips.lightOn} />
                     </LabelWithTooltip>
-                    <TimeInput
-                      type="text"
-                      placeholder={currentRegion === 'US' ? '6:00 AM' : '06:00'}
-                      value={formatTimeString(lightOnTime, currentRegion)}
-                      onChange={(e) => {
-                        const value24h = parseTimeStringTo24h(e.target.value, currentRegion);
-                        setLightOnTime(value24h);
-                        const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_lightontime_${room}`, value24h);
-                      }}
-                    />
+                    <TimeInputWrapper>
+                      <TimeInput
+                        type="time"
+                        value={lightOnTime ? lightOnTime.substring(0, 5) : ''}
+                        onChange={(e) => {
+                          const value24h = e.target.value;
+                          setLightOnTime(value24h);
+                          updateTimeEntity(`time.ogb_lightontime_${room}`, value24h + ':00');
+                        }}
+                      />
+                      {currentRegion === 'US' && lightOnTime && (
+                        <TimeAmPmBadge>{parseInt(lightOnTime.split(':')[0]) >= 12 ? 'PM' : 'AM'}</TimeAmPmBadge>
+                      )}
+                    </TimeInputWrapper>
                   </TimeControl>
                   <TimeControl>
                     <LabelWithTooltip>
                       <Label>Light OFF</Label>
                       <HelpTooltip text={tooltips.lightOff} />
                     </LabelWithTooltip>
-                    <TimeInput
-                      type="text"
-                      placeholder={currentRegion === 'US' ? '10:00 PM' : '22:00'}
-                      value={formatTimeString(lightOffTime, currentRegion)}
-                      onChange={(e) => {
-                        const value24h = parseTimeStringTo24h(e.target.value, currentRegion);
-                        setLightOffTime(value24h);
-                        const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_lightofftime_${room}`, value24h);
-                      }}
-                    />
+                    <TimeInputWrapper>
+                      <TimeInput
+                        type="time"
+                        value={lightOffTime ? lightOffTime.substring(0, 5) : ''}
+                        onChange={(e) => {
+                          const value24h = e.target.value;
+                          setLightOffTime(value24h);
+                          updateTimeEntity(`time.ogb_lightofftime_${room}`, value24h + ':00');
+                        }}
+                      />
+                      {currentRegion === 'US' && lightOffTime && (
+                        <TimeAmPmBadge>{parseInt(lightOffTime.split(':')[0]) >= 12 ? 'PM' : 'AM'}</TimeAmPmBadge>
+                      )}
+                    </TimeInputWrapper>
                   </TimeControl>
                 </TimeRow>
                 <SunSection>
@@ -728,7 +786,7 @@ const LiteControlCard = () => {
                         const value = e.target.value;
                         setSunriseTime(value);
                         const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_sunrisetime_${room}`, value);
+                        updateTimeEntity(`time.ogb_sunrisetime_${room}`, value);
                       }}
                     />
                   </SunControl>
@@ -748,7 +806,7 @@ const LiteControlCard = () => {
                         const value = e.target.value;
                         setSunsetTime(value);
                         const room = currentRoom?.trim()?.toLowerCase() || 'default';
-                        updateTimeEntity(`input_datetime.ogb_sunsettime_${room}`, value);
+                        updateTimeEntity(`time.ogb_sunsettime_${room}`, value);
                       }}
                     />
                   </SunControl>
@@ -813,7 +871,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(co2Min, -50, 300, 1000, updateCo2Min)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{co2Min}</ValueDisplay>
+                      <ValueDisplay>{co2Min !== null ? co2Min : '--'}</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(co2Min, 50, 300, 1000, updateCo2Min)}>
                         <ChevronUp size={16} />
                       </ValueButton>
@@ -828,7 +886,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(co2Max, -50, 1000, 2000, updateCo2Max)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{co2Max}</ValueDisplay>
+                      <ValueDisplay>{co2Max !== null ? co2Max : '--'}</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(co2Max, 50, 1000, 2000, updateCo2Max)}>
                         <ChevronUp size={16} />
                       </ValueButton>
@@ -845,7 +903,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(co2Target, -50, 400, 1500, updateCo2Target)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{co2Target}</ValueDisplay>
+                      <ValueDisplay>{co2Target !== null ? co2Target : '--'}</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(co2Target, 50, 400, 1500, updateCo2Target)}>
                         <ChevronUp size={16} />
                       </ValueButton>
@@ -944,7 +1002,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(humMin, -1, 20, 60, updateHumMin)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{humMin}%</ValueDisplay>
+                      <ValueDisplay>{humMin !== null ? humMin : '--'}%</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(humMin, 1, 20, 60, updateHumMin)}>
                         <ChevronUp size={16} />
                       </ValueButton>
@@ -959,7 +1017,7 @@ const LiteControlCard = () => {
                       <ValueButton onClick={() => adjustValue(humMax, -1, 40, 90, updateHumMax)}>
                         <ChevronDown size={16} />
                       </ValueButton>
-                      <ValueDisplay>{humMax}%</ValueDisplay>
+                      <ValueDisplay>{humMax !== null ? humMax : '--'}%</ValueDisplay>
                       <ValueButton onClick={() => adjustValue(humMax, 1, 40, 90, updateHumMax)}>
                         <ChevronUp size={16} />
                       </ValueButton>
@@ -1004,14 +1062,14 @@ const LiteControlCard = () => {
                 </FanToggle>
                 <FanSpeedControl>
                   <LabelWithTooltip>
-                    <Label>Speed: {fanSpeed}%</Label>
+                    <Label>Speed: {fanSpeed !== null ? fanSpeed : '--'}%</Label>
                     <HelpTooltip text={tooltips.fanSpeed} />
                   </LabelWithTooltip>
                   <VentSlider 
                     type="range" 
                     min="0" 
                     max="100"
-                    value={fanSpeed}
+                    value={fanSpeed ?? 0}
                     onChange={(e) => updateFanSpeed(e.target.value)}
                   />
                 </FanSpeedControl>
@@ -1071,13 +1129,13 @@ const LiteControlCard = () => {
                           <VentLabel>Min:</VentLabel>
                           <HelpTooltip text={tooltips.ventMin} />
                         </LabelWithTooltip>
-                        <VentValue>{exhaustMinMax.min}%</VentValue>
+                        <VentValue>{exhaustMinMax.min !== null ? exhaustMinMax.min : '--'}%</VentValue>
                       </VentRow>
                       <VentSlider 
                         type="range" 
                         min="0" 
                         max="100"
-                        value={exhaustMinMax.min}
+                        value={exhaustMinMax.min ?? 0}
                         onChange={(e) => updateVentilationMinMax('exhaust', parseInt(e.target.value), exhaustMinMax.max)}
                         disabled={!exhaustMinMaxEnabled}
                       />
@@ -1086,13 +1144,13 @@ const LiteControlCard = () => {
                           <VentLabel>Max:</VentLabel>
                           <HelpTooltip text={tooltips.ventMax} />
                         </LabelWithTooltip>
-                        <VentValue>{exhaustMinMax.max}%</VentValue>
+                        <VentValue>{exhaustMinMax.max !== null ? exhaustMinMax.max : '--'}%</VentValue>
                       </VentRow>
                       <VentSlider 
                         type="range" 
                         min="0" 
                         max="100"
-                        value={exhaustMinMax.max}
+                        value={exhaustMinMax.max ?? 0}
                         onChange={(e) => updateVentilationMinMax('exhaust', exhaustMinMax.min, parseInt(e.target.value))}
                         disabled={!exhaustMinMaxEnabled}
                       />
@@ -1124,13 +1182,13 @@ const LiteControlCard = () => {
                           <VentLabel>Min:</VentLabel>
                           <HelpTooltip text={tooltips.ventMin} />
                         </LabelWithTooltip>
-                        <VentValue>{intakeMinMax.min}%</VentValue>
+                        <VentValue>{intakeMinMax.min !== null ? intakeMinMax.min : '--'}%</VentValue>
                       </VentRow>
                       <VentSlider 
                         type="range" 
                         min="0" 
                         max="100"
-                        value={intakeMinMax.min}
+                        value={intakeMinMax.min ?? 0}
                         onChange={(e) => updateVentilationMinMax('intake', parseInt(e.target.value), intakeMinMax.max)}
                         disabled={!intakeMinMaxEnabled}
                       />
@@ -1139,13 +1197,13 @@ const LiteControlCard = () => {
                           <VentLabel>Max:</VentLabel>
                           <HelpTooltip text={tooltips.ventMax} />
                         </LabelWithTooltip>
-                        <VentValue>{intakeMinMax.max}%</VentValue>
+                        <VentValue>{intakeMinMax.max !== null ? intakeMinMax.max : '--'}%</VentValue>
                       </VentRow>
                       <VentSlider 
                         type="range" 
                         min="0" 
                         max="100"
-                        value={intakeMinMax.max}
+                        value={intakeMinMax.max ?? 0}
                         onChange={(e) => updateVentilationMinMax('intake', intakeMinMax.min, parseInt(e.target.value))}
                         disabled={!intakeMinMaxEnabled}
                       />
@@ -1641,7 +1699,15 @@ const TimeControl = styled.div`
   gap: 0.5rem;
 `;
 
+const TimeInputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  position: relative;
+`;
+
 const TimeInput = styled.input`
+  flex: 1;
   padding: 0.75rem;
   border: 1px solid var(--glass-border);
   border-radius: 8px;
@@ -1668,6 +1734,18 @@ const TimeInput = styled.input`
     filter: invert(1);
     cursor: pointer;
   }
+`;
+
+const TimeAmPmBadge = styled.div`
+  padding: 0.4rem 0.6rem;
+  border-radius: 6px;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  color: var(--primary-accent);
+  font-size: 0.8rem;
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
 `;
 
 const SunSection = styled.div`

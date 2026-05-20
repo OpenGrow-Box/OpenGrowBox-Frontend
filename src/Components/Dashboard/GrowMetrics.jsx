@@ -87,39 +87,68 @@ const GrowMetrics = () => {
     const attrs = entity.attributes || {};
     const unit = (attrs.unit_of_measurement || '').toLowerCase();
     const deviceClass = (attrs.device_class || '').toLowerCase();
+    const name = id.split('.')[1] || '';
+    const state = entity.state;
     
     // Skip if no valid state
-    if (entity.state === undefined || entity.state === null) return null;
+    if (state === undefined || state === null) return null;
     
     // Check if has valid numeric value
-    const hasValidValue = !isNaN(parseFloat(entity.state));
+    const numValue = parseFloat(state);
+    const hasValidValue = !isNaN(numValue) && isFinite(numValue);
     if (!hasValidValue) return null;
     
     // Skip non-sensor entities
     if (!id.startsWith('sensor.')) return null;
     
-    // CO2: same logic as Dashboard.jsx
-    if (id.includes('co2') || id.includes('carbon') || id.includes('co₂')) return 'co2';
+    // Check room association for filtering
+    const roomLower = selectedRoom?.toLowerCase() || '';
+    // Extract room from entity name - OGB sensors have format: ogb_<type>_<room> or dev<room>_
+    const entityRoom = name.replace(/^(ogb_|dev|_)/g, '').split('_')[0];
+    // For sensors like 'devco2device_co2', 'dev' is the room
+    const isOGBSensor = id.includes('ogb_') || id.startsWith('dev') || id.startsWith('sensor.dev');
+    // Support both space and underscore in room names
+    const roomVariants = [roomLower];
+    if (roomLower.includes(' ')) {
+      roomVariants.push(roomLower.replace(/\s+/g, '_'));
+    } else if (roomLower.includes('_')) {
+      roomVariants.push(roomLower.replace(/_/g, ' '));
+    }
     
-    // pH: ID contains ph
-    if (id.includes('ph') && !id.includes('phase')) return 'pH';
+    const belongsToRoom = !roomLower || 
+      roomVariants.some(r => name.includes(r)) ||
+      roomVariants.some(r => entityRoom === r) ||
+      roomVariants.some(r => entityRoom === r.replace('_room', '')) ||
+      (isOGBSensor && name.startsWith('dev'));
     
-    // EC: ID contains ec, tds, or conductivity
-    if (id.includes('ec_') || id.includes('_ec') || id.includes('tds') || id.includes('conductivity')) return 'EC';
+    if (!belongsToRoom) return null;
     
-    // VPD: unit is kPa or ID contains vpd
-    if (unit === 'kpa' || id.includes('vpd')) return 'vpd';
+    // VPD: unit is kPa/kPA etc and ID contains 'vpd' but NOT target/min/max/optimal
+    if (unit.toLowerCase() === 'kpa' && id.includes('vpd') && !id.includes('target') && !id.includes('min') && !id.includes('max') && !id.includes('optimal')) return 'vpd';
     
-    // Temperature: unit is °C/°F or device_class is temperature
-    if (unit.includes('°c') || unit.includes('°f') || deviceClass === 'temperature') return 'temperature';
+    // Temperature: unit is °C/°F or device_class is temperature, but NOT dewpoint
+    if ((unit.toLowerCase().includes('°c') || unit.toLowerCase().includes('°f') || deviceClass === 'temperature') && !id.includes('dewpoint')) return 'temperature';
     
     // Humidity: unit is % and device_class is humidity or ID contains humid/moisture
     if (unit === '%' && (deviceClass === 'humidity' || id.includes('humid') || id.includes('moisture'))) return 'humidity';
     
+    // CO2: ID contains 'co2' - check for valid CO2 range (300-5000 ppm typical)
+    if (id.includes('co2') && !id.includes('target') && numValue > 0 && numValue < 10000) return 'co2';
+    
+    // pH: ID contains 'ph' with value in valid pH range (0-14) and not 'phase' or 'target'
+    if (id.includes('ph') && !id.includes('phase') && !id.includes('target')) {
+      if (numValue >= 0 && numValue <= 14) return 'pH';
+    }
+    
+    // EC: ID contains 'ec' or 'tds' or 'conductivity' with value in valid range
+    if ((id.includes('_ec') || id.includes('ec_') || id.includes('tds') || id.includes('conductivity')) && !id.includes('target')) {
+      if (numValue > 0 && numValue < 20000) return 'EC';
+    }
+    
     return null;
   };
 
-  // Auto-detect sensor entities based on type - simplified like Dashboard.jsx
+  // Auto-detect sensor entities based on type - collect ALL sensors per type
   const sensorEntities = useMemo(() => {
     const foundEntities = {};
     
@@ -128,31 +157,35 @@ const GrowMetrics = () => {
       e => e?.entity_id?.startsWith('sensor.')
     );
     
-    // Debug: log all sensor IDs
-    const allSensorIds = allSensors.map(e => e.entity_id).filter(id => 
-      id.includes('co2') || id.includes('ec') || id.includes('ph') || id.includes('humid') || id.includes('temp') || id.includes('vpd')
-    );
-    // console.log('[GrowMetrics] Relevant sensors:', allSensorIds);
-    
-    // Auto-detect each sensor's type
+    // Auto-detect each sensor's type and collect ALL (not just first)
     allSensors.forEach(entity => {
       const metricType = detectSensorType(entity, currentRoom);
-      if (metricType && !foundEntities[metricType]) {
-        foundEntities[metricType] = entity.entity_id;
-        // console.log('[GrowMetrics] Detected:', metricType, '=', entity.entity_id, 'value:', entity.state);
+      if (metricType) {
+        if (!foundEntities[metricType]) {
+          foundEntities[metricType] = [];
+        }
+        // Add to array of sensors for this type
+        if (!foundEntities[metricType].includes(entity.entity_id)) {
+          foundEntities[metricType].push(entity.entity_id);
+        }
       }
     });
-
-    // console.log('[GrowMetrics] Auto-detected sensors:', foundEntities);
-    // console.log('[GrowMetrics] Room:', currentRoom, '| Total sensors:', allSensors.length);
 
     return foundEntities;
   }, [entities, currentRoom]);
 
-  const sensorEntityIds = useMemo(
-    () => Object.values(sensorEntities).filter(Boolean),
-    [sensorEntities]
-  );
+  // Flatten all sensor IDs into a single array
+  const sensorEntityIds = useMemo(() => {
+    const allIds = [];
+    Object.values(sensorEntities).forEach(ids => {
+      if (Array.isArray(ids)) {
+        allIds.push(...ids);
+      } else if (ids) {
+        allIds.push(ids);
+      }
+    });
+    return allIds;
+  }, [sensorEntities]);
 
   const sensorEntityKey = useMemo(
     () => [...sensorEntityIds].sort().join('|'),
@@ -273,32 +306,52 @@ const GrowMetrics = () => {
         if (metric === 'pH') {
           if (currentStageData.minPh != null) result[metric].min = Number(currentStageData.minPh.toFixed(2));
           if (currentStageData.maxPh != null) result[metric].max = Number(currentStageData.maxPh.toFixed(2));
+          if (currentStageData.optimalPh != null) {
+            result[metric].optimal = Number(currentStageData.optimalPh.toFixed(2));
+          }
         }
         if (metric === 'ec' || metric === 'EC') {
           if (currentStageData.minEC != null) result[metric].min = Number(currentStageData.minEC.toFixed(2));
           if (currentStageData.maxEc != null) result[metric].max = Number(currentStageData.maxEc.toFixed(2));
+          if (currentStageData.optimalEC != null || currentStageData.optimalEc != null) {
+            result[metric].optimal = Number((currentStageData.optimalEC || currentStageData.optimalEc).toFixed(2));
+          }
         }
         if (metric === 'co2') {
           if (currentStageData.minCo2 != null) result[metric].min = currentStageData.minCo2;
           if (currentStageData.maxCo2 != null) result[metric].max = currentStageData.maxCo2;
+          if (currentStageData.optimalCo2 != null) {
+            result[metric].optimal = currentStageData.optimalCo2;
+          }
         }
         if (metric === 'temp' || metric === 'temperature') {
           if (currentStageData.minTemp != null) {
             const minTemp = currentStageData.minTemp;
-            result[metric].min = Number((currentRegion === 'US' ? celsiusToFahrenheit(minTemp) : minTemp).toFixed(1));
+            // Store in Celsius, will be converted for display later
+            result[metric].min = Number(minTemp.toFixed(1));
           }
           if (currentStageData.maxTemp != null) {
             const maxTemp = currentStageData.maxTemp;
-            result[metric].max = Number((currentRegion === 'US' ? celsiusToFahrenheit(maxTemp) : maxTemp).toFixed(1));
+            result[metric].max = Number(maxTemp.toFixed(1));
+          }
+          // Get optimal from PlantStageData
+          if (currentStageData.optimalTemp != null) {
+            result[metric].optimal = Number(currentStageData.optimalTemp.toFixed(1));
           }
         }
         if (metric === 'humidity') {
           if (currentStageData.minHumidity != null) result[metric].min = Number(currentStageData.minHumidity.toFixed(1));
           if (currentStageData.maxHumidity != null) result[metric].max = Number(currentStageData.maxHumidity.toFixed(1));
+          if (currentStageData.optimalHumidity != null) {
+            result[metric].optimal = Number(currentStageData.optimalHumidity.toFixed(1));
+          }
         }
         if (metric === 'vpd') {
           if (currentStageData.minVPD != null) result[metric].min = Number(currentStageData.minVPD.toFixed(2));
           if (currentStageData.maxVPD != null) result[metric].max = Number(currentStageData.maxVPD.toFixed(2));
+          if (currentStageData.optimalVPD != null) {
+            result[metric].optimal = Number(currentStageData.optimalVPD.toFixed(2));
+          }
         }
       }
 
@@ -336,6 +389,11 @@ const GrowMetrics = () => {
             result[metric].optimal = optimalValue;
           }
         }
+      }
+      
+      // Calculate optimal as midpoint if not set
+      if (!result[metric].optimal || result[metric].optimal === 0) {
+        result[metric].optimal = (result[metric].min + result[metric].max) / 2;
       }
       
       // console.log(`[GrowMetrics] Target ${metric}:`, result[metric]);
@@ -492,10 +550,17 @@ const GrowMetrics = () => {
     try {
       const { start, end } = getTimeRangeDate();
       
-      // Alle Sensor-Daten parallel laden
-      const sensorPromises = Object.entries(sensorEntities).map(async ([metric, entityId]) => {
-        const data = await fetchSensorData(entityId, start, end);
-        return { metric, data };
+      // Alle Sensor-Daten parallel laden - handle arrays of entity IDs per metric
+      const sensorPromises = [];
+      
+      Object.entries(sensorEntities).forEach(([metric, entityIds]) => {
+        // entityIds can be an array or single string
+        const ids = Array.isArray(entityIds) ? entityIds : [entityIds];
+        ids.forEach(entityId => {
+          sensorPromises.push(
+            fetchSensorData(entityId, start, end).then(data => ({ metric, data, entityId }))
+          );
+        });
       });
 
       const sensorResults = await Promise.all(sensorPromises);
@@ -503,21 +568,24 @@ const GrowMetrics = () => {
       // Daten zu einem Timeline-Format kombinieren
       const timelineData = {};
       
-      sensorResults.forEach(({ metric, data }) => {
+      sensorResults.forEach(({ metric, data, entityId }) => {
         data.forEach(reading => {
           const timestamp = reading.last_changed;
-          const value = parseFloat(reading.state);
+          let value = parseFloat(reading.state);
           
           if (!isNaN(value) && timestamp) {
-            // VPD DataCleaner → 0.0 ignorieren
-            if (metric === "vpd" && value === 0.0) {
+            // VPD: 0.0 Werte überspringen (nur Fehlerwerte, keine echten Messungen)
+            if (metric === 'vpd' && value === 0.0) {
               return;
             }
-
+            
             if (!timelineData[timestamp]) {
               timelineData[timestamp] = { timestamp };
             }
-            timelineData[timestamp][metric] = value;
+            // Use the metric type as key - NO temperature conversion here (done in analysis)
+            if (!timelineData[timestamp][metric]) {
+              timelineData[timestamp][metric] = value;
+            }
           }
         });
       });
@@ -588,7 +656,7 @@ const GrowMetrics = () => {
     };
   }, [historicalData.length, loading, error, handleTabReactivation]);
 
-  // Analyse der Daten (gleiche Logik wie vorher)
+  // Analyse der Daten
   const analysis = useMemo(() => {
     if (!historicalData.length || !Object.keys(targetValues).length) {
       return {};
@@ -601,9 +669,11 @@ const GrowMetrics = () => {
         .map(d => d[metric])
         .filter(v => v !== undefined && !isNaN(v));
       
-      // Konvertiere Temperature-Werte zu Fahrenheit wenn Region = US
-      if ((metric === 'temp' || metric === 'temperature') && currentRegion === 'US') {
-        values = values.map(v => celsiusToFahrenheit(v));
+      // Temperature: data comes in Celsius, convert for US region comparison
+      if (metric === 'temperature') {
+        if (currentRegion === 'US') {
+          values = values.map(v => celsiusToFahrenheit(v));
+        }
       }
 
       if (values.length === 0) {
@@ -613,19 +683,29 @@ const GrowMetrics = () => {
           inRange: 0,
           nearRange: 0,
           outOfRange: 0,
-          optimalPercent: '0.0',
-          inRangePercent: '0.0',
-          nearRangePercent: '0.0',
-          outOfRangePercent: '0.0',
-          average: '0.00',
-          min: '0.00',
-          max: '0.00',
-          currentValue: '0.00'
+          optimalPercent: null,
+          inRangePercent: null,
+          nearRangePercent: null,
+          outOfRangePercent: null,
+          average: null,
+          min: null,
+          max: null,
+          currentValue: null
         };
         return;
       }
 
-      const target = targetValues[metric];
+      // Get targets - already stored in appropriate units
+      let targetMin = targetValues[metric].min;
+      let targetMax = targetValues[metric].max;
+      let targetOptimal = targetValues[metric].optimal;
+      
+      const target = {
+        min: targetMin,
+        max: targetMax,
+        optimal: targetOptimal
+      };
+      
       let inRange = 0;
       let nearRange = 0;
       let outOfRange = 0;
@@ -635,22 +715,29 @@ const GrowMetrics = () => {
       
       let optimal = 0;
       
-       values.forEach(value => {
-         // Prüfe zuerst optimal (engster Bereich um optimal value)
-         if (value >= (target.optimal - optimalTolerance) && value <= (target.optimal + optimalTolerance)) {
-           optimal++;
-         }
-         // Dann normale Bereichsprüfung (ausschließlich optimal values)
-         else if (value >= target.min && value <= target.max) {
-           inRange++;
-         } else if (value >= (target.min - tolerance) && value <= (target.max + tolerance)) {
-           nearRange++;
-         } else {
-           outOfRange++;
-         }
-       });
+      values.forEach(value => {
+        // Prüfe zuerst optimal (engster Bereich um optimal value)
+        if (value >= (target.optimal - optimalTolerance) && value <= (target.optimal + optimalTolerance)) {
+          optimal++;
+        }
+        // Dann normale Bereichsprüfung (ausschließlich optimal values)
+        else if (value >= target.min && value <= target.max) {
+          inRange++;
+        } else if (value >= (target.min - tolerance) && value <= (target.max + tolerance)) {
+          nearRange++;
+        } else {
+          outOfRange++;
+        }
+      });
       
       const total = values.length;
+      
+      // Calculate display values (already converted if needed)
+      const avg = values.reduce((a, b) => a + b, 0) / total;
+      const minVal = Math.min(...values);
+      const maxVal = Math.max(...values);
+      const currentVal = values[values.length - 1];
+      
       results[metric] = {
         total,
         optimal,
@@ -661,21 +748,39 @@ const GrowMetrics = () => {
         inRangePercent: ((inRange / total) * 100).toFixed(1),
         nearRangePercent: ((nearRange / total) * 100).toFixed(1),
         outOfRangePercent: ((outOfRange / total) * 100).toFixed(1),
-        average: (values.reduce((a, b) => a + b, 0) / total).toFixed(2),
-        min: Math.min(...values).toFixed(2),
-        max: Math.max(...values).toFixed(2),
-        currentValue: values[values.length - 1]?.toFixed(2) || '0.00'
+        average: avg.toFixed(2),
+        min: minVal.toFixed(2),
+        max: maxVal.toFixed(2),
+        currentValue: currentVal?.toFixed(2) || '0.00'
       };
     });
     
     return results;
-  }, [historicalData, targetValues]);
+  }, [historicalData, targetValues, currentRegion]);
+
+  // Explicit summary metrics to ensure Performance Summary and Detailed Cards use the same data
+  const summaryMetrics = useMemo(() => {
+    return Object.entries(analysis).map(([metric, data]) => ({
+      metric,
+      optimalPercent: data.optimalPercent,
+      inRangePercent: data.inRangePercent,
+      optimal: data.optimal,
+      inRange: data.inRange,
+      total: data.total,
+      average: data.average,
+      min: data.min,
+      max: data.max,
+      currentValue: data.currentValue,
+      nearRangePercent: data.nearRangePercent,
+      outOfRangePercent: data.outOfRangePercent,
+    }));
+  }, [analysis]);
 
   const overallScore = useMemo(() => {
       // Include all metrics with data (don't filter out 0% scores)
-      const metricsWithData = Object.values(analysis).filter(a => a.total > 0);
+      const metricsWithData = Object.values(analysis).filter(a => a.total > 0 && a.optimalPercent !== null);
 
-      if (metricsWithData.length === 0) return { avgRange: '0.0', avgOptimal: '0.0' };
+      if (metricsWithData.length === 0) return { avgRange: null, avgOptimal: null };
 
       const optimalScores = metricsWithData.map(a => parseFloat(a.optimalPercent));
       const inRangeScores = metricsWithData.map(a => parseFloat(a.inRangePercent));
@@ -684,8 +789,8 @@ const GrowMetrics = () => {
       const avgInRange = inRangeScores.length > 0 ? inRangeScores.reduce((a, b) => a + b, 0) / inRangeScores.length : 0;
 
       return {
-          avgRange: isNaN(avgInRange) ? '0.0' : avgInRange.toFixed(2),
-          avgOptimal: isNaN(avgOptimal) ? '0.0' : avgOptimal.toFixed(2)
+          avgRange: isNaN(avgInRange) ? null : avgInRange.toFixed(2),
+          avgOptimal: isNaN(avgOptimal) ? null : avgOptimal.toFixed(2)
       };
   }, [analysis]);
 
@@ -746,12 +851,16 @@ const GrowMetrics = () => {
     <Container>
       <Header>
         <Title><FaChartBar size={18} /> Analytics</Title>
-        <OverallScore $score={overallScore.avgRange}>
-          Overall Range: {overallScore.avgRange}%
-        </OverallScore>
-        <OverallScore $score={overallScore.avgOptimal}>
-          Overall Optimal: {overallScore.avgOptimal}%
-        </OverallScore>
+        {overallScore.avgRange !== null && (
+          <OverallScore $score={overallScore.avgRange}>
+            Overall Range: {overallScore.avgRange}%
+          </OverallScore>
+        )}
+        {overallScore.avgOptimal !== null && (
+          <OverallScore $score={overallScore.avgOptimal}>
+            Overall Optimal: {overallScore.avgOptimal}%
+          </OverallScore>
+        )}
         <LiveButton
           $isActive={isLive}
           onClick={() => setIsLive(!isLive)}
@@ -923,18 +1032,18 @@ const GrowMetrics = () => {
       <Summary>
         <SummaryTitle>Performance Summary</SummaryTitle>
         <SummaryGrid>
-          {Object.entries(analysis).map(([metric, data]) => (
-            <SummaryItem key={metric}>
-              <SummaryMetric>{metric}</SummaryMetric>
+          {summaryMetrics.map((item) => (
+            <SummaryItem key={item.metric}>
+              <SummaryMetric>{item.metric}</SummaryMetric>
               <OptimalIndicator>
-                <SummaryPercentage color="var(--cannabis-active-color)">
-                  {data.optimalPercent}%
+                <SummaryPercentage color={item.optimalPercent !== null ? 'var(--cannabis-active-color)' : 'var(--disabled-text-color)'}>
+                  {item.optimalPercent !== null ? `${item.optimalPercent}%` : '--'}
                 </SummaryPercentage>
                 <OptimalLabel>Optimal</OptimalLabel>
               </OptimalIndicator>
               <InRangeIndicator>
-                <SummaryPercentage color={getStatusColor(data.inRangePercent)} style={{fontSize: '1.2rem'}}>
-                  {data.inRangePercent}%
+                <SummaryPercentage color={item.inRangePercent !== null ? getStatusColor(item.inRangePercent) : 'var(--disabled-text-color)'} style={{fontSize: '1.2rem'}}>
+                  {item.inRangePercent !== null ? `${item.inRangePercent}%` : '--'}
                 </SummaryPercentage>
                 <OptimalLabel>In Range</OptimalLabel>
               </InRangeIndicator>
@@ -951,7 +1060,7 @@ const GrowMetrics = () => {
               <MetricHeader>
                 <MetricName>{metric.toUpperCase()}</MetricName>
                 <CurrentValue>
-                  {data.currentValue} {getMetricUnit(metric)}
+                  {data.currentValue !== null ? `${data.currentValue} ${getMetricUnit(metric)}` : '--'}
                 </CurrentValue>
               </MetricHeader>
 
@@ -963,68 +1072,70 @@ const GrowMetrics = () => {
                <StatsGrid>
                  <StatItem>
                    <StatLabel><FaBullseye size={14} /> Optimal</StatLabel>
-                   <StatValue color={getStatusColor(data.optimalPercent)}>
-                     {data.optimalPercent}%
+                   <StatValue color={data.optimalPercent !== null ? getStatusColor(data.optimalPercent) : 'var(--disabled-text-color)'}>
+                     {data.optimalPercent !== null ? `${data.optimalPercent}%` : '--'}
                    </StatValue>
-                   <StatCount>({data.optimal}/{data.total})</StatCount>
+                   <StatCount>{data.total > 0 ? `(${data.optimal}/${data.total})` : '--'}</StatCount>
                  </StatItem>
 
                  <StatItem>
                    <StatLabel><FaCheck size={14} /> In Range</StatLabel>
-                   <StatValue color={getStatusColor(data.inRangePercent)}>
-                     {data.inRangePercent}%
+                   <StatValue color={data.inRangePercent !== null ? getStatusColor(data.inRangePercent) : 'var(--disabled-text-color)'}>
+                     {data.inRangePercent !== null ? `${data.inRangePercent}%` : '--'}
                    </StatValue>
-                   <StatCount>({data.inRange}/{data.total})</StatCount>
+                   <StatCount>{data.total > 0 ? `(${data.inRange}/${data.total})` : '--'}</StatCount>
                  </StatItem>
 
                  <StatItem>
-                   <StatLabel><FaExclamationTriangle size={14} /> Near Range</StatLabel>
-                   <StatValue color={getStatusColor(60)}>
-                     {data.nearRangePercent}%
+                   <StatLabel>⚠ Near Range</StatLabel>
+                   <StatValue color={data.nearRangePercent !== null ? getStatusColor(data.nearRangePercent) : 'var(--disabled-text-color)'}>
+                     {data.nearRangePercent !== null ? `${data.nearRangePercent}%` : '--'}
                    </StatValue>
-                   <StatCount>({data.nearRange}/{data.total})</StatCount>
+                   <StatCount>{data.total > 0 ? `(${data.nearRange}/${data.total})` : '--'}</StatCount>
                  </StatItem>
 
                  <StatItem>
                    <StatLabel><FaTimes size={14} /> Out of Range</StatLabel>
-                   <StatValue color={getStatusColor(0)}>
-                     {data.outOfRangePercent}%
+                   <StatValue color={data.outOfRangePercent !== null ? getStatusColor(data.outOfRangePercent) : 'var(--disabled-text-color)'}>
+                     {data.outOfRangePercent !== null ? `${data.outOfRangePercent}%` : '--'}
                    </StatValue>
-                   <StatCount>({data.outOfRange}/{data.total})</StatCount>
+                   <StatCount>{data.total > 0 ? `(${data.outOfRange}/${data.total})` : '--'}</StatCount>
                  </StatItem>
                </StatsGrid>
 
-              <ProgressBar>
-                <ProgressSegment 
-                  width={data.optimalPercent} 
-                  color="var(--cannabis-active-color)"
-                  title={`Optimal: ${data.optimalPercent}%`}
-                />
-                <ProgressSegment 
-                  width={data.inRangePercent} 
-                  color={getStatusColor(data.inRangePercent)}
-                  title={`In Range: ${data.inRangePercent}%`}
-                />
-                <ProgressSegment 
-                  width={data.nearRangePercent} 
-                  color={getStatusColor(60)}
-                  title={`Near Range: ${data.nearRangePercent}%`}
-                />
-                <ProgressSegment 
-                  width={data.outOfRangePercent} 
-                  color={getStatusColor(0)}
-                  title={`Out of Range: ${data.outOfRangePercent}%`}
-                />
-              </ProgressBar>
+              {data.optimalPercent !== null && (
+                <ProgressBar>
+                  <ProgressSegment 
+                    width={data.optimalPercent} 
+                    color="var(--cannabis-active-color)"
+                    title={`Optimal: ${data.optimalPercent}%`}
+                  />
+                  <ProgressSegment 
+                    width={data.inRangePercent} 
+                    color={getStatusColor(data.inRangePercent)}
+                    title={`In Range: ${data.inRangePercent}%`}
+                  />
+                  <ProgressSegment 
+                    width={data.nearRangePercent} 
+                    color={getStatusColor(60)}
+                    title={`Near Range: ${data.nearRangePercent}%`}
+                  />
+                  <ProgressSegment 
+                    width={data.outOfRangePercent} 
+                    color={getStatusColor(0)}
+                    title={`Out of Range: ${data.outOfRangePercent}%`}
+                  />
+                </ProgressBar>
+              )}
 
               <DetailStats>
                 <DetailStat>
                   <span>Average:</span>
-                  <span>{data.average} {getMetricUnit(metric)}</span>
+                  <span>{data.average !== null ? `${data.average} ${getMetricUnit(metric)}` : '--'}</span>
                 </DetailStat>
                 <DetailStat>
                   <span>Min/Max:</span>
-                  <span>{data.min} / {data.max} {getMetricUnit(metric)}</span>
+                  <span>{data.min !== null && data.max !== null ? `${data.min} / ${data.max} ${getMetricUnit(metric)}` : '--'}</span>
                 </DetailStat>
               </DetailStats>
             </MetricCard>

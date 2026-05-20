@@ -53,10 +53,16 @@ const SelectCard = ({ entities }) => {
           const isActive =
             entity.state === 'true' || entity.state === 'on' || entity.state === 'YES';
 
+          const isWorkMode = entity.entity_id?.includes('workmode');
+          const workModeState = entity.state?.toLowerCase() || '';
+          const isWorkModeActive = isWorkMode && 
+            (workModeState === 'on' || workModeState === 'yes' || workModeState === 'true' || workModeState === 'active' || workModeState === 'work');
+
           return (
-          <Card key={entity.entity_id} $safeModeEnabled={isSafeModeEnabled}>
-            <Tooltip>{entity.tooltip}</Tooltip> {/* Tooltip hier anzeigen */}
+          <Card key={entity.entity_id} $safeModeEnabled={isSafeModeEnabled} $workModeActive={isWorkModeActive}>
+            <Tooltip>{entity.tooltip}</Tooltip>
             {isSafeModeEnabled && <SafeModeIndicator title="Safe Mode Active"><Shield size={14} /></SafeModeIndicator>}
+            {isWorkModeActive && <WorkModeBadge>ACTIVE</WorkModeBadge>}
             <Title $hasSafeMode={isSafeModeEnabled}>{entity.title}</Title>
 
             {isToggle ? (
@@ -135,18 +141,53 @@ const Card = styled.div`
   align-items: center;
   padding: 0.8rem 1rem;
   border: ${props => props.$safeModeEnabled ? '1px solid rgba(59, 130, 246, 0.3)' : 'none'};
+  ${props => props.$workModeActive && `
+    border: 2px solid #ef4444;
+    box-shadow: 0 0 20px rgba(239, 68, 68, 0.5), 0 4px 12px rgba(0, 0, 0, 0.2);
+    background: linear-gradient(135deg, 
+      rgba(239, 68, 68, 0.1) 0%, 
+      var(--main-bg-card-color) 100%);
+  `}
   transition: all 0.2s ease;
   min-height: 50px;
 
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    border-color: ${props => props.$safeModeEnabled ? 'rgba(59, 130, 246, 0.5)' : 'transparent'};
+    ${props => !props.$safeModeEnabled && !props.$workModeActive && `border-color: transparent;`}
   }
 
   &:hover ${Tooltip} {
     opacity: 1;
   }
+`;
+
+const WorkModeBadge = styled.div`
+  position: absolute;
+  top: -10px;
+  right: 10px;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #fff;
+  font-size: 0.7rem;
+  font-weight: 800;
+  padding: 4px 10px;
+  border-radius: 8px;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  box-shadow: 0 0 16px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+  z-index: 10;
+
+  @keyframes pulse {
+    0%, 100% { 
+      transform: scale(1);
+      box-shadow: 0 0 16px rgba(239, 68, 68, 0.6), 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+    50% { 
+      transform: scale(1.05);
+      box-shadow: 0 0 24px rgba(239, 68, 68, 0.8), 0 4px 12px rgba(0, 0, 0, 0.3);
+    }
+  }
+  animation: pulse 1.5s infinite;
 `;
 
 const SafeModeIndicator = styled.span`

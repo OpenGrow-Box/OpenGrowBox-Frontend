@@ -49,7 +49,7 @@ const SENSOR_TRANSLATIONS = {
     ]
 }
 const IGNORE_KEYWORDS = [
-  "ogb","wifi", "mqtt", "connect", "battery",
+  "wifi", "mqtt", "connect", "battery",
   "power", "signal", "voltage", "rssi"
 ];
 

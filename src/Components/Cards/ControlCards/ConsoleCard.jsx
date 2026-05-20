@@ -264,7 +264,7 @@ const HelpItem = styled.div`
 // ---------- Component ----------
 const ConsoleCard = () => {
   const [lines, setLines] = useState([
-    { type: 'system', content: 'OpenGrowBox Console v2.0', timestamp: new Date() },
+    { type: 'system', content: 'OpenGrowBox Console', timestamp: new Date() },
     { type: 'info', content: 'Type \'help\' for available commands or start typing for suggestions', timestamp: new Date() },
     { type: 'divider', content: '' },
   ]);

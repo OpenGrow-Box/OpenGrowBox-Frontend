@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { Shield } from 'lucide-react';
 import { useHomeAssistant } from "../../Context/HomeAssistantContext";
 import { useGlobalState } from "../../Context/GlobalContext";
-import { formatTimeString, parseTimeStringTo24h } from '../../../utils/regionFormat';
+
 import { useSafeMode } from '../../../hooks/useSafeMode';
 import SafeModeConfirmModal from "../../Common/SafeModeConfirmModal";
 
@@ -30,9 +30,9 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange })
     if (localValue === entity.state) return;
     
     // For duration entities (sunrise/sunset), use value as-is (already HH:MM:SS)
-    // For regular time entities, convert regional format to 24h
+    // For regular time entities, localValue is already HH:MM from type="time" input
     const isDuration = entity.entity_id.includes('sunrise') || entity.entity_id.includes('sunset');
-    const valueToSend = isDuration ? localValue : parseTimeStringTo24h(localValue, currentRegion);
+    const valueToSend = isDuration ? localValue : localValue + ':00';
 
     // Request confirmation if Safe Mode is enabled
     const confirmed = await confirmChange(
@@ -94,14 +94,20 @@ const TimeInputCard = ({ entity, connection, isSafeModeEnabled, confirmChange })
           onKeyDown={handleKeyDown}
         />
       ) : (
-        <TimeInput
-          type="text"
-          placeholder={currentRegion === 'US' ? '6:00 AM' : '06:00'}
-          value={formatTimeString(localValue, currentRegion)}
-          onChange={handleTimeChange}
-          onBlur={handleBlur}
-          onKeyDown={handleKeyDown}
-        />
+        <TimeInputWrapper>
+          <TimeInput
+            type="time"
+            value={localValue ? localValue.substring(0, 5) : ''}
+            onChange={handleTimeChange}
+            onBlur={handleBlur}
+            onKeyDown={handleKeyDown}
+          />
+          {currentRegion === 'US' && localValue && (
+            <TimeAmPmBadge>
+              {parseInt(localValue.split(':')[0]) >= 12 ? 'PM' : 'AM'}
+            </TimeAmPmBadge>
+          )}
+        </TimeInputWrapper>
       )}
     </Card>
   );
@@ -229,6 +235,24 @@ const Title = styled.p`
     width: 100%;
     margin-left: ${({ $hasLockIcons }) => $hasLockIcons ? '1.5rem' : '0'};
   }
+`;
+
+const TimeInputWrapper = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+`;
+
+const TimeAmPmBadge = styled.div`
+  padding: 0.3rem 0.5rem;
+  border-radius: 6px;
+  background: var(--glass-bg-primary);
+  border: 1px solid var(--glass-border);
+  color: var(--primary-accent);
+  font-size: 0.75rem;
+  font-weight: 700;
+  min-width: 36px;
+  text-align: center;
 `;
 
 const TimeInput = styled.input`

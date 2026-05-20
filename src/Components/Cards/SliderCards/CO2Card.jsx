@@ -55,7 +55,7 @@ const CO2Card = ({pause, resume, isPlaying, filterByRoom}) => {
       </Header>
       <Content>
         {co2Sensors.map((sensor) => (
-          <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.entity_id)}>
+            <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{formatLabel(sensor.friendlyName || sensor.id, currentRoom, sensor.id)}</Label>
             <ValueWrapper>
               <Value style={{ color: getColorForValue(sensor.value) }}>
