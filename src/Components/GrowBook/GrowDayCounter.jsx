@@ -4,33 +4,6 @@ import { motion } from 'framer-motion';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useGlobalState } from '../Context/GlobalContext';
 import { useMedium } from '../Context/MediumContext';
-
-
-// Helper: Format ISO date for display (YYYY-MM-DD -> DD.MM.YYYY or MM/DD/YYYY)
-const formatDateDisplay = (isoDate, region) => {
-  if (!isoDate) return '';
-  const d = new Date(isoDate + 'T00:00:00'); // Prevent timezone issues
-  if (isNaN(d.getTime())) return '';
-  const day = d.getDate().toString().padStart(2, '0');
-  const month = (d.getMonth() + 1).toString().padStart(2, '0');
-  const year = d.getFullYear();
-  if (region === 'US') {
-    return `${month}/${day}/${year}`;
-  }
-  return `${day}.${month}.${year}`;
-};
-
-// Helper: Format ISO date for native date input (always YYYY-MM-DD)
-const formatDateForInput = (isoDate) => {
-  if (!isoDate) return '';
-  // If already in YYYY-MM-DD format, return as-is
-  if (/^\d{4}-\d{2}-\d{2}$/.test(isoDate)) return isoDate;
-  // Otherwise try to parse
-  const d = new Date(isoDate + 'T00:00:00');
-  if (isNaN(d.getTime())) return '';
-  return `${d.getFullYear()}-${(d.getMonth() + 1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')}`;
-};
-
 import {
   FaCheck, FaTimes, FaEdit, FaSeedling,
   FaChartBar, FaLeaf, FaClock, FaFlagCheckered, FaFlask
@@ -38,9 +11,7 @@ import {
 
 const GrowDayCounter = () => {
   const { connection, currentRoom, isConnectionValid } = useHomeAssistant();
-  const { state } = useGlobalState();
-  const currentRegion = state.Settings?.region || 'EU';
-  const { HASS } = state;
+  const { HASS } = useGlobalState();
   const { 
     currentMedium, 
     currentMediumIndex, 
@@ -74,7 +45,6 @@ const GrowDayCounter = () => {
   const bloomSwitchTimeoutRef = useRef(null);
 
   // Sync local state from currentMedium (only when not editing)
-  // Keep dates in ISO format (YYYY-MM-DD) for native date inputs
   useEffect(() => {
     if (currentMedium) {
       // Only update if not actively editing these fields
@@ -95,12 +65,6 @@ const GrowDayCounter = () => {
       }
     }
   }, [currentMedium, isFieldEditing, isEditingPlant]);
-
-  // Format dates for display in regional format
-  const displayGrowStartDate = formatDateDisplay(growStartDate, currentRegion);
-  const displayBloomSwitchDate = formatDateDisplay(bloomSwitchDate, currentRegion);
-  const inputGrowStartDate = formatDateForInput(growStartDate);
-  const inputBloomSwitchDate = formatDateForInput(bloomSwitchDate);
 
   // Cleanup timeouts on unmount
   useEffect(() => {
@@ -401,46 +365,28 @@ const GrowDayCounter = () => {
           
           <InputRow>
             <InputGroup>
-              <InputLabel>Grow Start <DateFormatHint>({currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'})</DateFormatHint></InputLabel>
-              <DateInputWrapper>
-                <RegionalDateInput
-                  type="date"
-                  value={inputGrowStartDate}
-                  onChange={(e) => {
-                    const isoDate = e.target.value;
-                    if (isoDate) {
-                      setGrowStartDate(isoDate);
-                      handleGrowStartChange(isoDate);
-                    }
-                  }}
-                  onFocus={() => startEditing('grow_start')}
-                  onBlur={() => {
-                    setTimeout(() => stopEditing('grow_start'), 1000);
-                  }}
-                />
-                <DateDisplay>{displayGrowStartDate}</DateDisplay>
-              </DateInputWrapper>
+              <InputLabel>Grow Start</InputLabel>
+              <StyledInput
+                type="date"
+                value={growStartDate}
+                onChange={(e) => handleGrowStartChange(e.target.value)}
+                onFocus={() => startEditing('grow_start')}
+                onBlur={() => {
+                  setTimeout(() => stopEditing('grow_start'), 1000);
+                }}
+              />
             </InputGroup>
             <InputGroup>
-              <InputLabel>Bloom Switch <DateFormatHint>({currentRegion === 'US' ? 'MM/DD/YYYY' : 'DD.MM.YYYY'})</DateFormatHint></InputLabel>
-              <DateInputWrapper>
-                <RegionalDateInput
-                  type="date"
-                  value={inputBloomSwitchDate}
-                  onChange={(e) => {
-                    const isoDate = e.target.value;
-                    if (isoDate) {
-                      setBloomSwitchDate(isoDate);
-                      handleBloomSwitchChange(isoDate);
-                    }
-                  }}
-                  onFocus={() => startEditing('bloom_switch')}
-                  onBlur={() => {
-                    setTimeout(() => stopEditing('bloom_switch'), 1000);
-                  }}
-                />
-                <DateDisplay>{displayBloomSwitchDate}</DateDisplay>
-              </DateInputWrapper>
+              <InputLabel>Bloom Switch</InputLabel>
+              <StyledInput
+                type="date"
+                value={bloomSwitchDate}
+                onChange={(e) => handleBloomSwitchChange(e.target.value)}
+                onFocus={() => startEditing('bloom_switch')}
+                onBlur={() => {
+                  setTimeout(() => stopEditing('bloom_switch'), 1000);
+                }}
+              />
             </InputGroup>
           </InputRow>
         </InputSection>
@@ -914,48 +860,6 @@ const InputLabel = styled.label`
   opacity: 0.85;
 `;
 
-
-
-const DateInputField = styled.input`
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(8px);
-  color: var(--main-text-color);
-  border: 1px solid var(--glass-border-light);
-  padding: 0.875rem 1rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  width: 100%;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-
-  &:focus {
-    outline: none;
-    border-color: rgba(59, 130, 246, 0.5);
-    background: var(--main-bg-Innercard-color);
-    box-shadow:
-      0 0 0 3px rgba(59, 130, 246, 0.1),
-      0 4px 12px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
-  }
-
-  &:hover {
-    border-color: rgba(255, 255, 255, 0.25);
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.06) 100%
-    );
-  }
-
-  &::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    cursor: pointer;
-  }
-`;
-
 const StyledInput = styled.input`
   background: linear-gradient(135deg,
     rgba(255, 255, 255, 0.08) 0%,
@@ -988,73 +892,6 @@ const StyledInput = styled.input`
       rgba(255, 255, 255, 0.1) 0%,
       rgba(255, 255, 255, 0.06) 100%
     );
-  }
-
-  &[type="number"]::-webkit-inner-spin-button,
-  &[type="number"]::-webkit-outer-spin-button {
-    opacity: 1;
-  }
-`;
-
-const DateInputWrapper = styled.div`
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.5rem;
-`;
-
-const DateDisplay = styled.span`
-  color: var(--main-text-color);
-  font-size: 0.875rem;
-  font-weight: 500;
-  white-space: nowrap;
-`;
-
-const RegionalDateInput = styled.input`
-  background: linear-gradient(135deg,
-    rgba(255, 255, 255, 0.08) 0%,
-    rgba(255, 255, 255, 0.04) 100%
-  );
-  backdrop-filter: blur(8px);
-  color: var(--main-text-color);
-  border: 1px solid var(--glass-border-light);
-  padding: 0.875rem 1rem;
-  border-radius: 12px;
-  font-size: 0.875rem;
-  font-weight: 500;
-  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
-  cursor: pointer;
-  min-width: 140px;
-
-  &:focus {
-    outline: none;
-    border-color: rgba(59, 130, 246, 0.5);
-    background: var(--main-bg-Innercard-color);
-    box-shadow:
-      0 0 0 3px rgba(59, 130, 246, 0.1),
-      0 4px 12px rgba(0, 0, 0, 0.15);
-    transform: translateY(-1px);
-  }
-
-  &:hover {
-    border-color: rgba(255, 255, 255, 0.25);
-    background: linear-gradient(135deg,
-      rgba(255, 255, 255, 0.1) 0%,
-      rgba(255, 255, 255, 0.06) 100%
-    );
-  }
-
-  // Style the date picker icon
-  &::-webkit-calendar-picker-indicator {
-    filter: invert(1);
-    cursor: pointer;
-    opacity: 0.6;
-    transition: opacity 0.2s;
-
-    &:hover {
-      opacity: 1;
-    }
   }
 `;
 
@@ -1169,13 +1006,4 @@ const FinishNote = styled.p`
   font-size: 0.875rem;
   color: rgba(255, 255, 255, 0.7);
   line-height: 1.4;
-`;
-
-
-
-const DateFormatHint = styled.span`
-  font-size: 0.7rem;
-  font-weight: 400;
-  color: var(--placeholder-text-color);
-  margin-left: 0.25rem;
 `;
