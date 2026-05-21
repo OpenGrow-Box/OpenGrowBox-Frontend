@@ -388,9 +388,12 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       if (isNaN(value)) return;
       
       // Room matching - check if sensor belongs to current room
+      // Accept sensors with room name OR generic soil/medium sensors
       const belongsToRoom = !roomLower || 
         name.includes(roomLower) || 
-        name.includes(roomSlug);
+        name.includes(roomSlug) ||
+        keyLower.includes('soil') ||
+        keyLower.includes('medium');
       
       if (!belongsToRoom) return;
       
@@ -441,8 +444,7 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
     });
 
     return sensors;
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [entities]);
+  }, [entities, currentRoom]);
 
   const hasSensors = soilSensors && Object.keys(soilSensors).length > 0;
   const hasCombinedChart = soilSensors?.moisture;
