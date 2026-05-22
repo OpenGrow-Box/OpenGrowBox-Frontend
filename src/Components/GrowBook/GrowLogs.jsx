@@ -929,6 +929,16 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
               </DeviationInfo>
             </DeviationCard>
           )}
+          {!hasNewFormat && (
+            <DeviationCard status="warning">
+              <DeviationInfo>
+                <DeviationLabel>Target Range</DeviationLabel>
+                <DeviationValue status="warning">
+                  {safeValue(data?.vpdTargetMin)} - {safeValue(data?.vpdTargetMax)} kPa
+                </DeviationValue>
+              </DeviationInfo>
+            </DeviationCard>
+          )}
         </DeviationGrid>
         {actionList.length > 0 && (
           <ActionsContainer>
