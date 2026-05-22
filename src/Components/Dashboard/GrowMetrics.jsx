@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { FaLeaf, FaChartBar, FaCircle, FaSync, FaBullseye, FaCheck, FaExclamationTriangle, FaTimes, FaChartArea, FaSeedling, FaCalendarAlt, FaClock, FaFlask } from 'react-icons/fa';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
