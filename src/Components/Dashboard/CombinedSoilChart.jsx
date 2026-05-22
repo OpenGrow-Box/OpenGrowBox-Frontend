@@ -21,7 +21,7 @@ const CombinedSoilChart = ({
 
   const { haApiBaseUrl, haToken: accessToken, entities } = useHomeAssistant();
   const isDev = import.meta.env.DEV;
-  const HISTORY_FETCH_TIMEOUT_MS = 15000;
+  const HISTORY_FETCH_TIMEOUT_MS = 20000;
 
   const chartDataRef = useRef({
     moisture: { xData: [], yData: [] },
@@ -48,7 +48,6 @@ const CombinedSoilChart = ({
   const [chartType, setChartType] = useState('line');
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
-  const prevSensorIdsRef = useRef('');
   const chartRef = useRef(null);
 
   const handleViewChange = (view) => {
@@ -78,16 +77,6 @@ const CombinedSoilChart = ({
   };
 
   useEffect(() => {
-    // Get current sensor IDs
-    const currentSensorIds = ['moisture', 'ec', 'ph', 'temperature']
-      .map(s => soilSensors?.[s]?.id)
-      .filter(Boolean)
-      .join(',');
-    
-    // Only fetch if sensors changed or time changed
-    const sensorsChanged = currentSensorIds !== prevSensorIdsRef.current;
-    prevSensorIdsRef.current = currentSensorIds;
-    
     const fetchSoilData = async () => {
       if ((!isDev && !haApiBaseUrl) || !accessToken) {
         setError('Connection not configured');
@@ -109,46 +98,85 @@ const CombinedSoilChart = ({
 
       try {
         const allData = {};
+        const failedSensors = [];
         
-        for (const sensorKey of availableSensors) {
+        // Fetch all sensors in parallel for better performance
+        const fetchPromises = availableSensors.map(async (sensorKey) => {
           const sensorId = soilSensors[sensorKey]?.id;
-          if (!sensorId) continue;
+          if (!sensorId) {
+            failedSensors.push(sensorKey);
+            return { sensorKey, data: { xData: [], yData: [] } };
+          }
 
           const url = `${haApiBaseUrl || ''}/api/history/period/${encodeURIComponent(startDate)}?filter_entity_id=${sensorId}&end_time=${encodeURIComponent(endDate)}&minimal_response`;
           
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
+          // Retry logic for failed requests
+          let retries = 1;
+          let lastError = null;
           
-          const response = await fetch(url, {
-            headers: { 'Authorization': `Bearer ${accessToken}` },
-            signal: controller.signal
-          });
-          
-          clearTimeout(timeoutId);
-          
-          if (!response.ok) continue;
-          
-          const data = await response.json();
-          
-          if (!Array.isArray(data) || data.length === 0 || !data[0]?.length) {
-            allData[sensorKey] = { xData: [], yData: [] };
-            continue;
-          }
+          while (retries >= 0) {
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), HISTORY_FETCH_TIMEOUT_MS);
+            
+            try {
+              const response = await fetch(url, {
+                headers: { 'Authorization': `Bearer ${accessToken}` },
+                signal: controller.signal
+              });
+              
+              clearTimeout(timeoutId);
+              
+              if (!response.ok) {
+                throw new Error(`HTTP ${response.status}`);
+              }
+              
+              const data = await response.json();
+              
+              if (!Array.isArray(data) || data.length === 0 || !data[0]?.length) {
+                return { sensorKey, data: { xData: [], yData: [] } };
+              }
 
-          const sensorData = data[0];
-          const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
-          
-          const xData = sensorData.map(item => item.last_changed);
-          const yData = sensorData.map(item => {
-            const val = parseFloat(item.state);
-            return isNaN(val) ? null : val;
-          });
+              const sensorData = data[0];
+              const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
+              
+              const xData = sensorData.map(item => item.last_changed);
+              const yData = sensorData.map(item => {
+                const val = parseFloat(item.state);
+                return isNaN(val) ? null : val;
+              });
 
-          allData[sensorKey] = { xData, yData };
-          
-          if (values.length > 0) {
-            currentValuesRef.current[sensorKey] = values[values.length - 1];
+              if (values.length > 0) {
+                currentValuesRef.current[sensorKey] = values[values.length - 1];
+              }
+
+              return { sensorKey, data: { xData, yData } };
+            } catch (err) {
+              clearTimeout(timeoutId);
+              lastError = err;
+              retries--;
+              if (retries >= 0) {
+                // Wait 1s before retry
+                await new Promise(resolve => setTimeout(resolve, 1000));
+              }
+            }
           }
+          
+          // All retries failed
+          failedSensors.push(sensorKey);
+          return { sensorKey, data: { xData: [], yData: [] } };
+        });
+        
+        // Wait for all sensors to load (in parallel)
+        const results = await Promise.all(fetchPromises);
+        
+        // Process results
+        results.forEach(({ sensorKey, data }) => {
+          allData[sensorKey] = data;
+        });
+        
+        // Show warning if some sensors failed
+        if (failedSensors.length > 0 && failedSensors.length < availableSensors.length) {
+          console.warn(`CombinedSoilChart: Failed to load sensors: ${failedSensors.join(', ')}`);
         }
 
         const textColor = getThemeColor('--main-text-color');
@@ -296,10 +324,8 @@ const CombinedSoilChart = ({
       }
     };
 
-    // Only fetch if sensors actually changed or time changed
-    if (sensorsChanged || !chartOptions) {
-      fetchSoilData();
-    }
+    // Always fetch when dependencies change
+    fetchSoilData();
   }, [startDate, endDate, soilSensors, haApiBaseUrl, accessToken]);
 
   useEffect(() => {
