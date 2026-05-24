@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
@@ -371,7 +371,8 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
     };
   }, [plantStages, currentStage]);
 
-  // Enhanced sensor detection with room filtering
+  // Enhanced sensor detection with room filtering (stabilized ref to prevent excess re-fetches)
+  const soilSensorsRef = useRef(null);
   const soilSensors = useMemo(() => {
     if (!entities) return null;
 
@@ -443,6 +444,10 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       }
     });
 
+    const sensorsJson = JSON.stringify(sensors);
+    const prevJson = JSON.stringify(soilSensorsRef.current);
+    if (prevJson === sensorsJson) return soilSensorsRef.current;
+    soilSensorsRef.current = sensors;
     return sensors;
   }, [entities, currentRoom]);
 
@@ -650,6 +655,7 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
               isGlobalLiveMode={isGlobalLiveMode}
               globalLiveRefreshTrigger={globalLiveRefreshTrigger}
               onLiveModeChange={onLiveModeChange}
+              chartHeight={280}
             />
           )}
           

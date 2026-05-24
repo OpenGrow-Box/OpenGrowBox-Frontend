@@ -4,14 +4,15 @@ import EChartsWrapper from '../Common/EChartsWrapper';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
-import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaDownload } from 'react-icons/fa';
+import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaDownload, FaTint, FaBolt, FaFlask, FaThermometerHalf } from 'react-icons/fa';
 import { Maximize2, Minimize2, LineChart, BarChart3, Image, FileSpreadsheet } from 'lucide-react';
 
 const CombinedSoilChart = ({
   soilSensors,
   isGlobalLiveMode = false,
   globalLiveRefreshTrigger = 0,
-  onLiveModeChange
+  onLiveModeChange,
+  chartHeight = 350
 }) => {
   const getDefaultDate = (offset = 0) => {
     const date = new Date(Date.now() + offset);
@@ -23,6 +24,16 @@ const CombinedSoilChart = ({
   const isDev = import.meta.env.DEV;
   const HISTORY_FETCH_TIMEOUT_MS = 20000;
 
+  // Stable key from sensor IDs only (not values) to prevent re-fetches on every entity update
+  const sensorIdsKey = useMemo(() =>
+    ['moisture', 'ec', 'ph', 'temperature']
+      .map(k => soilSensors?.[k]?.id)
+      .filter(Boolean)
+      .sort()
+      .join(','),
+    [soilSensors]
+  );
+
   const chartDataRef = useRef({
     moisture: { xData: [], yData: [] },
     ec: { xData: [], yData: [] },
@@ -30,6 +41,7 @@ const CombinedSoilChart = ({
     temperature: { xData: [], yData: [] }
   });
   const currentValuesRef = useRef({ moisture: null, ec: null, ph: null, temperature: null });
+  const chartOptionsRef = useRef(null);
 
   const [startDate, setStartDate] = useState(getDefaultDate(-12 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState(getDefaultDate());
@@ -261,60 +273,73 @@ const CombinedSoilChart = ({
           return;
         }
 
-        setChartOptions({
-          backgroundColor: 'transparent',
-          grid: { top: 60, right: 80, bottom: 60, left: 60 },
-          tooltip: {
-            trigger: 'axis',
-            backgroundColor: getThemeColor('--main-bg-card-color'),
-            borderColor: '#3b82f6',
-            borderWidth: 1,
-            padding: [12, 16],
-            textStyle: { color: textColor, fontSize: 13 },
-            formatter: (params) => {
-              if (!params?.length) return '';
-              const p = params[0];
-              const date = formatDateTime(p.axisValue);
-              let html = `<div style="font-weight:600;margin-bottom:4px">${date}</div>`;
-              params.forEach(param => {
-                const unit = unitMap[param.seriesName.toLowerCase()] || '';
-                html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${param.color}"></span>
-                  <span>${param.seriesName}:</span>
-                  <span style="font-weight:700">${param.value?.[1]?.toFixed(2) || '--'}${unit}</span>
-                </div>`;
-              });
-              return html;
-            }
-          },
-          dataZoom: [{ type: 'inside', start: 0, end: 100 }],
-          xAxis: {
-            type: 'category',
-            data: allData[availableSensors[0]]?.xData || [],
-            boundaryGap: false,
-            axisLine: { lineStyle: { color: gridColor } },
-            axisLabel: {
-              color: secondaryTextColor,
-              fontSize: 11,
-              formatter: (value) => {
-                const date = new Date(value);
-                const now = new Date();
-                if (date.toDateString() === now.toDateString()) {
-                  return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-                }
-                return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+        const chart = chartRef.current?.getEchartsInstance();
+
+        if (chartOptionsRef.current && chart) {
+          // Incremental update: nur Daten aktualisieren, kein kompletter Rebuild
+          chart.setOption({
+            xAxis: { data: allData[availableSensors[0]]?.xData || [] },
+            series: series.map(s => ({ data: s.data }))
+          });
+        } else {
+          // Erstmaliger Aufbau: komplette Option setzen
+          const newOptions = {
+            backgroundColor: 'transparent',
+            grid: { top: 60, right: 80, bottom: 60, left: 60 },
+            tooltip: {
+              trigger: 'axis',
+              backgroundColor: getThemeColor('--main-bg-card-color'),
+              borderColor: '#3b82f6',
+              borderWidth: 1,
+              padding: [12, 16],
+              textStyle: { color: textColor, fontSize: 13 },
+              formatter: (params) => {
+                if (!params?.length) return '';
+                const p = params[0];
+                const date = formatDateTime(p.axisValue);
+                let html = `<div style="font-weight:600;margin-bottom:4px">${date}</div>`;
+                params.forEach(param => {
+                  const unit = unitMap[param.seriesName.toLowerCase()] || '';
+                  html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${param.color}"></span>
+                    <span>${param.seriesName}:</span>
+                    <span style="font-weight:700">${param.value?.[1]?.toFixed(2) || '--'}${unit}</span>
+                  </div>`;
+                });
+                return html;
               }
             },
-            splitLine: { show: false }
-          },
-          yAxis: [
-            { type: 'value', name: 'Moisture %', position: 'left', axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { lineStyle: { color: gridColor + '30', type: 'dashed' } } },
-            { type: 'value', name: 'EC mS', position: 'right', offset: 0, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } },
-            { type: 'value', name: 'pH', position: 'right', offset: 35, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } },
-            { type: 'value', name: 'Temp °C', position: 'right', offset: 70, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } }
-          ],
-          series
-        });
+            dataZoom: [{ type: 'inside', start: 0, end: 100 }],
+            xAxis: {
+              type: 'category',
+              data: allData[availableSensors[0]]?.xData || [],
+              boundaryGap: false,
+              axisLine: { lineStyle: { color: gridColor } },
+              axisLabel: {
+                color: secondaryTextColor,
+                fontSize: 11,
+                formatter: (value) => {
+                  const date = new Date(value);
+                  const now = new Date();
+                  if (date.toDateString() === now.toDateString()) {
+                    return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                  }
+                  return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                }
+              },
+              splitLine: { show: false }
+            },
+            yAxis: [
+              { type: 'value', name: 'Moisture %', position: 'left', axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { lineStyle: { color: gridColor + '30', type: 'dashed' } } },
+              { type: 'value', name: 'EC mS', position: 'right', offset: 0, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } },
+              { type: 'value', name: 'pH', position: 'right', offset: 35, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } },
+              { type: 'value', name: 'Temp °C', position: 'right', offset: 70, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } }
+            ],
+            series
+          };
+          chartOptionsRef.current = newOptions;
+          setChartOptions(newOptions);
+        }
 
       } catch (err) {
         console.error('Soil chart error:', err);
@@ -326,24 +351,30 @@ const CombinedSoilChart = ({
 
     // Always fetch when dependencies change
     fetchSoilData();
-  }, [startDate, endDate, soilSensors, haApiBaseUrl, accessToken]);
+  }, [startDate, endDate, sensorIdsKey, haApiBaseUrl, accessToken, chartType]);
 
+  // Reset chart on chartType change to force full rebuild
   useEffect(() => {
-    if (!isLive || !soilSensors) return;
-    
+    chartOptionsRef.current = null;
+  }, [chartType]);
+
+  // Sync with global live mode (like CombinedClimateChart)
+  useEffect(() => {
+    if (isGlobalLiveMode !== isLive) {
+      handleViewChange(isGlobalLiveMode ? 'Live' : '12h');
+    }
+  }, [isGlobalLiveMode, globalLiveRefreshTrigger]);
+
+  // Periodic refresh for non-live modes: every 60s
+  useEffect(() => {
+    if (isLive) return;
+
     const interval = setInterval(() => {
-      const endDate = new Date().toISOString().slice(0, 16);
-      setEndDate(endDate);
-    }, 30000);
+      setEndDate(new Date().toISOString().slice(0, 16));
+    }, 60000);
 
     return () => clearInterval(interval);
-  }, [isLive, soilSensors]);
-
-  useEffect(() => {
-    if (globalLiveRefreshTrigger > 0) {
-      setEndDate(new Date().toISOString().slice(0, 16));
-    }
-  }, [globalLiveRefreshTrigger]);
+  }, [isLive]);
 
   const handleExportPNG = () => {
     const chartInstance = chartRef.current?.getEchartsInstance();
@@ -457,14 +488,14 @@ const CombinedSoilChart = ({
         </HeaderBottomRow>
       </ChartHeader>
 
-      <ChartContainer $fullscreen={isFullscreen}>
+      <ChartContainer $fullscreen={isFullscreen} $chartHeight={chartHeight}>
         {loading ? (
-          <LoadingState>
+          <LoadingState $chartHeight={chartHeight}>
             <FaSpinner className="spin" size={32} />
             <span>Loading soil data...</span>
           </LoadingState>
         ) : error ? (
-          <ErrorState>
+          <ErrorState $chartHeight={chartHeight}>
             <FaExclamationTriangle size={32} />
             <div>{error}</div>
           </ErrorState>
@@ -474,11 +505,11 @@ const CombinedSoilChart = ({
             option={chartOptions}
             notMerge={false}
             lazyUpdate={false}
-            style={{ height: isFullscreen ? '70vh' : '350px', width: '100%' }}
+            style={{ height: isFullscreen ? '70vh' : `${chartHeight}px`, width: '100%' }}
             opts={{ renderer: 'canvas' }}
           />
         ) : (
-          <NoDataState>
+          <NoDataState $chartHeight={chartHeight}>
             <FaChartLine size={32} />
             <span>No data available</span>
           </NoDataState>
@@ -489,10 +520,10 @@ const CombinedSoilChart = ({
         {Object.entries(stats).map(([key, stat]) => (
           <StatBox key={key}>
             <StatLabel>
-              {key === 'moisture' && '💧'}
-              {key === 'ec' && '⚡'}
-              {key === 'ph' && '🧪'}
-              {key === 'temperature' && '🌡️'}
+              {key === 'moisture' && <FaTint size={12} />}
+              {key === 'ec' && <FaBolt size={12} />}
+              {key === 'ph' && <FaFlask size={12} />}
+              {key === 'temperature' && <FaThermometerHalf size={12} />}
               {key.charAt(0).toUpperCase() + key.slice(1)}
             </StatLabel>
             <StatValue>{stat.current}</StatValue>
@@ -652,16 +683,16 @@ const ChartTypeBtn = styled.button`
 `;
 
 const ChartContainer = styled.div`
-  min-height: 300px;
+  min-height: ${props => props.$chartHeight ? props.$chartHeight : 300}px;
   background: var(--glass-bg-secondary);
   border-radius: 12px;
   overflow: hidden;
-  height: ${props => props.$fullscreen ? 'auto' : '300px'};
+  height: ${props => props.$fullscreen ? 'auto' : props.$chartHeight ? `${props.$chartHeight}px` : '300px'};
   flex: ${props => props.$fullscreen ? '1' : 'none'};
 `;
 
 const LoadingState = styled.div`
-  height: 300px;
+  height: ${props => props.$chartHeight ? props.$chartHeight : 300}px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -678,7 +709,7 @@ const LoadingState = styled.div`
 `;
 
 const ErrorState = styled.div`
-  height: 300px;
+  height: ${props => props.$chartHeight ? props.$chartHeight : 300}px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -688,7 +719,7 @@ const ErrorState = styled.div`
 `;
 
 const NoDataState = styled.div`
-  height: 300px;
+  height: ${props => props.$chartHeight ? props.$chartHeight : 300}px;
   display: flex;
   flex-direction: column;
   align-items: center;

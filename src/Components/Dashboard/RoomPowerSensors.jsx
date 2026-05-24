@@ -259,7 +259,6 @@ const RoomPowerSensors = () => {
   }, [totals]);
 
   const chartData = energyHistoryStorage.getChartData(chartPeriod);
-  const sparklineData = energyHistoryStorage.getSparklineData('totalWatts');
   const costTrend = energyHistoryStorage.getTrend('dailyCost');
   const wattsTrend = energyHistoryStorage.getTrend('totalWatts');
 
@@ -369,7 +368,6 @@ const RoomPowerSensors = () => {
           unit="W"
           subtext={currentLoadSubtext}
           color="var(--primary-accent)"
-          sparklineData={sparklineData}
           trend={wattsTrend?.direction}
           trendValue={wattsTrend?.value}
         />
@@ -380,7 +378,6 @@ const RoomPowerSensors = () => {
           unit="kWh"
           subtext="24h forecast"
           color="var(--chart-warning-color)"
-          sparklineData={energyHistoryStorage.getSparklineData('dailyKwh')}
         />
         <EnergySummaryCard
           icon={Euro}
@@ -390,7 +387,6 @@ const RoomPowerSensors = () => {
           subtext="Based on energy price"
           highlight
           color="var(--chart-success-color)"
-          sparklineData={energyHistoryStorage.getSparklineData('dailyCost')}
           trend={costTrend?.direction}
           trendValue={costTrend?.value}
         />
@@ -431,7 +427,6 @@ const RoomPowerSensors = () => {
           unit="W"
           subtext={currentLoadSubtext}
           color="var(--primary-accent)"
-          sparklineData={sparklineData}
           trend={wattsTrend?.direction}
           trendValue={wattsTrend?.value}
         />
@@ -442,7 +437,6 @@ const RoomPowerSensors = () => {
           unit="kWh"
           subtext="24h forecast"
           color="var(--chart-warning-color)"
-          sparklineData={energyHistoryStorage.getSparklineData('dailyKwh')}
         />
         <EnergySummaryCard
           icon={Euro}
@@ -452,7 +446,6 @@ const RoomPowerSensors = () => {
           subtext="Based on energy price"
           highlight
           color="var(--chart-success-color)"
-          sparklineData={energyHistoryStorage.getSparklineData('dailyCost')}
           trend={costTrend?.direction}
           trendValue={costTrend?.value}
         />

@@ -12,7 +12,6 @@ const EnergySummaryCard = ({
   highlight = false,
   trend = null,
   trendValue = null,
-  sparklineData = [],
   color = 'var(--primary-accent)'
 }) => {
   const getTrendIcon = () => {
@@ -51,32 +50,6 @@ const EnergySummaryCard = ({
         </ValueContainer>
         {subtext && <Subtext>{subtext}</Subtext>}
       </CardContent>
-
-      {sparklineData.length > 0 && (
-        <SparklineContainer>
-          <svg width="100%" height="40" viewBox="0 0 100 40" preserveAspectRatio="none">
-            <defs>
-              <linearGradient id={`gradient-${label}`} x1="0%" y1="0%" x2="0%" y2="100%">
-                <stop offset="0%" stopColor={color} stopOpacity="0.3" />
-                <stop offset="100%" stopColor={color} stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            <path
-              d={generateSparklinePath(sparklineData)}
-              fill={`url(#gradient-${label})`}
-              stroke="none"
-            />
-            <path
-              d={generateSparklinePath(sparklineData)}
-              fill="none"
-              stroke={color}
-              strokeWidth="2"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-            />
-          </svg>
-        </SparklineContainer>
-      )}
     </Card>
   );
 };
@@ -90,29 +63,7 @@ EnergySummaryCard.propTypes = {
   highlight: PropTypes.bool,
   trend: PropTypes.oneOf(['up', 'down', 'neutral']),
   trendValue: PropTypes.string,
-  sparklineData: PropTypes.array,
   color: PropTypes.string,
-};
-
-const generateSparklinePath = (data) => {
-  if (!data || data.length === 0) return '';
-  
-  const width = 100;
-  const height = 40;
-  const padding = 2;
-  
-  const max = Math.max(...data);
-  const min = Math.min(...data);
-  const range = max - min || 1;
-  
-  const points = data.map((value, index) => {
-    const x = (index / (data.length - 1)) * width;
-    const normalizedValue = (value - min) / range;
-    const y = height - padding - (normalizedValue * (height - 2 * padding));
-    return `${x},${y}`;
-  });
-  
-  return `M ${points.join(' L ')}`;
 };
 
 const Card = styled.div`
@@ -120,7 +71,7 @@ const Card = styled.div`
   display: flex;
   flex-direction: column;
   padding: 1.25rem;
-  min-height: 140px;
+  min-height: 120px;
   background: ${props => props.$highlight 
     ? 'linear-gradient(135deg, rgba(20, 184, 166, 0.15) 0%, rgba(96, 165, 250, 0.1) 100%)' 
     : 'var(--glass-bg-secondary)'
@@ -155,7 +106,7 @@ const Card = styled.div`
 
   @media (max-width: 768px) {
     padding: 1rem;
-    min-height: 120px;
+    min-height: 100px;
     &:hover {
       transform: translateY(-2px);
     }
@@ -197,7 +148,6 @@ const CardContent = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.25rem;
-  z-index: 1;
 `;
 
 const Label = styled.span`
@@ -235,16 +185,6 @@ const Subtext = styled.span`
   font-size: 0.7rem;
   color: var(--second-text-color);
   margin-top: 0.25rem;
-`;
-
-const SparklineContainer = styled.div`
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  height: 40px;
-  pointer-events: none;
-  z-index: 0;
 `;
 
 export default EnergySummaryCard;
