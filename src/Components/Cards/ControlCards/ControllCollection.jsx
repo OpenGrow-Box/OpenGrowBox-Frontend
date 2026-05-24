@@ -874,7 +874,9 @@ const ControllCollection = ({ option }) => {
           ? lowerKey.includes(currentRoom.toLowerCase())
           : true;
         
-        const result = matchesInclude && !matchesExclude && roomMatches;
+        const objectId = key.split('.')[1] || '';
+        const isOGB = objectId.toLowerCase().startsWith('ogb_');
+        const result = matchesInclude && !matchesExclude && roomMatches && isOGB;
         return result;
       })
       .map(([key, entity]) => {
