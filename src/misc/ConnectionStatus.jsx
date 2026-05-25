@@ -59,9 +59,9 @@ const ConnectionStatus = () => {
 // Styled components
 const StatusContainer = styled.div`
   position: fixed;
-  bottom: 20px;
+  top: 80px;
   right: 20px;
-  z-index: -1;
+  z-index: 9999;
   max-width: 400px;
 `;
 

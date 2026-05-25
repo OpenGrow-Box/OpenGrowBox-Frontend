@@ -57,6 +57,19 @@ const Interface = () => {
     checkToken();
   }, []);
 
+  // Re-check token when auth error occurs (token was deleted)
+  useEffect(() => {
+    if (connectionState === 'auth_error') {
+      const localToken =
+        SecureTokenStorage.getToken() ||
+        localStorage.getItem('haToken') ||
+        localStorage.getItem('devToken');
+      if (!isValidToken(localToken)) {
+        setToken('');
+      }
+    }
+  }, [connectionState]);
+
   useEffect(() => {
     if (!isLoading) {
       // If configuration is invalid, show setup page

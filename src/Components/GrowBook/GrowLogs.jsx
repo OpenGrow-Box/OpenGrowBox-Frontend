@@ -11,7 +11,7 @@ import {
   FaCheckCircle, FaTimesCircle, FaExclamationTriangle, FaQuestionCircle,
   FaThermometerHalf, FaMoon, FaWater, FaSync, FaExclamationCircle,
   FaFlask, FaCog, FaPlug, FaBolt, FaClock, FaSpinner, FaLeaf, FaStickyNote, FaSearch,
-  FaBullseye, FaChartBar, FaFan
+  FaBullseye, FaChartBar, FaFan, FaShieldAlt
 } from "react-icons/fa";
 import { LuHeater } from "react-icons/lu";
 import { GiIceCube, GiSunset, GiSunrise, GiSun, GiMoon } from "react-icons/gi";
@@ -75,8 +75,15 @@ const getLogType = (data) => {
   if (["PID", "MPC", "AI"].includes((entry.controllerType || '').toUpperCase())) return 'pid-controller';
   if (entry.controllerType === "MPC") return 'pid-controller';
   if (entry.medium === true) return 'medium-stats';
+  if (entry.isNightMode === true) return 'night-mode';
   if (entry.NightVPDHold !== undefined) return 'night-vpd';
 
+  // Auth / System logs
+  if (msg.includes('successfully logged in') || msg.includes('welcome to ogb')) return 'auth-success';
+  
+  // Missing devices logs
+  if (msg.includes('missing devices') || msg.includes('missing device')) return 'missing-devices';
+  
   if (msg.includes('vpd')) return 'vpd';
   if (msg.includes('humidity')) return 'humidity';
   if (msg.includes('temperature')) return 'temperature';
@@ -494,6 +501,123 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
     return null;
   };
 
+  // Format Night Mode data with actions and sensor readings
+  const formatNightModeData = (data) => {
+    if (data.isNightMode !== true) return null;
+
+    const roomName = data.Name || 'Unknown Room';
+    const message = data.message || 'Night Mode Active';
+    const actionCount = data.actionCount || 0;
+    const blockedActions = data.blockedActions || 0;
+
+    // Parse actions string like "canExhaust:Increase, canVentilate:Increase"
+    let actionList = [];
+    if (data.actions) {
+      actionList = data.actions.split(',').map(a => a.trim()).filter(Boolean);
+    }
+
+    return (
+      <NightModeContainer>
+        <NightModeHeader>
+          <NightModeIcon><GiMoon size={24} /></NightModeIcon>
+          <NightModeInfo>
+            <NightModeTitle>Night Mode</NightModeTitle>
+            <NightModeRoom>{roomName}</NightModeRoom>
+          </NightModeInfo>
+          <NightModeBadge>
+            <FaMoon size={14} />
+            Active
+          </NightModeBadge>
+        </NightModeHeader>
+
+        <NightModeMessage>{message}</NightModeMessage>
+
+        {/* Sensor Readings */}
+        <NightModeMetrics>
+          {data.tempCurrent !== undefined && (
+            <NightModeMetric>
+              <NightModeMetricIcon><FaThermometerHalf size={16} /></NightModeMetricIcon>
+              <NightModeMetricLabel>Temp</NightModeMetricLabel>
+              <NightModeMetricValue>{data.tempCurrent.toFixed(2)}°C</NightModeMetricValue>
+              {data.tempTarget !== undefined && (
+                <NightModeMetricTarget>Target: {data.tempTarget}°C</NightModeMetricTarget>
+              )}
+            </NightModeMetric>
+          )}
+          {data.humCurrent !== undefined && (
+            <NightModeMetric>
+              <NightModeMetricIcon><WiHumidity size={16} /></NightModeMetricIcon>
+              <NightModeMetricLabel>Humidity</NightModeMetricLabel>
+              <NightModeMetricValue>{data.humCurrent.toFixed(2)}%</NightModeMetricValue>
+              {data.humTarget !== undefined && (
+                <NightModeMetricTarget>Target: {data.humTarget}%</NightModeMetricTarget>
+              )}
+            </NightModeMetric>
+          )}
+          {data.vpdCurrent !== undefined && (
+            <NightModeMetric>
+              <NightModeMetricIcon><WiWindy size={16} /></NightModeMetricIcon>
+              <NightModeMetricLabel>VPD</NightModeMetricLabel>
+              <NightModeMetricValue>{data.vpdCurrent.toFixed(2)} kPa</NightModeMetricValue>
+            </NightModeMetric>
+          )}
+          {data.co2Current !== undefined && data.co2Current !== null && (
+            <NightModeMetric>
+              <NightModeMetricIcon><MdCloud size={16} /></NightModeMetricIcon>
+              <NightModeMetricLabel>CO2</NightModeMetricLabel>
+              <NightModeMetricValue>{data.co2Current} ppm</NightModeMetricValue>
+            </NightModeMetric>
+          )}
+        </NightModeMetrics>
+
+        {/* Actions */}
+        {actionList.length > 0 && (
+          <NightModeActions>
+            <NightModeActionsTitle>{actionCount} Action{actionCount !== 1 ? 's' : ''}</NightModeActionsTitle>
+            <NightModeActionsList>
+              {actionList.map((action, idx) => {
+                const [device, direction] = action.split(':');
+                const deviceName = device?.replace('can', '').toLowerCase() || 'device';
+                
+                const getActionIcon = (name) => {
+                  if (name.includes('exhaust') || name.includes('out') || name.includes('fan')) return <FaFan size={14} />;
+                  if (name.includes('intake') || name.includes('in')) return <MdWindPower size={14} />;
+                  if (name.includes('ventilate') || name.includes('vent')) return <WiWindy size={16} />;
+                  if (name.includes('humidif') && !name.includes('de')) return <WiHumidity size={16} />;
+                  if (name.includes('dehumidif')) return <MdCloud size={14} />;
+                  if (name.includes('heat') || name.includes('warm')) return <LuHeater size={14} />;
+                  if (name.includes('cool') || name.includes('ac')) return <GiIceCube size={14} />;
+                  if (name.includes('light') || name.includes('led')) return <MdLightbulb size={14} />;
+                  return <MdTune size={14} />;
+                };
+                
+                return (
+                  <NightModeActionItem key={idx} direction={direction}>
+                    <NightModeActionDevice>
+                      {getActionIcon(deviceName)}
+                      <span>{device.replace('can', '')}</span>
+                    </NightModeActionDevice>
+                    <NightModeActionDirection direction={direction}>
+                      {direction || 'N/A'}
+                    </NightModeActionDirection>
+                  </NightModeActionItem>
+                );
+              })}
+            </NightModeActionsList>
+          </NightModeActions>
+        )}
+
+        {/* Blocked actions warning */}
+        {blockedActions > 0 && (
+          <NightModeBlocked>
+            <FaExclamationTriangle size={16} />
+            {blockedActions} blocked action{blockedActions !== 1 ? 's' : ''}
+          </NightModeBlocked>
+        )}
+      </NightModeContainer>
+    );
+  };
+
   // Format VPD Night Hold Actions with enhanced design
   const formatNightVPDData = (data) => {
     if (data.NightVPDHold !== undefined) {
@@ -543,6 +667,105 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
       );
     }
     return null;
+  };
+
+  // Format Missing Devices for Action
+  const formatMissingDevicesData = (data) => {
+    const msg = (data?.Message || data?.message || '').toLowerCase();
+    if (!msg.includes('missing devices') && !msg.includes('missing device')) return null;
+
+    const roomName = data.Name || data.name || data.room || 'Unknown Room';
+    const message = data.Message || data.message || 'Missing devices for action';
+
+    return (
+      <MissingDevicesContainer>
+        <MissingDevicesHeader>
+          <MissingDevicesIconWrapper>
+            <FaExclamationTriangle size={28} />
+            <MissingDevicesPulse />
+          </MissingDevicesIconWrapper>
+          <MissingDevicesInfo>
+            <MissingDevicesTitle>Missing Devices</MissingDevicesTitle>
+            <MissingDevicesRoom>{roomName}</MissingDevicesRoom>
+          </MissingDevicesInfo>
+          <MissingDevicesStatusBadge>
+            <FaExclamationCircle size={14} />
+            Action Required
+          </MissingDevicesStatusBadge>
+        </MissingDevicesHeader>
+
+        <MissingDevicesMessage>
+          <MissingDevicesMessageIcon>
+            <FaCog size={18} />
+          </MissingDevicesMessageIcon>
+          <MissingDevicesMessageText>
+            {message}
+          </MissingDevicesMessageText>
+        </MissingDevicesMessage>
+
+        <MissingDevicesHint>
+          <MissingDevicesHintIcon>
+            <FaPlug size={14} />
+          </MissingDevicesHintIcon>
+          <MissingDevicesHintText>
+            Please check your device configuration in Home Assistant and ensure all required devices are properly assigned to this room.
+          </MissingDevicesHintText>
+        </MissingDevicesHint>
+      </MissingDevicesContainer>
+    );
+  };
+
+  // Format Auth Success Log
+  const formatAuthSuccessData = (data) => {
+    const msg = (data?.Message || data?.message || '').toLowerCase();
+    if (!msg.includes('successfully logged in') && !msg.includes('welcome to ogb')) return null;
+
+    const message = data.Message || data.message || 'Successfully logged in';
+    const timestamp = data.timestamp || new Date().toISOString();
+
+    return (
+      <AuthSuccessContainer>
+        <AuthSuccessHeader>
+          <AuthSuccessIcon>
+            <FaCheckCircle size={28} />
+          </AuthSuccessIcon>
+          <AuthSuccessInfo>
+            <AuthSuccessTitle>Welcome Back</AuthSuccessTitle>
+            <AuthSuccessSubtitle>Authentication Successful</AuthSuccessSubtitle>
+          </AuthSuccessInfo>
+          <AuthSuccessBadge>
+            <FaCheck size={14} />
+            Active
+          </AuthSuccessBadge>
+        </AuthSuccessHeader>
+
+        <AuthSuccessMessage>
+          <AuthSuccessMessageIcon>
+            <FaShieldAlt size={18} />
+          </AuthSuccessMessageIcon>
+          <AuthSuccessMessageText>
+            {message}
+          </AuthSuccessMessageText>
+        </AuthSuccessMessage>
+
+        <AuthSuccessDetails>
+          <AuthSuccessDetailItem>
+            <AuthSuccessDetailLabel>Status</AuthSuccessDetailLabel>
+            <AuthSuccessDetailValue>Authenticated</AuthSuccessDetailValue>
+          </AuthSuccessDetailItem>
+          <AuthSuccessDetailItem>
+            <AuthSuccessDetailLabel>Session</AuthSuccessDetailLabel>
+            <AuthSuccessDetailValue>Valid</AuthSuccessDetailValue>
+          </AuthSuccessDetailItem>
+          {timestamp && (
+            <AuthSuccessDetailItem>
+              <AuthSuccessDetailLabel>Time</AuthSuccessDetailLabel>
+              <AuthSuccessDetailValue>{new Date(timestamp).toLocaleTimeString()}</AuthSuccessDetailValue>
+            </AuthSuccessDetailItem>
+          )}
+        </AuthSuccessDetails>
+      </AuthSuccessContainer>
+    );
   };
 
   // Get device icon based on device type
@@ -1791,7 +2014,10 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
    const actionData = formatActionData(parsedInfo);
    const deviceData = formatDeviceAction(parsedInfo);
    const deviationData = formatDeviationData(parsedInfo);
-   const nightVPDData = formatNightVPDData(parsedInfo);
+    const nightModeData = formatNightModeData(parsedInfo);
+    const nightVPDData = formatNightVPDData(parsedInfo);
+    const missingDevicesData = formatMissingDevicesData(parsedInfo);
+    const authSuccessData = formatAuthSuccessData(parsedInfo);
    const mediumData = formatMediumData(parsedInfo);
    const castData = formatCastData(parsedInfo);
    const plantWateringData = formatPlantWateringData(parsedInfo);
@@ -1821,7 +2047,10 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
         {sensorData && sensorData}
         {actionData && actionData}
         {deviceData && deviceData}
+        {nightModeData && nightModeData}
         {nightVPDData && nightVPDData}
+        {missingDevicesData && missingDevicesData}
+        {authSuccessData && authSuccessData}
         {deviationData && deviationData}
         {mediumData && mediumData}
         {castData && castData}
@@ -1835,7 +2064,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
          {plantConfigData && plantConfigData}
          {reservoirData && reservoirData}
          {co2Data && co2Data}
-         {!sensorData && !actionData && !deviceData && !deviationData && !nightVPDData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && !co2Data && (
+         {!sensorData && !actionData && !deviceData && !deviationData && !nightModeData && !nightVPDData && !missingDevicesData && !authSuccessData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && !co2Data && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -2048,10 +2277,13 @@ const GrowLogs = () => {
             <option value="pid-controller">PID Controller</option>
             <option value="medium-stats">Medium Stats</option>
             <option value="night-vpd">Night VPD</option>
+            <option value="night-mode">Night Mode</option>
             <option value="plant-config">Plant Config</option>
             <option value="reservoir">Reservoir</option>
             <option value="co2-safety">CO2 Safety</option>
             <option value="emergency">Emergency</option>
+            <option value="missing-devices">Missing Devices</option>
+            <option value="auth-success">Auth Success</option>
           </FilterSelect>
         </SearchContainer>
         <LogCount>
@@ -2167,10 +2399,13 @@ const getLogTypeIcon = (logType) => {
     case 'pid-controller': return <MdTune />;
     case 'medium-stats': return <FaLeaf />;
     case 'night-vpd': return <GiMoon />;
+    case 'night-mode': return <GiMoon />;
     case 'plant-config': return <FaSeedling />;
     case 'reservoir': return <FaWater />;
     case 'co2-safety': return <MdCloud />;
     case 'emergency': return <FaExclamationTriangle />;
+    case 'missing-devices': return <FaExclamationTriangle />;
+    case 'auth-success': return <FaCheckCircle />;
     default: return <FaStickyNote />;
   }
 };
@@ -2182,6 +2417,16 @@ const getLogPreview = (parsedInfo) => {
   if (parsedInfo.Message) return parsedInfo.Message;
   if (parsedInfo.message) return parsedInfo.message;
   
+  // Night Mode
+  if (parsedInfo.isNightMode === true) return parsedInfo.message || 'Night Mode';
+
+  // Missing Devices
+  const msg = (parsedInfo.Message || parsedInfo.message || '').toLowerCase();
+  if (msg.includes('missing devices') || msg.includes('missing device')) return 'Missing Devices';
+
+  // Auth Success
+  if (msg.includes('successfully logged in') || msg.includes('welcome to ogb')) return 'Welcome to OGB Premium';
+
   // Night VPD Hold
   if (parsedInfo.NightVPDHold !== undefined) return 'Night VPD Hold';
   
@@ -2417,11 +2662,14 @@ const LogItemContainer = styled.div`
       case 'vpd-deadband': return 'linear-gradient(135deg, rgba(255, 193, 7, 0.1) 0%, rgba(255, 152, 0, 0.1) 100%)';
       case 'vpd': return 'linear-gradient(135deg, rgba(131, 58, 180, 0.1) 0%, rgba(253, 29, 29, 0.1) 100%)';
       case 'night-vpd': return 'linear-gradient(135deg, rgba(44, 62, 80, 0.1) 0%, rgba(52, 152, 219, 0.1) 100%)'; 
+      case 'night-mode': return 'linear-gradient(135deg, rgba(25, 25, 112, 0.2) 0%, rgba(72, 61, 139, 0.2) 100%)'; 
       case 'humidity': return 'linear-gradient(135deg, rgba(45, 134, 255, 0.1) 0%, rgba(45, 253, 159, 0.1) 100%)';
       case 'temperature': return 'linear-gradient(135deg, rgba(255, 94, 77, 0.1) 0%, rgba(255, 203, 95, 0.1) 100%)';
       case 'plant-config': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)';
       case 'reservoir': return 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)';
       case 'co2-safety': return 'linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(107, 114, 128, 0.1) 100%)';
+      case 'missing-devices': return 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%)';
+      case 'auth-success': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%)';
       default: return 'rgba(255, 255, 255, 0.05)';
     }
   }};
@@ -5994,4 +6242,481 @@ export const CO2DetailValue = styled.div`
   font-size: 1rem;
   font-weight: 600;
 `;
+
+// Night Mode Styled Components
+export const NightModeContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: linear-gradient(135deg, rgba(25, 25, 112, 0.2) 0%, rgba(72, 61, 139, 0.2) 100%);
+  border: 1px solid rgba(100, 149, 237, 0.3);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #191970, #483D8B, #6495ED);
+  }
+`;
+
+export const NightModeHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+export const NightModeIcon = styled.div`
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #191970 0%, #483D8B 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(25, 25, 112, 0.4);
+`;
+
+export const NightModeInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+export const NightModeTitle = styled.h3`
+  margin: 0;
+  color: #6495ED;
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+export const NightModeRoom = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+export const NightModeBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(100, 149, 237, 0.2);
+  border: 1px solid rgba(100, 149, 237, 0.4);
+  color: #6495ED;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+`;
+
+export const NightModeMessage = styled.div`
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.95rem;
+  font-weight: 500;
+  padding: 0.75rem;
+  background: rgba(0, 0, 0, 0.2);
+  border-radius: 8px;
+  border-left: 3px solid #6495ED;
+`;
+
+export const NightModeMetrics = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+`;
+
+export const NightModeMetric = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(100, 149, 237, 0.2);
+`;
+
+export const NightModeMetricIcon = styled.div`
+  color: #6495ED;
+  font-size: 1.1rem;
+`;
+
+export const NightModeMetricLabel = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+`;
+
+export const NightModeMetricValue = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 1rem;
+  font-weight: 600;
+`;
+
+export const NightModeMetricTarget = styled.div`
+  color: rgba(100, 149, 237, 0.8);
+  font-size: 0.8rem;
+  font-weight: 500;
+`;
+
+export const NightModeActions = styled.div`
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const NightModeActionsTitle = styled.div`
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: rgba(255, 255, 255, 0.8);
+  margin-bottom: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+export const NightModeActionsList = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+`;
+
+export const NightModeActionItem = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0.5rem 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+`;
+
+export const NightModeActionDevice = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  color: rgba(255, 255, 255, 0.85);
+  font-size: 0.9rem;
+  font-weight: 500;
+  text-transform: capitalize;
+`;
+
+export const NightModeActionDirection = styled.div`
+  font-size: 0.85rem;
+  font-weight: 600;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  background: ${props => {
+    switch(props.direction?.toLowerCase()) {
+      case 'increase': return 'linear-gradient(135deg, #1a8a7d 0%, #0e6655 100%)';
+      case 'decrease': return 'linear-gradient(135deg, #c0392b 0%, #962d22 100%)';
+      case 'reduce': return 'linear-gradient(135deg, #c0392b 0%, #962d22 100%)';
+      case 'maintain': return 'linear-gradient(135deg, #2980b9 0%, #1a5276 100%)';
+      default: return 'linear-gradient(135deg, #5b4b9e 0%, #4a3d7a 100%)';
+    }
+  }};
+  color: white;
+`;
+
+export const NightModeBlocked = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem;
+  background: rgba(245, 158, 11, 0.15);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 8px;
+  color: #f59e0b;
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+// Missing Devices Styled Components
+export const MissingDevicesContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f59e0b, #d97706, #b45309);
+  }
+`;
+
+export const MissingDevicesHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+export const MissingDevicesIconWrapper = styled.div`
+  position: relative;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+`;
+
+export const MissingDevicesPulse = styled.div`
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 50%;
+  border: 2px solid rgba(245, 158, 11, 0.6);
+  animation: missingDevicesPulse 2s ease-out infinite;
+
+  @keyframes missingDevicesPulse {
+    0% {
+      transform: scale(1);
+      opacity: 1;
+    }
+    100% {
+      transform: scale(1.5);
+      opacity: 0;
+    }
+  }
+`;
+
+export const MissingDevicesInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+export const MissingDevicesTitle = styled.h3`
+  margin: 0;
+  color: #f59e0b;
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+export const MissingDevicesRoom = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+export const MissingDevicesStatusBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  background: rgba(245, 158, 11, 0.2);
+  border: 1px solid rgba(245, 158, 11, 0.4);
+  color: #f59e0b;
+  padding: 0.4rem 0.75rem;
+  border-radius: 20px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+`;
+
+export const MissingDevicesMessage = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(245, 158, 11, 0.1);
+  border: 1px solid rgba(245, 158, 11, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+`;
+
+export const MissingDevicesMessageIcon = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(245, 158, 11, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #f59e0b;
+  flex-shrink: 0;
+`;
+
+export const MissingDevicesMessageText = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  font-weight: 500;
+`;
+
+export const MissingDevicesHint = styled.div`
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 6px;
+  padding: 0.6rem 0.75rem;
+`;
+
+export const MissingDevicesHintIcon = styled.div`
+  color: rgba(255, 255, 255, 0.5);
+  flex-shrink: 0;
+  margin-top: 2px;
+`;
+
+export const MissingDevicesHintText = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.8rem;
+  line-height: 1.4;
+`;
+
+// Auth Success Styled Components
+export const AuthSuccessContainer = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  background: linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 12px;
+  padding: 1rem;
+  position: relative;
+  overflow: hidden;
+
+  &::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #22c55e, #16a34a, #15803d);
+  }
+`;
+
+export const AuthSuccessHeader = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+`;
+
+export const AuthSuccessIcon = styled.div`
+  width: 45px;
+  height: 45px;
+  border-radius: 50%;
+  background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+`;
+
+export const AuthSuccessInfo = styled.div`
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+`;
+
+export const AuthSuccessTitle = styled.h3`
+  margin: 0;
+  color: #22c55e;
+  font-size: 1.1rem;
+  font-weight: 600;
+`;
+
+export const AuthSuccessSubtitle = styled.div`
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 0.85rem;
+  font-weight: 500;
+`;
+
+export const AuthSuccessBadge = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.5rem 1rem;
+  background: rgba(34, 197, 94, 0.2);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  color: #22c55e;
+  border-radius: 20px;
+  font-size: 0.85rem;
+  font-weight: 600;
+`;
+
+export const AuthSuccessMessage = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
+  border-radius: 8px;
+  padding: 0.75rem 1rem;
+`;
+
+export const AuthSuccessMessageIcon = styled.div`
+  width: 36px;
+  height: 36px;
+  border-radius: 8px;
+  background: rgba(34, 197, 94, 0.2);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #22c55e;
+  flex-shrink: 0;
+`;
+
+export const AuthSuccessMessageText = styled.div`
+  color: rgba(255, 255, 255, 0.9);
+  font-size: 0.95rem;
+  font-weight: 500;
+`;
+
+export const AuthSuccessDetails = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  gap: 0.75rem;
+`;
+
+export const AuthSuccessDetailItem = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+  padding: 0.75rem;
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  border: 1px solid rgba(34, 197, 94, 0.2);
+`;
+
+export const AuthSuccessDetailLabel = styled.div`
+  color: rgba(255, 255, 255, 0.6);
+  font-size: 0.75rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  font-weight: 500;
+`;
+
+export const AuthSuccessDetailValue = styled.div`
+  color: #22c55e;
+  font-size: 1rem;
+  font-weight: 600;
+`;
+
 

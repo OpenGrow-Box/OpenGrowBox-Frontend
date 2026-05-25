@@ -49,10 +49,6 @@ export const HomeAssistantProvider = ({ children }) => {
   const MAX_RECONNECT_ATTEMPTS = 5;
   const isManualConnectRef = useRef(false);
 
-  // State for unauthorized attempt tracking
-  const [unauthAttempts, setUnauthAttempts] = useState(0);
-  const MAX_UNAUTH_ATTEMPTS = 3;
-
   // Configuration
   const configuredServer = getDeep("Conf.hassServer") || localStorage.getItem('devServerUrl') || '';
   const getStoredToken = () => {
@@ -136,21 +132,6 @@ export const HomeAssistantProvider = ({ children }) => {
       }
     });
     connectionListenersRef.current = [];
-  };
-
-  // Detect unauthorized errors
-  const isUnauthorizedError = (error) => {
-    if (!error) return false;
-    const message = error.message?.toLowerCase() || '';
-    const code = error.code;
-    return (
-      message.includes('unauth') ||
-      message.includes('unauthorized') ||
-      message.includes('invalid token') ||
-      message.includes('authentication failed') ||
-      code === 401 ||
-      code === 403
-    );
   };
 
   // Send command with retry logic
@@ -354,14 +335,40 @@ export const HomeAssistantProvider = ({ children }) => {
           setupRetry: 0
         });
        } catch (err) {
-          // console.error("WebSocket connection failed:", err);
-         // Determine error type
-         if (err.message?.includes('401') || err.message?.includes('auth')) {
-           setConnectionState(CONNECTION_STATES.AUTH_ERROR);
-         } else {
-           setConnectionState(CONNECTION_STATES.NETWORK_ERROR);
-         }
-         throw err; // Re-throw to be caught by outer try/catch
+          const isAuth = 
+            err === 2 ||  // ERR_INVALID_AUTH from home-assistant-js-websocket
+            err === 'ERR_INVALID_AUTH' ||
+            (err?.message || '').toLowerCase().includes('auth') ||
+            (err?.message || '').toLowerCase().includes('token') ||
+            (err?.message || '').toLowerCase().includes('401') ||
+            (err?.message || '').toLowerCase().includes('unauthor') ||
+            (err?.message || '').toLowerCase().includes('invalid') ||
+            (err?.message || '').toLowerCase().includes('forbidden') ||
+            err?.code === 'auth_invalid' ||
+            err?.code === 'auth_required' ||
+            err?.code === 'auth_failed' ||
+            err?.code === 401 ||
+            err?.code === 403 ||
+            err?.type === 'auth_invalid' ||
+            err?.type === 'auth_required';
+          
+          if (isAuth) {
+            setConnectionState(CONNECTION_STATES.AUTH_ERROR);
+            setError('Invalid token. Redirecting to configuration...');
+            
+            // Clear invalid token
+            setDeep('Conf.haToken', null);
+            localStorage.removeItem('haToken');
+            localStorage.removeItem('devToken');
+            SecureTokenStorage.clearToken();
+            
+
+            
+            return; // Don't re-throw, don't reconnect
+          } else {
+            setConnectionState(CONNECTION_STATES.NETWORK_ERROR);
+            throw err; // Re-throw non-auth errors to outer catch
+          }
        }
 
       if (!isMountedRef.current) {
@@ -373,7 +380,6 @@ export const HomeAssistantProvider = ({ children }) => {
       // Reset reconnection attempts on successful connection
       connectAttemptRef.current = 0;
       retryDelayRef.current = 1000;
-      setUnauthAttempts(0); // Reset unauthorized attempts on successful connection
       isManualConnectRef.current = false; // Reset manual connect flag
 
       // Update connection state
@@ -397,39 +403,9 @@ export const HomeAssistantProvider = ({ children }) => {
     } catch (err) {
       if (!isMountedRef.current) return;
 
-      // console.error("Failed to connect to Home Assistant:", err);
-
-      // Handle unauthorized errors specially
-      if (isUnauthorizedError(err)) {
-        const newAttempts = unauthAttempts + 1;
-        setUnauthAttempts(newAttempts);
-
-        if (newAttempts >= MAX_UNAUTH_ATTEMPTS) {
-          // Clear invalid token and redirect to config
-          setDeep('Conf.haToken', null);
-          localStorage.removeItem('haToken');
-          localStorage.removeItem('devToken');
-          SecureTokenStorage.clearToken();
-
-          setError('Invalid token. Please re-enter your Home Assistant Long-Lived Access Token.');
-          // console.warn(`Maximum unauthorized attempts (${MAX_UNAUTH_ATTEMPTS}) reached. Redirecting to config.`);
-
-          // Redirect to config page
-          setTimeout(() => {
-            window.location.href = '/ogb-gui/config';
-          }, 2000); // Brief delay to show error message
-
-          return; // Don't attempt reconnection
-        } else {
-          setError(`Invalid token (attempt ${newAttempts}/${MAX_UNAUTH_ATTEMPTS}). Please check your token.`);
-          // Continue with normal reconnection for attempts 1-2
-          scheduleReconnect();
-        }
-      } else {
-        // Handle other connection errors normally
-        setError(err.message || "Connection failed");
-        scheduleReconnect();
-      }
+      // Handle remaining non-auth connection errors
+      setError(err.message || "Connection failed");
+      scheduleReconnect();
 
       // Close any partial connection
       if (wsConnectionRef.current) {
