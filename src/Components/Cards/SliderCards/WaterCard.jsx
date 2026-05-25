@@ -50,6 +50,11 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
 
     let combinedSensors = [...normalizedSensors, ...ogbOrpSensor];
 
+    // Remove duplicates by sensor id
+    combinedSensors = Array.from(
+      new Map(combinedSensors.map(s => [s.id, s])).values()
+    );
+
     if (filterByRoom && currentRoom) {
       combinedSensors = filterSensorsByRoom(combinedSensors, currentRoom);
     }
