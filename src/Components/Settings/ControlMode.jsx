@@ -768,7 +768,7 @@ const ControlMode = ({ onSelectChange }) => {
                 <InfoCard>
                   <InfoLabel>Weeks</InfoLabel>
                   <InfoValue>
-                    {(subscription.activeGrowPlan || subscription.active_grow_plan)?.elapsedWeeks ?? 0} /
+                    {((subscription.activeGrowPlan || subscription.active_grow_plan)?.elapsedWeeks ?? 0) + 1} /
                     {(subscription.activeGrowPlan || subscription.active_grow_plan)?.maxWeeks ?? 'N/A'}
                   </InfoValue>
                 </InfoCard>

@@ -342,7 +342,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
       return (
         <DeviceActionContainer>
           <DeviceHeader>
-            <DeviceIcon device={device} isLight={isLightDevice}>
+            <DeviceIcon $device={device} $isLight={isLightDevice}>
               {getDeviceIcon(device)}
             </DeviceIcon>
             <DeviceInfo>
@@ -352,11 +352,11 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
           </DeviceHeader>
           
           <DeviceDetails>
-            <ActionBadge action={action}>{action}</ActionBadge>
+            <ActionBadge $action={action}>{action}</ActionBadge>
 
             {/* Power Status */}
             {cycle !== undefined && (
-              <StatusBadge cycle={cycle} isLight={isLightDevice} isPump={isPumpDevice}>
+              <StatusBadge $cycle={cycle} $isLight={isLightDevice} $isPump={isPumpDevice}>
                 <StatusIcon>
                   <StatusIndicatorIcon status={cycle === true ? 'optimal' : 'critical'} size={14} />
                 </StatusIcon>
@@ -839,7 +839,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
             {data.controlCommands.map((action, index) => (
               <PIDActionItem key={index} priority={action.priority}>
                 <PIDActionHeader>
-                  <DeviceIcon device={action.device}>
+                  <DeviceIcon $device={action.device}>
                     {getDeviceIcon(action.device)}
                   </DeviceIcon>
                   <PIDActionInfo>
@@ -877,13 +877,13 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
             <ActionGrid>
               {actions.map((action, index) => (
               <ActionItem key={index}>
-              <ActionBadge action={action.action}>
+              <ActionBadge $action={action.action}>
                 {action.action}
-                <ActionPriority priority={action.priority}>Prio: {action.priority}</ActionPriority>
+                <ActionPriority $priority={action.priority}>Prio: {action.priority}</ActionPriority>
               </ActionBadge>
 
                 <ActionCapability>{action.capability}</ActionCapability>
-                <DeviceIcon device={action.capability}>
+                <DeviceIcon $device={action.capability}>
                   {getDeviceIcon(action.capability)}
                 </DeviceIcon>
            
@@ -900,7 +900,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
     if (data.action) {
       return (
         <SingleActionContainer>
-          <ActionBadge action={data.action}>{data.action}</ActionBadge>
+          <ActionBadge $action={data.action}>{data.action}</ActionBadge>
           <ActionDetail>{data.capability}</ActionDetail>
         </SingleActionContainer>
       );
@@ -940,10 +940,10 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
 
           <DeviationGrid>
             {tempDeviation !== undefined && (
-              <DeviationCard status={getDeviationStatus(tempDeviation)}>
+              <DeviationCard $status={getDeviationStatus(tempDeviation)}>
                 <DeviationInfo>
                   <DeviationLabel>Temperature</DeviationLabel>
-                  <DeviationValue status={getDeviationStatus(tempDeviation)}>
+                  <DeviationValue $status={getDeviationStatus(tempDeviation)}>
                     {formatDeviationValue(tempDeviation, '°C')}
                   </DeviationValue>
                   <div className="DeviationStatus" data-status={getDeviationStatus(tempDeviation)}>
@@ -959,10 +959,10 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
             )}
 
             {humDeviation !== undefined && (
-              <DeviationCard status={getDeviationStatus(humDeviation)}>
+              <DeviationCard $status={getDeviationStatus(humDeviation)}>
                 <DeviationInfo>
                   <DeviationLabel>Humidity</DeviationLabel>
-                  <DeviationValue status={getDeviationStatus(humDeviation)}>
+                  <DeviationValue $status={getDeviationStatus(humDeviation)}>
                     {formatDeviationValue(humDeviation, '%')}
                   </DeviationValue>
                   <div className="DeviationStatus" data-status={getDeviationStatus(humDeviation)}>
@@ -1126,27 +1126,27 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
           )}
         </DeviationHeader>
         <DeviationGrid>
-          <DeviationCard status={data?.vpdDeviation > 0.1 ? "warning" : "optimal"}>
+          <DeviationCard $status={data?.vpdDeviation > 0.1 ? "warning" : "optimal"}>
             <DeviationInfo>
               <DeviationLabel>Current VPD</DeviationLabel>
-              <DeviationValue status={data?.vpdDeviation > 0.1 ? "warning" : "optimal"}>
+              <DeviationValue $status={data?.vpdDeviation > 0.1 ? "warning" : "optimal"}>
                 {safeValue(data?.currentVPD ?? data?.vpdCurrent, ' kPa')}
               </DeviationValue>
             </DeviationInfo>
           </DeviationCard>
-          <DeviationCard status="optimal">
+          <DeviationCard $status="optimal">
             <DeviationInfo>
               <DeviationLabel>Target VPD</DeviationLabel>
-              <DeviationValue status="optimal">
+              <DeviationValue $status="optimal">
                 {safeValue(data?.targetVPD ?? data?.vpdTarget, ' kPa')}
               </DeviationValue>
             </DeviationInfo>
           </DeviationCard>
           {data?.vpdDeviation !== undefined && (
-            <DeviationCard status={Math.abs(data?.vpdDeviation) > 0.1 ? "warning" : "optimal"}>
+            <DeviationCard $status={Math.abs(data?.vpdDeviation) > 0.1 ? "warning" : "optimal"}>
               <DeviationInfo>
                 <DeviationLabel>Deviation</DeviationLabel>
-                <DeviationValue status={Math.abs(data?.vpdDeviation) > 0.1 ? "warning" : "optimal"}>
+                <DeviationValue $status={Math.abs(data?.vpdDeviation) > 0.1 ? "warning" : "optimal"}>
                   {data?.vpdDeviation > 0 ? '+' : ''}{safeValue(data?.vpdDeviation, ' kPa')}
                 </DeviationValue>
               </DeviationInfo>
@@ -1209,7 +1209,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
                       {device.replace('can', '').replace(/([A-Z])/g, ' $1').trim()}
                     </CooldownDevice>
                     <CooldownTime>{remainingText}</CooldownTime>
-                    <CooldownStatus blocked={info.is_blocked}>
+                    <CooldownStatus $blocked={info.is_blocked}>
                       {info.is_blocked ? 'Blocked' : 'Waiting'}
                     </CooldownStatus>
                   </CooldownItem>
@@ -2774,9 +2774,9 @@ const DeviceIcon = styled.div`
   height: 50px;
   border-radius: 50%;
   background: ${props => {
-    const device = props.device?.toLowerCase() || '';
+    const device = props.$device?.toLowerCase() || '';
     if (device.includes('light') || device.includes('led')) {
-      return props.isLight 
+      return props.$isLight 
         ? 'linear-gradient(135deg, #ffd700 0%, #ff8c00 100%)'
         : 'linear-gradient(135deg, #696969 0%, #404040 100%)';
     }
@@ -2810,7 +2810,7 @@ const DeviceIcon = styled.div`
   align-items: center;
   justify-content: center;
   font-size: 1.5rem;
-  box-shadow: ${props => props.isLight 
+  box-shadow: ${props => props.$isLight 
     ? '0 4px 15px rgba(255, 215, 0, 0.3), 0 0 20px rgba(255, 215, 0, 0.1)'
     : '0 4px 15px rgba(0, 0, 0, 0.1)'
   };
@@ -2818,7 +2818,7 @@ const DeviceIcon = styled.div`
   
   &:hover {
     transform: scale(1.05);
-    box-shadow: ${props => props.isLight 
+    box-shadow: ${props => props.$isLight 
       ? '0 6px 20px rgba(255, 215, 0, 0.4), 0 0 30px rgba(255, 215, 0, 0.2)'
       : '0 6px 20px rgba(0, 0, 0, 0.15)'
     };
@@ -2970,7 +2970,7 @@ const ActionBadge = styled.div`
   text-transform: uppercase;
   letter-spacing: 0.8px;
   background: ${props => {
-    switch(props.action?.toLowerCase()) {
+    switch(props.$action?.toLowerCase()) {
       case 'reduce': 
         return 'linear-gradient(135deg, #0d9448 0%, #0077b6 100%)'; // Dunkelgrün → Dunkelblau
       case 'increase': 
@@ -3040,16 +3040,16 @@ const DeviationItem = styled.div`
   align-items: center;
   padding: 0.75rem;
   background: ${props => 
-    props.deviation > 0 
+    props.$deviation > 0 
       ? 'rgba(255, 107, 107, 0.1)' 
-      : props.deviation < 0 
+      : props.$deviation < 0 
         ? 'rgba(74, 144, 226, 0.1)'
         : 'rgba(255, 255, 255, 0.05)'
   };
   border: 1px solid ${props => 
-    props.deviation > 0 
+    props.$deviation > 0 
       ? 'rgba(255, 107, 107, 0.3)' 
-      : props.deviation < 0 
+      : props.$deviation < 0 
         ? 'rgba(74, 144, 226, 0.3)'
         : 'rgba(255, 255, 255, 0.1)'
   };
@@ -3065,7 +3065,7 @@ const priorityColors = {
 
 const ActionPriority = styled.div`
   font-size: 0.6rem;
-  color: ${({ priority }) => priorityColors[priority] || "orange"};
+  color: ${({ $priority }) => priorityColors[$priority] || "orange"};
 `;
 
 const DeviationLabel = styled.div`
@@ -3298,24 +3298,24 @@ const StatusBadge = styled.div`
   gap: 0.5rem;
   padding: 0.75rem 1rem;
   background: ${props => {
-    if (props.isPump) {
-      return props.cycle
+    if (props.$isPump) {
+      return props.$cycle
         ? 'linear-gradient(135deg, rgba(78, 205, 196, 0.2) 0%, rgba(68, 160, 141, 0.2) 100%)'
         : 'linear-gradient(135deg, rgba(231, 76, 60, 0.1) 0%, rgba(192, 57, 43, 0.1) 100%)';
     }
-    if (props.isLight) {
-      return props.cycle
+    if (props.$isLight) {
+      return props.$cycle
         ? 'linear-gradient(135deg, rgba(255, 215, 0, 0.2) 0%, rgba(255, 165, 0, 0.2) 100%)'
         : 'linear-gradient(135deg, rgba(105, 105, 105, 0.2) 0%, rgba(64, 64, 64, 0.2) 100%)';
     }
     return 'rgba(255, 255, 255, 0.05)';
   }};
   border: 1px solid ${props => {
-    if (props.isPump) {
-      return props.cycle ? 'rgba(78, 205, 196, 0.3)' : 'rgba(231, 76, 60, 0.3)';
+    if (props.$isPump) {
+      return props.$cycle ? 'rgba(78, 205, 196, 0.3)' : 'rgba(231, 76, 60, 0.3)';
     }
-    if (props.isLight) {
-      return props.cycle ? 'rgba(255, 215, 0, 0.3)' : 'rgba(105, 105, 105, 0.3)';
+    if (props.$isLight) {
+      return props.$cycle ? 'rgba(255, 215, 0, 0.3)' : 'rgba(105, 105, 105, 0.3)';
     }
     return 'rgba(255, 255, 255, 0.1)';
   }};
@@ -3324,7 +3324,7 @@ const StatusBadge = styled.div`
   position: relative;
   overflow: hidden;
 
-  ${props => props.isPump && props.cycle && `
+  ${props => props.$isPump && props.$cycle && `
     &::before {
       content: '';
       position: absolute;
@@ -3352,7 +3352,7 @@ export const StatusBadgeHydro = styled.span`
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  color: ${props => props.active ? '#16a34a' : '#dc2626'};
+  color: ${props => props.$active ? '#16a34a' : '#dc2626'};
   font-weight: 600;
   
   &::before {
@@ -3360,8 +3360,8 @@ export const StatusBadgeHydro = styled.span`
     width: 8px;
     height: 8px;
     border-radius: 50%;
-    background: ${props => props.active ? '#16a34a' : '#dc2626'};
-    box-shadow: 0 0 10px ${props => props.active ? '#16a34a' : '#dc2626'};
+    background: ${props => props.$active ? '#16a34a' : '#dc2626'};
+    box-shadow: 0 0 10px ${props => props.$active ? '#16a34a' : '#dc2626'};
     animation: pulse 2s ease-in-out infinite;
   }
   
@@ -4516,7 +4516,7 @@ export const DeviationCard = styled.div`
   gap: 0.75rem;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid ${props => {
-    switch (props.status) {
+    switch (props.$status) {
       case 'optimal': return 'rgba(34, 197, 94, 0.3)';
       case 'warning': return 'rgba(245, 158, 11, 0.3)';
       case 'critical': return 'rgba(239, 68, 68, 0.3)';
@@ -6024,7 +6024,7 @@ export const CooldownStatus = styled.div`
   font-weight: 500;
   padding: 0.15rem 0.5rem;
   border-radius: 4px;
-  ${props => props.blocked 
+  ${props => props.$blocked 
     ? `
       background: rgba(239, 68, 68, 0.2);
       color: #ef4444;

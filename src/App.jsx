@@ -10,6 +10,8 @@ import { PlantStageProvider } from './Components/Context/PlantStageContext';
 
 import ErrorBoundary from '../src/misc/ErrorBoundary';
 import ConnectionStatus from '../src/misc/ConnectionStatus';
+// TODO: Re-enable when device discovery is fully working
+// import DeviceDiscoveryToast from './Components/Common/DeviceDiscoveryToast';
 import ThemeGlobalStyle from './Pages/ThemeGlobalStyle';
 
 
@@ -129,6 +131,8 @@ export default function App() {
                         </BackgroundContainer>
                         {/* Connection Status Notification */}
                         <ConnectionStatus />
+                        {/* TODO: Re-enable when device discovery is fully working */}
+                        {/* <DeviceDiscoveryToast /> */}
                         <MainContent>
                           <Suspense fallback={<PageLoader />}>
                             <AppRoutes />

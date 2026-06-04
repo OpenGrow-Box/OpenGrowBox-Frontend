@@ -114,7 +114,9 @@ const EnergyChart = ({
           symbol: 'circle',
           symbolSize: 6,
           showSymbol: false,
-          hoverAnimation: true,
+          emphasis: {
+            scale: true,
+          },
           itemStyle: {
             color: primaryColor,
           },
