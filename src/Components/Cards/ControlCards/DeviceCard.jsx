@@ -46,7 +46,8 @@ const updateDevices = () => {
             key.startsWith("fan.") ||
             key.startsWith("climate.") ||
             key.startsWith("humidifier.")) &&
-          !key.includes("template");
+          !key.includes("template") &&
+          !key.startsWith("switch.ogb_");
 
         // Hole die entity-Konfiguration aus HASS.entities
         const haEntity = HASS?.entities?.[key];

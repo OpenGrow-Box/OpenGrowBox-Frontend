@@ -652,7 +652,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_co2targetvalue_${currentRoom?.toLowerCase()}`]: 'Set target CO₂ value.',
 
     [`ogb_ownweights_${currentRoom?.toLowerCase()}`]: 'Enable to define custom temperature/humidity weights (e.g. 1:1.25 in late flower).',
-    [`ogb_minmax_control_${currentRoom?.toLowerCase()}`]: 'Enable to set custom min/max values for controllers.',
+    [`ogb_minmax_control_${currentRoom?.toLowerCase()}`]: 'Enable to set custom min/max values for TEMP/HUM controllers.',
     [`ogb_exhaust_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to set custom exhaust min/max values.',
     [`ogb_intake_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to set custom intake min/max values.',
     [`ogb_ventilation_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to set custom ventilation min/max values.',
