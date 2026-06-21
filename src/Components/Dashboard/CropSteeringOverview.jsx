@@ -389,12 +389,14 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       if (isNaN(value)) return;
       
       // Room matching - check if sensor belongs to current room
-      // Accept sensors with room name OR generic soil/medium sensors
+      const roomVariants = [roomLower, roomSlug];
+      if (roomLower.includes(' ')) {
+        roomVariants.push(roomLower.replace(/\s+/g, '_'));
+      } else if (roomLower.includes('_')) {
+        roomVariants.push(roomLower.replace(/_/g, ' '));
+      }
       const belongsToRoom = !roomLower || 
-        name.includes(roomLower) || 
-        name.includes(roomSlug) ||
-        keyLower.includes('soil') ||
-        keyLower.includes('medium');
+        roomVariants.some(r => r && name.includes(r));
       
       if (!belongsToRoom) return;
       

@@ -21,13 +21,13 @@ const DeviceCard = () => {
 const updateDevices = () => {
     const entitiesArray = Object.entries(entities);
     
-    const findNumberEntity = (switchKey) => {
-      const switchBase = switchKey.replace("switch.", "");
+    const findNumberEntity = (entityKey) => {
+      const base = entityKey.split(".").slice(1).join(".");
       const possibleNames = [
-        `${switchBase}_brightness`,
-        `${switchBase}_level`,
-        `${switchBase}_duty`,
-        `${switchBase}_intensity`,
+        `${base}_brightness`,
+        `${base}_level`,
+        `${base}_duty`,
+        `${base}_intensity`,
       ];
       for (const name of possibleNames) {
         const numberKey = `number.${name}`;
@@ -42,12 +42,14 @@ const updateDevices = () => {
       .filter(([key, entity]) => {
         const isRelevantType =
           (key.startsWith("switch.") ||
+            key.startsWith("select.") ||
             key.startsWith("light.") ||
             key.startsWith("fan.") ||
             key.startsWith("climate.") ||
             key.startsWith("humidifier.")) &&
           !key.includes("template") &&
-          !key.startsWith("switch.ogb_");
+          !key.startsWith("switch.ogb_") &&
+          !key.startsWith("select.ogb_");
 
         // Hole die entity-Konfiguration aus HASS.entities
         const haEntity = HASS?.entities?.[key];
@@ -77,7 +79,8 @@ const updateDevices = () => {
         
         const isClimateOn = domain === "climate" && entity.state !== "off" && entity.state !== "unavailable";
         const isHumidifierOn = domain === "humidifier" && entity.state === "on";
-        const isOn = entity.state === "on" || isClimateOn || isHumidifierOn;
+        const isSelectOn = domain === "select" && entity.state !== "off" && entity.state !== "unavailable" && entity.state !== "";
+        const isOn = entity.state === "on" || isClimateOn || isHumidifierOn || isSelectOn;
 
         let brightness = undefined;
         let duty = undefined;
@@ -90,7 +93,7 @@ const updateDevices = () => {
         if (domain === "fan" && entity.attributes?.percentage !== undefined) {
           duty = entity.attributes.percentage;
         }
-        if (domain === "switch") {
+        if (domain === "switch" || domain === "select") {
           const numberEntity = findNumberEntity(key);
           if (numberEntity) {
             isDimmable = true;
@@ -117,6 +120,7 @@ const updateDevices = () => {
           duty,
           isDimmable,
           dimNumberEntityId,
+          options: entity.attributes?.options || [],
           hvacMode:
             domain === "climate" 
               ? (entity.attributes?.hvac_mode || entity.state)
@@ -217,13 +221,24 @@ const updateDevices = () => {
 
   const toggleDevice = async (sensor) => {
     const domain = sensor.entity_id.split(".")[0];
-    const currentState = domain === "climate" ? sensor.originalState : sensor.state;
-    const newState = currentState === 'on' || (domain === "climate" && currentState !== 'off') ? 'off' : 'on';
-    
+
+    let confirmCurrent, confirmNext;
+
+    if (domain === "select") {
+      const isOff = !sensor.originalState || sensor.originalState.toLowerCase() === "off";
+      confirmCurrent = isOff ? "off" : "on";
+      confirmNext = isOff ? "on" : "off";
+    } else {
+      const currentState = domain === "climate" ? sensor.originalState : sensor.state;
+      const newState = currentState === 'on' || (domain === "climate" && currentState !== 'off') ? 'off' : 'on';
+      confirmCurrent = currentState === 'on' || (domain === "climate" && currentState !== 'off') ? 'on' : 'off';
+      confirmNext = newState === 'on' || (domain === "climate" && newState !== 'off') ? 'on' : 'off';
+    }
+
     const confirmed = await confirmChange(
       sensor.title,
-      currentState === 'on' || (domain === "climate" && currentState !== 'off') ? 'on' : 'off',
-      newState === 'on' || (domain === "climate" && newState !== 'off') ? 'on' : 'off'
+      confirmCurrent,
+      confirmNext
     );
 
     if (!confirmed) {
@@ -258,6 +273,21 @@ const updateDevices = () => {
             service_data: { entity_id: sensor.entity_id },
           });
         }
+      } else if (domain === "select") {
+        const isOff = !sensor.originalState || sensor.originalState.toLowerCase() === "off";
+        const options = sensor.options || [];
+        const targetOption = isOff
+          ? (options.find(o => o.toLowerCase() !== "off") || options[0] || "")
+          : "Off";
+        await sendCommand({
+          type: "call_service",
+          domain: "select",
+          service: "select_option",
+          service_data: {
+            entity_id: sensor.entity_id,
+            option: targetOption,
+          },
+        });
       } else {
         await sendCommand({
           type: "call_service",
@@ -550,6 +580,28 @@ const updateDevices = () => {
                 <ControlBox>
                   <ControlHeader>
                     <ControlLabel>{sensor.entity_id.includes("light") ? "Brightness" : "Level"}</ControlLabel>
+                    <ControlLabelValue>{localSliderValues[sensor.dimNumberEntityId] ?? (sensor.brightness ?? sensor.duty) ?? 0}%</ControlLabelValue>
+                  </ControlHeader>
+                  <ControlSliderWrapper>
+                    <ControlSlider
+                      type="range"
+                      min={0}
+                      max={100}
+                      step={1}
+                      value={localSliderValues[sensor.dimNumberEntityId] ?? sensor.brightness ?? sensor.duty ?? 0}
+                      onChange={(e) => handleSliderChange(sensor.dimNumberEntityId, e.target.value)}
+                      onMouseUp={(e) => handleDimmerCommit(sensor.dimNumberEntityId, e.target.value, sensor)}
+                      onTouchEnd={(e) => handleDimmerCommit(sensor.dimNumberEntityId, e.target.value, sensor)}
+                    />
+                  </ControlSliderWrapper>
+                </ControlBox>
+              )}
+
+              {/* DIMMABLE SELECT SLIDER */}
+              {sensor.domain === "select" && sensor.isDimmable && sensor.dimNumberEntityId && (
+                <ControlBox>
+                  <ControlHeader>
+                    <ControlLabel>Level</ControlLabel>
                     <ControlLabelValue>{localSliderValues[sensor.dimNumberEntityId] ?? (sensor.brightness ?? sensor.duty) ?? 0}%</ControlLabelValue>
                   </ControlHeader>
                   <ControlSliderWrapper>
