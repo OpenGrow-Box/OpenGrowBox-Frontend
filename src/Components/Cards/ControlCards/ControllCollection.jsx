@@ -262,6 +262,31 @@ const dynamicFilters = {
     }
   },
 
+  nightSet_control: {
+    selectEntity: 'ogb_nightset_control_',
+    activeInGroups: ['Targets'], 
+    conditions: {
+      'YES': {
+        includeKeywords: ["nightmintemp","nightmaxtemp","nightminhum","nightmaxhum","nightvpd"],
+        excludeKeywords: [],
+        additionalTooltips: {
+          'ogb_nightmintemp_': 'Minimum temperature target during night phase',
+          'ogb_nightmaxtemp_': 'Maximum temperature target during night phase',
+          'ogb_nightminhum_': 'Minimum humidity target during night phase',
+          'ogb_nightmaxhum_': 'Maximum humidity target during night phase',
+          'ogb_nightvpd_': 'VPD target used at night in VPD Target mode'
+        }
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ["nightmintemp","nightmaxtemp","nightminhum","nightmaxhum","nightvpd"],
+        additionalTooltips: {
+
+        }
+      }
+    }
+  },
+
   ventilation_control: {
     selectEntity: 'ogb_ventilation_minmax_',
     activeInGroups: ['Targets'],
@@ -554,7 +579,7 @@ const dynamicFilters = {
 const groupMappings = {
   'Main Control': {
     includeKeywords: ['vpd', 'plant', 'mode', 'leaf', 'ambient',],
-    excludeKeywords: ['proportional', 'derivativ', 'integral', 'light', 'food', 'days', 'hydro', 'Count', 'Borrow',"determination"],
+    excludeKeywords: ['proportional', 'derivativ', 'integral', 'light', 'food', 'days', 'hydro', 'Count', 'Borrow',"determination","nightvpd","nightmintemp","nightmaxtemp","nightminhum","nightmaxhum"],
   },
   'Lights': {
     includeKeywords: ['light', 'sun'],
@@ -577,8 +602,8 @@ const groupMappings = {
     excludeKeywords: ["mediumctrl",'determination'],
   },
   'Targets': {
-    includeKeywords: ['weight', 'min', 'max'],
-    excludeKeywords: ['co2', 'Light', 'crop',"moisture","soil","reservoir"],
+    includeKeywords: ['weight', 'min', 'max', 'nightset'],
+    excludeKeywords: ['co2', 'Light', 'crop',"moisture","soil","reservoir","nightmintemp","nightmaxtemp","nightminhum","nightmaxhum","nightvpd"],
   },
   'Drying': {
     includeKeywords: ['drying'],
@@ -607,6 +632,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_leaftemp_offset_${currentRoom?.toLowerCase()}`]: 'Override it with a Leaf Label device if needed.',
     [`ogb_vpdtarget_${currentRoom?.toLowerCase()}`]: 'Set your target VPD. Works only in "Targeted VPD" Tent Mode Use MinMax setters for temp and Hum as PlantStage change will overwrite it.',
     [`ogb_vpdtolerance_${currentRoom?.toLowerCase()}`]: 'Adjust tolerance between Targeted VPD and Perfect VPD.',
+    [`ogb_vpddeadband_${currentRoom?.toLowerCase()}`]: 'Set the deadband around the VPD target before corrections are triggered.',
 
     [`ogb_lightcontrol_${currentRoom?.toLowerCase()}`]: 'Enable to control lights via OpenGrowBox.',
     [`ogb_vpdlightcontrol_${currentRoom?.toLowerCase()}`]: 'If enabled, light intensity will shift between min/max to help regulate VPD.',
@@ -653,6 +679,12 @@ const ControllCollection = ({ option }) => {
 
     [`ogb_ownweights_${currentRoom?.toLowerCase()}`]: 'Enable to define custom temperature/humidity weights (e.g. 1:1.25 in late flower).',
     [`ogb_minmax_control_${currentRoom?.toLowerCase()}`]: 'Enable to set custom min/max values for TEMP/HUM controllers.',
+    [`ogb_nightset_control_${currentRoom?.toLowerCase()}`]: 'Enable to set custom night min/max values for TEMP/HUM and VPD target.',
+    [`ogb_nightmintemp_${currentRoom?.toLowerCase()}`]: 'Set custom minimum temperature during night. Requires Night Set Control enabled.',
+    [`ogb_nightmaxtemp_${currentRoom?.toLowerCase()}`]: 'Set custom maximum temperature during night. Requires Night Set Control enabled.',
+    [`ogb_nightminhum_${currentRoom?.toLowerCase()}`]: 'Set custom minimum humidity during night. Requires Night Set Control enabled.',
+    [`ogb_nightmaxhum_${currentRoom?.toLowerCase()}`]: 'Set custom maximum humidity during night. Requires Night Set Control enabled.',
+    [`ogb_nightvpd_${currentRoom?.toLowerCase()}`]: 'Set custom VPD target during night for VPD Target mode. Requires Night Set Control enabled.',
     [`ogb_exhaust_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to set custom exhaust min/max values.',
     [`ogb_intake_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to set custom intake min/max values.',
     [`ogb_ventilation_minmax_${currentRoom?.toLowerCase()}`]: 'Enable to set custom ventilation min/max values.',
@@ -847,7 +879,13 @@ const ControllCollection = ({ option }) => {
   ) => {
     // Combine static and dynamic keywords
     const allIncludeKeywords = [...includeKeywords, ...dynamicFilters.includeKeywords];
-    const allExcludeKeywords = [...excludeKeywords, ...dynamicFilters.excludeKeywords];
+    // Dynamic include keywords should override static exclude keywords
+    const effectiveExcludeKeywords = excludeKeywords.filter(
+      (keyword) => !dynamicFilters.includeKeywords.some(
+        (includeKeyword) => includeKeyword.toLowerCase() === keyword.toLowerCase()
+      )
+    );
+    const allExcludeKeywords = [...effectiveExcludeKeywords, ...dynamicFilters.excludeKeywords];
 
     return Object.entries(entities)
       .filter(([key]) => {
