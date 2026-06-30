@@ -68,14 +68,15 @@ const normalizePlantStages = (data) => {
         const temp = env.temperature?.optimal || [];
         const humidity = env.humidity?.optimal || [];
         const vpd = stage.vpdRange || stage.vpd?.optimal || env.vpd?.optimal || [];
+        const normalizedVpd = Array.isArray(vpd) ? vpd : (typeof vpd === 'string' ? vpd.split(',').map(v => parseFloat(v.trim())).filter(v => !isNaN(v)) : []);
 
         acc[key] = {
           minTemp: temp[0] || stage.minTemp || 20,
           maxTemp: temp[1] || stage.maxTemp || 26,
           minHumidity: humidity[0] || stage.minHumidity || 60,
           maxHumidity: humidity[1] || stage.maxHumidity || 75,
-          minVPD: vpd[0] || stage.minVPD || 0.8,
-          maxVPD: vpd[1] || stage.maxVPD || 1.2,
+          minVPD: normalizedVpd[0] || stage.minVPD || 0.8,
+          maxVPD: normalizedVpd[1] || stage.maxVPD || 1.2,
           minLight: stage.minLight || 20,
           maxLight: stage.maxLight || 100,
           minEC: stage.minEC || 0.8,

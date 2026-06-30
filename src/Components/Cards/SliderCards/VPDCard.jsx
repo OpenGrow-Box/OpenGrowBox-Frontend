@@ -7,7 +7,7 @@ import { filterSensorsByRoom } from './sensorClassifier';
 
 const VPDCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const { entities, currentRoom } = useHomeAssistant();
-  const [dewSensors, setDewSensors] = useState([]);
+  const [vpdSensors, setVpdSensors] = useState([]);
   const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
@@ -31,7 +31,7 @@ const VPDCard = ({pause, resume, isPlaying, filterByRoom}) => {
       sensors = filterSensorsByRoom(sensors, currentRoom);
     }
 
-    setDewSensors(sensors);
+    setVpdSensors(sensors);
   }, [entities, filterByRoom, currentRoom]);
 
   const handleDataBoxClick = (sensorId) => {
@@ -47,21 +47,21 @@ const VPDCard = ({pause, resume, isPlaying, filterByRoom}) => {
   };
 
   const getColorForValue = (value) => {
-    if (value < 0) return '#60a5fa'; 
-    if (value >= 0 && value <= 0.4) return 'rgb(234, 11, 211)'; 
-    if (value >= 0.4 && value <= 0.8) return 'rgb(11, 149, 234)'; 
-    if (value >= 0.8 && value <= 1.0) return 'rgb(11, 234, 123)'; 
-    if (value >= 1.0 && value <= 1.2) return 'rgb(149, 234, 11)';
-    if (value >= 1.2 && value <= 1.4) return 'rgb(234, 197, 11)';
-    if (value >= 1.4 && value <= 2.0) return 'rgb(234, 89, 11)'; 
-    return '#ef4444'; 
+    if (value < 0) return '#60a5fa';
+    if (value <= 0.4) return 'rgb(234, 11, 211)';
+    if (value <= 0.8) return 'rgb(11, 149, 234)';
+    if (value <= 1.0) return 'rgb(11, 234, 123)';
+    if (value <= 1.2) return 'rgb(149, 234, 11)';
+    if (value <= 1.4) return 'rgb(234, 197, 11)';
+    if (value <= 2.0) return 'rgb(234, 89, 11)';
+    return '#ef4444';
   };
 
   return (
     <CardContainer>
       <Header><h3>VPD</h3></Header>
       <Content>
-        {dewSensors.map((sensor) => (
+        {vpdSensors.map((sensor) => (
           <DataBox key={sensor.id} onClick={() => handleDataBoxClick(sensor.id)}>
             <Label>{sensor.friendlyName}</Label>
             <ValueWrapper>
@@ -72,7 +72,7 @@ const VPDCard = ({pause, resume, isPlaying, filterByRoom}) => {
             </ValueWrapper>
           </DataBox>
         ))}
-        {dewSensors.length === 0 && <NoData>No VPD sensors found.</NoData>}
+        {vpdSensors.length === 0 && <NoData>No VPD sensors found.</NoData>}
       </Content>
 
       {/* Bedingtes Rendern des Modals */}

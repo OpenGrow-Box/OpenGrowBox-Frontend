@@ -303,7 +303,7 @@ const CombinedSoilChart = ({
                   html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
                     <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${param.color}"></span>
                     <span>${param.seriesName}:</span>
-                    <span style="font-weight:700">${param.value?.[1]?.toFixed(2) || '--'}${unit}</span>
+                    <span style="font-weight:700">${param.value != null ? Number(param.value).toFixed(2) : '--'}${unit}</span>
                   </div>`;
                 });
                 return html;

@@ -3,6 +3,7 @@ import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
 import { usePlantStages } from '../Context/PlantStageContext';
+import { filterSensorsByRoom } from '../Cards/SliderCards/sensorClassifier';
 import DashboardChart from './DashboardChart';
 import CombinedSoilChart from './CombinedSoilChart';
 import { FaTint, FaBolt, FaFlask, FaThermometerHalf, FaSeedling, FaCalendar, FaClock, FaLeaf, FaArrowDown, FaArrowUp } from 'react-icons/fa';
@@ -372,85 +373,61 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
   }, [plantStages, currentStage]);
 
   // Enhanced sensor detection with room filtering (stabilized ref to prevent excess re-fetches)
-  const soilSensorsRef = useRef(null);
-  const soilSensors = useMemo(() => {
-    if (!entities) return null;
+  // Soil/medium sensor detection + room filtering (same as SoilCard)
+  const [soilSensors, setSoilSensors] = useState(null);
+  const prevRef = useRef(null);
+  useEffect(() => {
+    if (!entities) return;
 
-    const sensors = {};
-    const roomLower = (currentRoom || '').toLowerCase();
-    const roomSlug = roomLower.replace(/\s+/g, '_');
+    const out = [];
 
     Object.entries(entities).forEach(([key, entity]) => {
       if (!key.startsWith('sensor.')) return;
-      
-      const keyLower = key.toLowerCase();
-      const name = key.split('.')[1] || '';
-      const value = parseFloat(entity.state);
-      if (isNaN(value)) return;
-      
-      // Room matching - check if sensor belongs to current room
-      const roomVariants = [roomLower, roomSlug];
-      if (roomLower.includes(' ')) {
-        roomVariants.push(roomLower.replace(/\s+/g, '_'));
-      } else if (roomLower.includes('_')) {
-        roomVariants.push(roomLower.replace(/_/g, ' '));
-      }
-      const belongsToRoom = !roomLower || 
-        roomVariants.some(r => r && name.includes(r));
-      
-      if (!belongsToRoom) return;
-      
-      // Moisture/VWC - soil/medium patterns
-      if (!sensors.moisture && (
-        keyLower.includes('moisture') || 
-        keyLower.includes('vwc') ||
-        keyLower.includes('soil_moisture') ||
-        keyLower.includes('medium_moisture')
-      )) {
-        sensors.moisture = { id: key, value };
-      }
-      
-      // EC - soil/medium patterns (exclude water_ec, co2, etc)
-      if (!sensors.ec && !keyLower.includes('water') && !keyLower.includes('co2') && (
-        keyLower.includes('soil_ec') ||
-        keyLower.includes('ec_soil') ||
-        keyLower.includes('medium_ec') ||
-        (keyLower.includes('ec') && keyLower.includes('soil')) ||
-        keyLower.includes('_ec_') ||
-        keyLower.includes('conductivity')
-      )) {
-        sensors.ec = { id: key, value };
-      }
-      
-      // pH - soil/medium patterns
-      if (!sensors.ph && !keyLower.includes('water') && !keyLower.includes('phase') && (
-        keyLower.includes('soil_ph') ||
-        keyLower.includes('ph_soil') ||
-        keyLower.includes('medium_ph') ||
-        (keyLower.includes('ph') && keyLower.includes('soil')) ||
-        keyLower.includes('_ph_')
-      )) {
-        sensors.ph = { id: key, value };
-      }
-      
-      // Temperature - soil/medium patterns (exclude avg/ambient)
-      if (!sensors.temperature && (
-        keyLower.includes('soil_temp') ||
-        keyLower.includes('soil_temperature') ||
-        keyLower.includes('temperature_soil') ||
-        keyLower.includes('medium_temp') ||
-        keyLower.includes('_temp_') ||
-        keyLower.includes('_temperature_')
-      ) && !keyLower.includes('avg') && !keyLower.includes('ambient')) {
-        sensors.temperature = { id: key, value };
-      }
+      const val = parseFloat(entity.state);
+      if (isNaN(val)) return;
+
+      const id = key.toLowerCase();
+      const fn = (entity.attributes?.friendly_name || '').toLowerCase();
+      const combined = `${id} ${fn}`;
+
+      const isMediumContext = /soil|medium|substrate|substrat|coco|rockwool|boden|erde|ground/.test(combined);
+      if (!isMediumContext) return;
+
+      const isMoisture = /moisture|vwc|bodenfeuchte|feuchtigkeit|water_content/.test(combined);
+      const isEC = /ec|conductivity|leitf/.test(combined);
+      const isPH = /ph/.test(combined) && !/phase/.test(combined);
+      const isTemp = /temperature|temperatur/.test(combined) && !/dew|avg|ambient/.test(combined);
+
+      const cat = isMoisture ? 'moisture' : isEC ? 'ec' : isPH ? 'ph' : isTemp ? 'temperature' : null;
+      if (!cat) return;
+
+      // Don't add duplicate categories
+      if (out.some(s => s.category === cat)) return;
+
+      out.push({
+        id: key,
+        category: cat,
+        context: 'soil',
+        value: val,
+        friendlyName: entity.attributes?.friendly_name || key,
+      });
     });
 
-    const sensorsJson = JSON.stringify(sensors);
-    const prevJson = JSON.stringify(soilSensorsRef.current);
-    if (prevJson === sensorsJson) return soilSensorsRef.current;
-    soilSensorsRef.current = sensors;
-    return sensors;
+    // Room filter — exactly like SoilCard uses it
+    const roomFiltered = currentRoom
+      ? filterSensorsByRoom(out, currentRoom)
+      : out;
+
+    const result = {};
+    roomFiltered.forEach(s => {
+      if (!result[s.category]) result[s.category] = { id: s.id, value: s.value };
+    });
+
+    const next = JSON.stringify(result);
+    if (prevRef.current !== next) {
+      prevRef.current = next;
+      setSoilSensors(result);
+    }
   }, [entities, currentRoom]);
 
   const hasSensors = soilSensors && Object.keys(soilSensors).length > 0;

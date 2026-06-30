@@ -1,7 +1,7 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
-import { motion, } from 'framer-motion'
-import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdWaterDrop, MdLightMode, MdThermostat, MdOpacity, MdSettings, MdTune, MdDeviceThermostat, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdDelete, MdRefresh, MdNotifications, MdDevices, MdLabel, MdEdit, MdSave, MdSearch, MdClose, MdAutoAwesome, MdList, MdOutlineLabel, MdWindPower } from 'react-icons/md'
+import { motion } from 'framer-motion'
+import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdLightMode, MdThermostat, MdTune, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdRefresh, MdDevices, MdLabel, MdEdit, MdSave, MdSearch, MdClose, MdAutoAwesome, MdList, MdOutlineLabel, MdWindPower } from 'react-icons/md'
 import Wiz_minmax from './Wiz_minmax'
 import { usePremium } from '../Context/OGBPremiumContext'
 import { useHomeAssistant } from '../Context/HomeAssistantContext'
@@ -31,8 +31,8 @@ const capitalize = (str) => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
-const Wizzard = ({ onComplete }) => {
-  const { currentPlan, subscription, isLoggedIn, userEmail, userId } = usePremium()
+const Wizzard = () => {
+  const { currentPlan, subscription, userEmail, userId } = usePremium()
   const { connection, currentRoom, haToken, haBaseUrl, haApiBaseUrl } = useHomeAssistant()
   const contentRef = useRef(null)
   const pendingPlantConfigRequestRef = useRef(null)
@@ -738,7 +738,7 @@ const Wizzard = ({ onComplete }) => {
           autoPlantStageError: 'No response from the integration. Please make sure OpenGrowBox was reloaded in Home Assistant and try again.',
         }))
       }, 10000)
-    } catch (error) {
+    } catch {
       pendingPlantConfigRequestRef.current = null
       setWizardData((prev) => ({
         ...prev,
@@ -803,7 +803,7 @@ const Wizzard = ({ onComplete }) => {
           plantConfigSaveError: 'No save response from the integration. Please try again.',
         }))
       }, 10000)
-    } catch (error) {
+    } catch {
       pendingSavePlantConfigRequestRef.current = null
       setWizardData((prev) => ({
         ...prev,
@@ -1197,115 +1197,6 @@ const WelcomeIcon = styled.div`
   color: var(--primary-accent, #00ff00);
 `
 
-const FormGroup = styled.div`
-  margin-bottom: 1.5rem;
-`
-
-const Input = styled.input`
-  width: 100%;
-  padding: 0.75rem;
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.2));
-  border-radius: 8px;
-  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
-  color: var(--main-text-color, #fff);
-  font-size: 0.9rem;
-  transition: all 0.2s ease;
-
-  &:focus {
-    outline: none;
-    border-color: var(--primary-accent);
-    background: var(--glass-bg-primary, rgba(255, 255, 255, 0.1));
-  }
-
-  &::placeholder {
-    color: var(--second-text-color, rgba(255, 255, 255, 0.5));
-  }
-`
-
-const CompleteIcon = styled.div`
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 80px;
-  height: 80px;
-  background: var(--primary-accent, rgba(0, 255, 0, 0.2));
-  border-radius: 50%;
-  margin: 0 auto 2rem;
-  color: var(--primary-accent, #00ff00);
-`
-
-const Summary = styled.div`
-  margin: 2rem 0;
-  padding: 1rem;
-  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.1));
-  border-radius: 8px;
-`
-
-const SummaryItem = styled.div`
-  margin-bottom: 0.5rem;
-  color: var(--second-text-color, rgba(255, 255, 255, 0.8));
-`
-
-const RangeInput = styled.div`
-  margin-bottom: 0.5rem;
-  
-  label {
-    display: block;
-    margin-bottom: 0.25rem;
-    color: var(--main-text-color, #fff);
-    font-size: 0.8rem;
-    font-weight: 500;
-  }
-  
-  input[type="range"] {
-    width: 100%;
-    height: 4px;
-    border-radius: 2px;
-    background: var(--glass-border, rgba(255, 255, 255, 0.2));
-    outline: none;
-    -webkit-appearance: none;
-    
-    &::-webkit-slider-thumb {
-      -webkit-appearance: none;
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--primary-accent, var(--main-unit-color));
-      cursor: pointer;
-      transition: all 0.2s ease;
-      
-      &:hover {
-        transform: scale(1.2);
-        background: var(--primary-accent, var(--main-unit-color));
-      }
-    }
-    
-    &::-moz-range-thumb {
-      width: 12px;
-      height: 12px;
-      border-radius: 50%;
-      background: var(--primary-accent, var(--main-unit-color));
-      cursor: pointer;
-      border: none;
-      transition: all 0.2s ease;
-      
-      &:hover {
-        transform: scale(1.2);
-      }
-    }
-  }
-  
-  .value-display {
-    text-align: center;
-    color: var(--second-text-color, rgba(255, 255, 255, 0.7));
-    font-size: 0.75rem;
-    margin-top: 0.25rem;
-    font-weight: 600;
-  }
-`
-
-
 const StagesSummary = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
@@ -1383,17 +1274,6 @@ const CompleteMessage = styled.div`
     &:last-child {
       margin-bottom: 0;
     }
-  }
-`
-
-const FeaturesList = styled.div`
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 1rem;
-  margin: 1.5rem 0;
-  
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
   }
 `
 
@@ -1516,43 +1396,6 @@ const PlantStageModeDescription = styled.div`
   color: var(--second-text-color, rgba(255,255,255,0.75));
   font-size: 0.9rem;
   line-height: 1.45;
-`
-
-const FeatureItem = styled.div`
-  display: flex;
-  align-items: center;
-  gap: 0.75rem;
-  padding: 0.75rem;
-  background: var(--glass-bg-secondary, rgba(255, 255, 255, 0.05));
-  border: 1px solid var(--glass-border, rgba(255, 255, 255, 0.08));
-  border-radius: 8px;
-  text-decoration: none;
-  cursor: pointer;
-  transition: transform 0.2s ease, border-color 0.2s ease, background 0.2s ease, box-shadow 0.2s ease;
-
-  &:hover {
-    background: var(--glass-bg-primary, rgba(255, 255, 255, 0.08));
-    border-color: var(--border-hover-color, rgba(255, 255, 255, 0.16));
-    transform: translateY(-1px);
-    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.12);
-  }
-
-  &:focus-visible {
-    outline: none;
-    border-color: var(--input-focus-border-color, var(--primary-accent));
-    box-shadow: 0 0 0 3px var(--button-hover-bg, rgba(255, 255, 255, 0.08));
-  }
-  
-  svg {
-    color: var(--primary-accent, var(--main-unit-color));
-    font-size: 1.2rem;
-  }
-  
-  span {
-    color: var(--main-text-color, #fff);
-    font-size: 0.9rem;
-    font-weight: 500;
-  }
 `
 
 const SupportHint = styled.p`
@@ -2117,81 +1960,6 @@ const SettingLabel = styled.div`
   font-size: 0.9rem;
   font-weight: 500;
   margin-bottom: 0.5rem;
-`
-
-const SettingDescription = styled.div`
-  color: var(--second-text-color, rgba(255, 255, 255, 0.6));
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-`
-
-const ToggleSwitch = styled.label`
-  position: relative;
-  display: inline-block;
-  width: 48px;
-  height: 24px;
-`
-
-const ToggleInput = styled.input`
-  opacity: 0;
-  width: 0;
-  height: 0;
-
-  &:checked + span {
-    background-color: var(--primary-accent, #00ff00);
-  }
-
-  &:checked + span:before {
-    transform: translateX(24px);
-  }
-`
-
-const ToggleSlider = styled.span`
-  position: absolute;
-  cursor: pointer;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background-color: var(--glass-border, rgba(255, 255, 255, 0.2));
-  transition: 0.3s;
-  border-radius: 24px;
-
-  &:before {
-    position: absolute;
-    content: "";
-    height: 18px;
-    width: 18px;
-    left: 3px;
-    bottom: 3px;
-    background-color: white;
-    transition: 0.3s;
-    border-radius: 50%;
-  }
-`
-
-const LogLevelButtons = styled.div`
-  display: flex;
-  gap: 0.5rem;
-  flex-wrap: wrap;
-  margin-top: 0.5rem;
-`
-
-const LogLevelButton = styled.button`
-  padding: 0.4rem 0.75rem;
-  border: 1px solid ${props => props.color};
-  border-radius: 6px;
-  background: ${props => props.selected ? props.color : 'transparent'};
-  color: ${props => props.selected ? '#fff' : props.color};
-  font-size: 0.75rem;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-
-  &:hover {
-    background: ${props => props.color};
-    color: #fff;
-  }
 `
 
 const LogActions = styled.div`

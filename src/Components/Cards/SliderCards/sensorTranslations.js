@@ -93,13 +93,15 @@ const FIXED_CONTEXT_SENSORS = {
   oxidation: "water"
 };
 
-const extractContext = (entity_id, sensorType) => {
+const extractContext = (entity_id, sensorType, friendlyName = '') => {
   const id = entity_id.toLowerCase();
+  const name = (friendlyName || '').toLowerCase();
+  const combined = `${id} ${name}`;
 
-  // ERST nach Context-Keywords im entity_id suchen
+  // ERST nach Context-Keywords in entity_id + friendly_name suchen
   for (const context in SENSOR_CONTEXTS) {
     for (const suffix of SENSOR_CONTEXTS[context].suffixes) {
-      if (suffix && id.includes(suffix)) return context;
+      if (suffix && combined.includes(suffix)) return context;
     }
   }
 

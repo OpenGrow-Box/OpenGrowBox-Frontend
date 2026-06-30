@@ -1,3 +1,4 @@
+import PropTypes from 'prop-types';
 import { lazy, Suspense } from 'react';
 import styled from 'styled-components';
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
@@ -7,9 +8,11 @@ import HomeAssistantProvider, { useHomeAssistant } from './Components/Context/Ho
 import { MediumProvider } from './Components/Context/MediumContext';
 import { OGBPremiumProvider } from './Components/Context/OGBPremiumContext';
 import { PlantStageProvider } from './Components/Context/PlantStageContext';
+import { ToastProvider } from './Components/Context/ToastContext';
 
 import ErrorBoundary from '../src/misc/ErrorBoundary';
 import ConnectionStatus from '../src/misc/ConnectionStatus';
+import GrowWeekToastHandler from './Components/Common/GrowWeekToastHandler';
 // TODO: Re-enable when device discovery is fully working
 // import DeviceDiscoveryToast from './Components/Common/DeviceDiscoveryToast';
 import ThemeGlobalStyle from './Pages/ThemeGlobalStyle';
@@ -24,6 +27,10 @@ const ErrorBoundaryWrapper = ({ children }) => {
       {children}
     </ErrorBoundary>
   );
+};
+
+ErrorBoundaryWrapper.propTypes = {
+  children: PropTypes.node.isRequired,
 };
 
 // Lazy load all pages for better code splitting
@@ -117,6 +124,7 @@ export default function App() {
                 <OGBPremiumProvider>
                   <PlantStageProvider>
                   <MediumProvider>
+                    <ToastProvider>
                     <ThemeGlobalStyle />
                     <Router basename={basename}>
                       <AppContainer>
@@ -131,6 +139,8 @@ export default function App() {
                         </BackgroundContainer>
                         {/* Connection Status Notification */}
                         <ConnectionStatus />
+                        {/* Grow week change notifications */}
+                        <GrowWeekToastHandler />
                         {/* TODO: Re-enable when device discovery is fully working */}
                         {/* <DeviceDiscoveryToast /> */}
                         <MainContent>
@@ -140,6 +150,7 @@ export default function App() {
                         </MainContent>
                       </AppContainer>
                     </Router>
+                    </ToastProvider>
                     </MediumProvider>
                   </PlantStageProvider>
                 </OGBPremiumProvider>

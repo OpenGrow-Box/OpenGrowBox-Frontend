@@ -20,7 +20,7 @@ const classifyEntity = (key, entity) => {
 
   if (!category || category === "unknown") return null;
 
-  const context = extractContext(key, category);
+  const context = extractContext(key, category, entity.attributes?.friendly_name);
 
   const rawValue = parseFloat(entity.state);
   const unit = entity.attributes?.unit_of_measurement || guessUnit(category);

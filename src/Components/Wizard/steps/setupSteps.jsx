@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import styled from 'styled-components'
 
 // Styled Components
@@ -365,55 +365,10 @@ const ListModeButton = styled.button`
   }
 `
 
-const SuggestionsTable = styled.div`
-  background: var(--glass-bg-secondary);
-  border-radius: 8px;
-  overflow: hidden;
-  max-height: 500px;
-  overflow-y: auto;
-`
-
-const TableHeader = styled.div`
-  display: grid;
-  grid-template-columns: 0.5fr 1.2fr 1.2fr 1.2fr 0.9fr 0.4fr;
-  gap: 1rem;
-  padding: 1rem;
-  background: rgba(42, 157, 143, 0.1);
-  font-weight: 600;
-  font-size: 0.9rem;
-`
-
-const TableRow = styled.div`
-  display: grid;
-  grid-template-columns: 0.5fr 1.2fr 1.2fr 1.2fr 0.9fr 0.4fr;
-  gap: 1rem;
-  padding: 0.75rem 1rem;
-  border-top: 1px solid var(--glass-border);
-  font-size: 0.85rem;
-
-  &:hover {
-    background: rgba(42, 157, 143, 0.05);
-  }
-`
-
-const TableCell = styled.div`
-  display: flex;
-  align-items: center;
-`
-
 const Checkbox = styled.input`
   width: 18px;
   height: 18px;
   cursor: pointer;
-`
-
-const LowConfidence = styled.span`
-  padding: 0.1rem 0.3rem;
-  background: rgba(243, 156, 18, 0.2);
-  color: #f39c12;
-  border-radius: 3px;
-  font-size: 0.7rem;
-  margin-left: 0.5rem;
 `
 
 const ActionButton = styled.button`
@@ -610,7 +565,7 @@ const SafePreviewRow = styled.div`
 `
 
 // Main Factory Function
-export const createSetupStepComponents = ({ icons, styles, connection, currentRoom, haToken, haBaseUrl, haApiBaseUrl }) => {
+export const createSetupStepComponents = ({ icons, styles, connection, currentRoom }) => {
   const {
     MdDevices,
     MdLabel,
@@ -703,41 +658,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     return response
   }
 
-  const generateSuggestedName = (entity) => {
-    const entityId = entity.entity_id || ''
-    const domain = entityId.split('.')[0] || ''
-    const suffix = entityId.split('.').slice(1).join('.') || ''
-    const lowerSuffix = suffix.toLowerCase()
-    
-    if (lowerSuffix.includes('temp') || lowerSuffix.includes('temperature')) {
-      return 'Temperature Sensor'
-    }
-    if (lowerSuffix.includes('humid') || lowerSuffix.includes('humidity')) {
-      return 'Humidity Sensor'
-    }
-    if (lowerSuffix.includes('co2') || lowerSuffix.includes('carbon')) {
-      return 'CO2 Sensor'
-    }
-    if (domain === 'light' || lowerSuffix.includes('light') || lowerSuffix.includes('lamp')) {
-      if (lowerSuffix.includes('grow')) return 'Grow Light'
-      if (lowerSuffix.includes('uv')) return 'UV Light'
-      return 'Light'
-    }
-    if (domain === 'fan' || lowerSuffix.includes('fan') || lowerSuffix.includes('ventil')) {
-      if (lowerSuffix.includes('exhaust')) return 'Exhaust Fan'
-      if (lowerSuffix.includes('intake')) return 'Intake Fan'
-      return 'Fan'
-    }
-    if (domain === 'switch') {
-      if (lowerSuffix.includes('pump')) return 'Water Pump'
-      if (lowerSuffix.includes('heater')) return 'Heater'
-      if (lowerSuffix.includes('humidifier')) return 'Humidifier'
-    }
-    
-    const words = suffix.split('_').filter(w => w.length > 0)
-    return words.map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ')
-  }
-
   const getDevicesByRoom = (room, includeOGB = false) => {
     const HASS = document.querySelector('home-assistant')?.hass
     if (!HASS?.devices) return []
@@ -745,7 +665,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     // console.log('[Setup] Room:', room, 'Total devices:', Object.keys(HASS.devices).length)
 
     const filtered = Object.entries(HASS.devices)
-      .filter(([_, device]) => {
+      .filter(([, device]) => {
         const manufacturer = (device.manufacturer || '').toLowerCase()
         const inRoom = device.area_id === room.toLowerCase()
         const isOGB = manufacturer === 'opengrowbox'
@@ -773,7 +693,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     // console.log('[Setup] Getting entities for room:', room)
 
     const roomDeviceIds = Object.entries(HASS.devices)
-      .filter(([_, device]) => {
+      .filter(([, device]) => {
         const manufacturer = (device.manufacturer || '').toLowerCase()
         const inRoom = device.area_id === room.toLowerCase()
         const isOGB = manufacturer === 'opengrowbox'
@@ -787,7 +707,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     // console.log('[Setup] Room device IDs:', roomDeviceIds.length)
 
     const entities = Object.entries(HASS.entities)
-      .filter(([_, entity]) => roomDeviceIds.includes(entity.device_id))
+      .filter(([, entity]) => roomDeviceIds.includes(entity.device_id))
       .map(([id, entity]) => {
         const sourceDevice = HASS.devices[entity.device_id]
         const deviceName = sourceDevice?.name_by_user || sourceDevice?.name || entity.device_id || 'Unknown device'
@@ -797,22 +717,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
 
     // console.log('[Setup] Found entities:', entities.length)
     return entities
-  }
-
-  const getAllLabels = () => {
-    const HASS = document.querySelector('home-assistant')?.hass
-    if (!HASS?.entities) return {}
-    
-    const labelCounts = {}
-    
-    Object.entries(HASS.entities).forEach(([_, entity]) => {
-      const labels = entity.attributes?.labels || []
-      labels.forEach(label => {
-        labelCounts[label] = (labelCounts[label] || 0) + 1
-      })
-    })
-    
-    return labelCounts
   }
 
   const getIconForDomain = (domain) => {
@@ -828,7 +732,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
   }
 
   // Step Components
-  const SetupWelcomeStep = ({ data, updateData, nextStep }) => {
+  const SetupWelcomeStep = ({ updateData, nextStep }) => {
     const selectTool = (tool) => {
       updateData({ selectedSetupTool: tool })
       nextStep()
@@ -876,7 +780,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     )
   }
 
-  const DeviceManagerStep = ({ data, updateData }) => {
+  const DeviceManagerStep = () => {
     const [devices, setDevices] = useState([])
     const [allDevices, setAllDevices] = useState([])
     const [filterText, setFilterText] = useState('')
@@ -885,27 +789,20 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
-    const [refreshKey, setRefreshKey] = useState(0)
-    const [isLoading, setIsLoading] = useState(false)
     const isEditingRef = useRef(false)  // Track if user is currently editing
     const editValueRef = useRef('')  // Persist edit value during reloads
 
     const loadDevices = () => {
-      setIsLoading(true)
-      
       const roomDevices = getDevicesByRoom(currentRoom)
       const allRoomDevices = getDevicesByRoom(currentRoom, true)
       setDevices(roomDevices)
       setAllDevices(allRoomDevices)
-      
-      setIsLoading(false)
     }
 
     const handleRefresh = () => {
       isEditingRef.current = false
       setEditingDevice(null)
       editValueRef.current = ''
-      setRefreshKey(prev => prev + 1)
       loadDevices()
     }
 
@@ -1058,7 +955,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     )
   }
 
-  const EntityManagerStep = ({ data, updateData }) => {
+  const EntityManagerStep = () => {
     const [entities, setEntities] = useState([])
     const [allEntities, setAllEntities] = useState([])
     const [filterText, setFilterText] = useState('')
@@ -1068,27 +965,20 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const [saving, setSaving] = useState(false)
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
-    const [refreshKey, setRefreshKey] = useState(0)
-    const [isLoading, setIsLoading] = useState(false)
     const isEditingRef = useRef(false)  // Track if user is currently editing
     const editValueRef = useRef('')  // Persist edit value during reloads
 
     const loadEntities = () => {
-      setIsLoading(true)
-      
       const roomEntities = getEntitiesByRoom(currentRoom)
       const allRoomEntities = getEntitiesByRoom(currentRoom, true)
       setEntities(roomEntities)
       setAllEntities(allRoomEntities)
-      
-      setIsLoading(false)
     }
 
     const handleRefresh = () => {
       isEditingRef.current = false
       setEditingEntity(null)
       editValueRef.current = ''
-      setRefreshKey(prev => prev + 1)
       loadEntities()
     }
 
@@ -1270,7 +1160,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     )
   }
 
-  const LabelManagerStep = ({ data, updateData }) => {
+  const LabelManagerStep = () => {
     const [labels, setLabels] = useState({})
     const [entities, setEntities] = useState([])
     const [devices, setDevices] = useState([])
@@ -1281,9 +1171,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     const [error, setError] = useState(null)
     const [success, setSuccess] = useState(null)
     const [listMode, setListMode] = useState('entities')
-    const [isLoading, setIsLoading] = useState(false)
-    const [labelNamesById, setLabelNamesById] = useState({})
-    const [labelIdsByName, setLabelIdsByName] = useState({})
     const newLabelRef = useRef('')
     const labelNamesByIdRef = useRef({})
     const labelIdsByNameRef = useRef({})
@@ -1306,7 +1193,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     }
 
     const loadData = async () => {
-      setIsLoading(true)
       try {
         const HASS = document.querySelector('home-assistant')?.hass
         const room = (currentRoom || '').toLowerCase()
@@ -1328,8 +1214,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
         })
         labelNamesByIdRef.current = nextLabelNamesById
         labelIdsByNameRef.current = nextLabelIdsByName
-        setLabelNamesById(nextLabelNamesById)
-        setLabelIdsByName(nextLabelIdsByName)
 
         const roomDevicesFromRegistry = (deviceRegistry || []).filter((device) => {
           if (device.area_id !== room) return false
@@ -1370,8 +1254,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       } catch (loadError) {
         // console.error('[Setup] Label manager load failed:', loadError)
         setError(loadError.message)
-      } finally {
-        setIsLoading(false)
       }
     }
 
@@ -1400,8 +1282,6 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
       const nextIds = { ...labelIdsByNameRef.current, [normalizedName]: id }
       labelNamesByIdRef.current = nextNames
       labelIdsByNameRef.current = nextIds
-      setLabelNamesById(nextNames)
-      setLabelIdsByName(nextIds)
 
       return id
     }
@@ -1716,7 +1596,7 @@ export const createSetupStepComponents = ({ icons, styles, connection, currentRo
     )
   }
 
-  const AutoSetupStep = ({ data, updateData }) => {
+  const AutoSetupStep = () => {
     const [suggestions, setSuggestions] = useState([])
     const [selectedItems, setSelectedItems] = useState(new Set())
     const [applying, setApplying] = useState(false)

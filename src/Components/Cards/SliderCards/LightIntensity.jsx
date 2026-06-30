@@ -16,7 +16,8 @@ const LightIntensity = ({pause, resume, isPlaying, filterByRoom}) => {
         const isValidDomain = key.startsWith('number.') || key.startsWith('sensor.') || key.startsWith('switch.');
         const isIntensity = key.toLowerCase().includes('intensity');
         const hasState = entity?.state !== undefined;
-        return isIntensity && isValidDomain && hasState;
+        const isOGB = key.toLowerCase().includes('ogb_');
+        return isIntensity && isValidDomain && hasState && !isOGB;
       })
       .map(([key, entity]) => {
         let value = parseFloat(entity.state);

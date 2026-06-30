@@ -1,22 +1,11 @@
+import PropTypes from 'prop-types';
 import { useState, useEffect, useMemo } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { usePlantStages } from '../Context/PlantStageContext';
-import { REMOTE_STAGE_KEY_MAP } from '../Wizard/wizardHelpers';
 import { FaBullseye, FaArrowDown, FaArrowUp, FaPercentage, FaExclamationTriangle, FaSpinner } from 'react-icons/fa';
 
-let updateTimeout = null;
 
-const STAGE_NAME_MAP = {
-  germination: 'Germination',
-  clones: 'Clones',
-  earlyveg: 'EarlyVeg',
-  midveg: 'MidVeg',
-  lateveg: 'LateVeg',
-  earlyflower: 'EarlyFlower',
-  midflower: 'MidFlower',
-  lateflower: 'LateFlower',
-};
 
 // 🔹 Berechnung des perfekten VPD
 const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
@@ -24,7 +13,7 @@ const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
     throw new Error('vpdRange must be an array with exactly two numbers.');
   }
 
-  let vpdMin, vpdMax, tolerance;
+  let vpdMin, vpdMax, target, tolerance;
   try {
     vpdMin = parseFloat(vpdRange[0]);
     vpdMax = parseFloat(vpdRange[1]);
@@ -37,13 +26,14 @@ const calculatePerfectVpd = (vpdRange, tolerancePercent) => {
     throw new Error('Invalid inputs: vpdRange or tolerancePercent must be valid numbers.');
   }
 
-  const averageVpd = (vpdMin + vpdMax) / 2;
-  const toleranceValue = (tolerance / 100) * averageVpd;
+  const isTargetMode = Math.abs(vpdMin - vpdMax) < Number.EPSILON;
+  target = isTargetMode ? vpdMin : (vpdMin + vpdMax) / 2;
+  const toleranceValue = (tolerance / 100) * target;
 
   return {
-    perfection: Number(averageVpd.toFixed(3)),
-    perfectMin: Number((averageVpd - toleranceValue).toFixed(3)),
-    perfectMax: Number((averageVpd + toleranceValue).toFixed(3)),
+    perfection: Number(target.toFixed(3)),
+    perfectMin: Number((target - toleranceValue).toFixed(3)),
+    perfectMax: Number((target + toleranceValue).toFixed(3)),
   };
 };
 
@@ -67,6 +57,8 @@ const VPDTargets = () => {
   // 🔹 Entity-Werte aus HomeAssistant holen
   useEffect(() => {
     if (!entities || !currentRoom) return;
+
+    let intervalId = null;
 
     const updatePlantStage = () => {
       try {
@@ -143,7 +135,7 @@ const VPDTargets = () => {
     updateVpdTarget();
     updateTentMode();
 
-    updateTimeout = setInterval(() => {
+    intervalId = setInterval(() => {
       updatePlantStage();
       updateTolerance();
       updateVpdTarget();
@@ -151,7 +143,7 @@ const VPDTargets = () => {
     }, 5000);
 
     return () => {
-      if (updateTimeout) clearInterval(updateTimeout);
+      if (intervalId) clearInterval(intervalId);
     };
   }, [entities, currentRoom, plantStage, tolerance, vpdTarget, tentMode]);
 
@@ -224,7 +216,7 @@ const VPDTargets = () => {
       }
       // vpdRange kann ein Array sein oder minVPD/maxVPD properties haben
       const vpdRange = selectedStage.vpdRange || [selectedStage.minVPD, selectedStage.maxVPD];
-      if (!vpdRange || vpdRange.length !== 2 || vpdRange.some(v => v === undefined || v === null)) {
+      if (!Array.isArray(vpdRange) || vpdRange.length !== 2 || vpdRange.some(v => v === undefined || v === null || Number.isNaN(Number(v)))) {
         return (
           <Container>
             <ErrorText>
@@ -248,18 +240,26 @@ const VPDTargets = () => {
         </ErrorText>
       ) : (
         <ResultsWrapper>
-          <Result>
-            <FaPercentage color="#d3d3d3" />{tolerance} %
-          </Result>
-          <Result>
-            <FaArrowDown color="#7cd6fc" />{vpdResults.perfectMin} kPa
-          </Result>
-          <Result>
-            <FaBullseye color="#9efc7c" />{vpdResults.perfection} kPa
-          </Result>
-          <Result>
-            <FaArrowUp color="#fc7d7c" />{vpdResults.perfectMax} kPa
-          </Result>
+          <ResultWithTooltip tooltip="Tolerance range">
+            <Result>
+              <FaPercentage color="#d3d3d3" />{tolerance} %
+            </Result>
+          </ResultWithTooltip>
+          <ResultWithTooltip tooltip="Min VPD (target − tolerance)">
+            <Result>
+              <FaArrowDown color="#7cd6fc" />{vpdResults.perfectMin} kPa
+            </Result>
+          </ResultWithTooltip>
+          <ResultWithTooltip tooltip="Target VPD">
+            <Result>
+              <FaBullseye color="#9efc7c" />{vpdResults.perfection} kPa
+            </Result>
+          </ResultWithTooltip>
+          <ResultWithTooltip tooltip="Max VPD (target + tolerance)">
+            <Result>
+              <FaArrowUp color="#fc7d7c" />{vpdResults.perfectMax} kPa
+            </Result>
+          </ResultWithTooltip>
         </ResultsWrapper>
       )}
     </Container>
@@ -312,6 +312,59 @@ const Result = styled.div`
   display: flex;
   align-items: center;
   gap: 8px;
+`;
+
+const ResultWithTooltip = ({ children, tooltip }) => (
+  <TooltipWrapper>
+    {children}
+    <Tooltip>{tooltip}</Tooltip>
+  </TooltipWrapper>
+);
+
+ResultWithTooltip.propTypes = {
+  children: PropTypes.node.isRequired,
+  tooltip: PropTypes.node.isRequired,
+};
+
+const TooltipWrapper = styled.div`
+  position: relative;
+  cursor: help;
+
+  &:hover > div:last-child {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+  }
+`;
+
+const Tooltip = styled.div`
+  position: absolute;
+  bottom: calc(100% + 8px);
+  left: 50%;
+  transform: translateX(-50%) translateY(4px);
+  background: rgba(25, 25, 35, 0.96);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 10px 14px;
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.4);
+  backdrop-filter: blur(8px);
+  opacity: 0;
+  visibility: hidden;
+  transition: opacity 0.2s ease, transform 0.2s ease, visibility 0.2s ease;
+  z-index: 100;
+  min-width: 160px;
+  pointer-events: none;
+
+  &::after {
+    content: '';
+    position: absolute;
+    top: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    border-width: 6px;
+    border-style: solid;
+    border-color: rgba(25, 25, 35, 0.96) transparent transparent transparent;
+  }
 `;
 
 const ErrorText = styled.div`

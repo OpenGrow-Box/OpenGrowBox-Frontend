@@ -25,16 +25,30 @@ const SelectCard = ({ entities }) => {
       return; // User cancelled the change
     }
 
+    const isTextDomain = entity.entity_id?.startsWith('text.');
+
     try {
-      await sendCommand({
-        type: 'call_service',
-        domain: 'select',
-        service: 'select_option',
-        service_data: {
-          entity_id: entity.entity_id,
-          option: newValue,
-        },
-      });
+      if (isTextDomain) {
+        await sendCommand({
+          type: 'call_service',
+          domain: 'text',
+          service: 'set_value',
+          service_data: {
+            entity_id: entity.entity_id,
+            value: newValue,
+          },
+        });
+      } else {
+        await sendCommand({
+          type: 'call_service',
+          domain: 'select',
+          service: 'select_option',
+          service_data: {
+            entity_id: entity.entity_id,
+            option: newValue,
+          },
+        });
+      }
     } catch (error) {
       console.error('Error updating select entity:', error);
     }

@@ -1,8 +1,8 @@
 import { useEffect, useState, useMemo, useRef } from 'react';
 import styled from 'styled-components';
 import { motion } from 'framer-motion';
-import { MdDashboard, MdWaterDrop, MdInsights, MdBolt, MdSmartToy } from 'react-icons/md';
-import { Zap, Sun, Plug, Battery, Droplets, Leaf, Lightbulb, Sprout } from 'lucide-react';
+import { MdDashboard, MdWaterDrop, MdInsights, MdBolt } from 'react-icons/md';
+import { Droplets } from 'lucide-react';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
 import CombinedClimateChart from '../Components/Dashboard/CombinedClimateChart';
@@ -22,19 +22,13 @@ const Dashboard = () => {
   const { state } = useGlobalState();
   const [isLoading, setIsLoading] = useState(true);
   const [, setError] = useState(null);
-  const [isRoomDropdownOpen, setIsRoomDropdownOpen] = useState(false);
   const [activeDashboardTab, setActiveDashboardTab] = useState(() => localStorage.getItem('dashboardActiveTab') || 'analytics');
   const [selectedCO2SensorIndex, setSelectedCO2SensorIndex] = useState(0);
-  const roomDropdownRef = useRef(null);
   
   const currentRegion = state.Settings?.region || 'EU';
   
   const getTemperatureUnit = () => {
     return currentRegion === 'US' ? '°F' : '°C';
-  };
-  
-  const celsiusToFahrenheit = (celsius) => {
-    return Math.round((celsius * 9/5 + 32) * 10) / 10;
   };
 
   // Global live mode state - shared across all charts
@@ -76,17 +70,6 @@ const Dashboard = () => {
     localStorage.setItem('dashboardActiveTab', activeDashboardTab);
   }, [activeDashboardTab]);
 
-  // Close dropdown when clicking outside
-  useEffect(() => {
-    const handleClickOutside = (event) => {
-      if (roomDropdownRef.current && !roomDropdownRef.current.contains(event.target)) {
-        setIsRoomDropdownOpen(false);
-      }
-    };
-    document.addEventListener('mousedown', handleClickOutside);
-    return () => document.removeEventListener('mousedown', handleClickOutside);
-  }, []);
-
   // Improved CO2 sensor detection with better validation
   const co2Sensors = useMemo(() => {
     if (!entities) return [];
@@ -127,17 +110,6 @@ const Dashboard = () => {
       vpd: `sensor.ogb_currentvpd_${room}`,
       temperature: `sensor.ogb_avgtemperature_${room}`,
       humidity: `sensor.ogb_avghumidity_${room}`
-    };
-  }, [currentRoom]);
-
-  // Water sensor IDs
-  const waterSensorIds = useMemo(() => {
-    const room = currentRoom?.trim()?.toLowerCase() || 'default';
-    return {
-      ph: `sensor.ogb_ph_${room}`,
-      ec: `sensor.ogb_ec_${room}`,
-      temp: `sensor.ogb_water_temp_${room}`,
-      tankLevel: `sensor.ogb_tank_level_${room}`
     };
   }, [currentRoom]);
 
@@ -184,74 +156,6 @@ const Dashboard = () => {
 
     return sensors;
   }, [entities, currentRoom]);
-
-  // Detect energy sensors dynamically (Home Assistant Energy Dashboard compatible)
-  const energySensors = useMemo(() => {
-    if (!entities) return {};
-
-    const sensors = {
-      consumption: null,
-      production: null,
-      gridImport: null,
-      gridExport: null,
-      solar: null,
-      battery: null,
-      all: [],
-    };
-
-    Object.entries(entities).forEach(([key, entity]) => {
-      if (!key.startsWith('sensor.')) return;
-
-      const value = parseFloat(entity.state);
-      if (isNaN(value) || value < 0) return;
-
-      const keyLower = key.toLowerCase();
-      const unit = entity.attributes?.unit_of_measurement || '';
-
-      // Only kWh sensors for cumulative energy
-      if (!unit.toLowerCase().includes('kwh')) return;
-
-      const sensorData = {
-        id: key,
-        value,
-        unit,
-        friendlyName: entity.attributes?.friendly_name || key.split('.').pop(),
-        category: 'energy',
-      };
-
-      sensors.all.push(sensorData);
-
-      // Home Assistant Energy Dashboard entity patterns
-      if (keyLower.includes('home_energy_consumption') || keyLower.includes('total_consumption')) {
-        sensors.consumption = sensorData;
-      }
-      if (keyLower.includes('home_energy_production') || keyLower.includes('total_production')) {
-        sensors.production = sensorData;
-      }
-      if (keyLower.includes('grid_import') || keyLower.includes('energy_import')) {
-        sensors.gridImport = sensorData;
-      }
-      if (keyLower.includes('grid_export') || keyLower.includes('energy_export')) {
-        sensors.gridExport = sensorData;
-      }
-      if (keyLower.includes('solar_energy') || keyLower.includes('solar_production')) {
-        sensors.solar = sensorData;
-      }
-      if (keyLower.includes('battery_energy') || keyLower.includes('battery_charge')) {
-        sensors.battery = sensorData;
-      }
-
-      // Fallback: use first consumption/production sensors if not found
-      if (!sensors.consumption && (keyLower.includes('consumption') || keyLower.includes('usage'))) {
-        sensors.consumption = sensorData;
-      }
-      if (!sensors.production && (keyLower.includes('production') || keyLower.includes('solar'))) {
-        sensors.production = sensorData;
-      }
-    });
-
-    return sensors;
-  }, [entities]);
 
   // Loading and error states
   useEffect(() => {
@@ -696,110 +600,6 @@ const EnergyTitle = styled.h2`
   margin: 0;
 `;
 
-const EnergyStatsGrid = styled.div`
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-  gap: 1rem;
-  margin-bottom: 2rem;
-
-  @media (max-width: 768px) {
-    grid-template-columns: 1fr;
-    gap: 0.75rem;
-  }
-`;
-
-const EnergyStatCard = styled.div`
-  background: var(--main-bg-card-color);
-  border: 1px solid var(--glass-border-light);
-  border-radius: 16px;
-  padding: 1.25rem;
-  display: flex;
-  align-items: center;
-  gap: 1rem;
-  box-shadow: var(--main-shadow-art);
-  transition: all 0.3s ease;
-  cursor: pointer;
-
-  &:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0, 0, 0, 0.25);
-    border-color: ${props => {
-      switch(props.type) {
-        case 'consumption': return 'var(--chart-error-color)';
-        case 'production': return 'var(--chart-success-color)';
-        case 'gridImport': return 'var(--warning-text-color)';
-        case 'gridExport': return 'var(--chart-secondary-color)';
-        case 'solar': return 'var(--chart-primary-color)';
-        case 'battery': return 'var(--primary-accent)';
-        default: return 'var(--primary-accent)';
-      }
-    }};
-  }
-`;
-
-const EnergyStatIcon = styled.div`
-  font-size: 2.5rem;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 60px;
-  height: 60px;
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 12px;
-  flex-shrink: 0;
-`;
-
-const EnergyStatContent = styled.div`
-  flex: 1;
-  min-width: 0;
-`;
-
-const EnergyStatLabel = styled.div`
-  color: var(--second-text-color);
-  font-size: 0.85rem;
-  font-weight: 500;
-  margin-bottom: 0.5rem;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const EnergyStatValue = styled.div`
-  color: var(--main-text-color);
-  font-size: 1.5rem;
-  font-weight: 700;
-  line-height: 1.2;
-`;
-
-const EnergyStatUnit = styled.span`
-  font-size: 0.9rem;
-  font-weight: 500;
-  color: var(--second-text-color);
-  margin-left: 0.25rem;
-`;
-
-const EnergyStatEntity = styled.div`
-  color: var(--second-text-color);
-  font-size: 0.75rem;
-  margin-top: 0.25rem;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-`;
-
-const EnergyChartsSection = styled.div`
-  margin-top: 2rem;
-`;
-
-const EnergyCardWrapper = styled.div`
-  width: 100%;
-  margin-top: 1.5rem;
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 1rem;
-  }
-`;
-
 const CropSteeringContent = styled(MainSection)`
   display: flex;
   align-items: center;
@@ -907,48 +707,6 @@ const TabLabel = styled.span`
   @media (max-width: 768px) {
     display: none;
   }
-`;
-
-const CropWelcomeCard = styled.div`
-  width: min(760px, 100%);
-  background: var(--main-bg-card-color);
-  border: 1px solid var(--glass-border-light);
-  border-radius: 18px;
-  padding: 2rem;
-  text-align: center;
-  box-shadow: var(--main-shadow-art);
-
-  @media (max-width: 768px) {
-    padding: 1.25rem;
-  }
-`;
-
-const DevBadge = styled.div`
-  display: inline-flex;
-  align-items: center;
-  gap: 0.45rem;
-  margin-bottom: 1rem;
-  padding: 0.45rem 0.8rem;
-  border-radius: 999px;
-  border: 1px solid var(--primary-accent);
-  color: var(--primary-accent);
-  background: rgba(0, 255, 127, 0.1);
-  font-size: 0.82rem;
-  font-weight: 700;
-`;
-
-const CropWelcomeTitle = styled.h2`
-  margin: 0 0 0.65rem;
-  color: var(--main-text-color);
-  font-size: clamp(1.35rem, 3vw, 2rem);
-  font-weight: 800;
-`;
-
-const CropWelcomeText = styled.p`
-  margin: 0.35rem 0;
-  color: var(--second-text-color);
-  font-size: 1rem;
-  line-height: 1.55;
 `;
 
 const ChartGrid = styled.div`

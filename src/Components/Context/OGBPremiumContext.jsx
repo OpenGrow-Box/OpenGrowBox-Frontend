@@ -533,9 +533,9 @@ try {
         unsubscribeUsage = await connection.subscribeEvents(
           (event) => {
             // console.log('📊 Received api_usage_update:', event.data);
-            const { usage, timestamp, lastEndpoint, lastMethod, plan, features, limits } = event.data;
+            const { usage, timestamp, lastEndpoint, lastMethod, plan, features, limits, connections } = event.data;
             
-            // Update subscription with full structure (plan, features, limits, usage)
+            // Update subscription with full structure (plan, features, limits, usage, connections)
             setSubscription(prev => {
               const baseSubscription = prev || {};
               const nextPlan = plan || baseSubscription.plan_name || 'free';
@@ -546,7 +546,8 @@ try {
                   ...usage,
                   activeRooms: Array.isArray(usage?.activeRooms) ? usage.activeRooms : (baseSubscription.usage?.activeRooms || []),
                   roomsUsed: Array.isArray(usage?.activeRooms) ? usage.activeRooms.length : (usage?.roomsUsed ?? baseSubscription.usage?.roomsUsed ?? 0),
-                })
+                }),
+                connections: connections || baseSubscription.connections || {},
               };
               
               // Update plan, features, limits if provided
