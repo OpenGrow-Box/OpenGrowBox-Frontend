@@ -25,11 +25,13 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
-    const ogbOrpSensor = Object.entries(entities)
+    // ORP/Oxidation sensors – broad catch for various naming patterns (_orp, _oxidation, waterorp)
+    const orpPattern = /(?:^|_)orp(?:_|$)|(?:^|_)oxidation(?:_|$)|waterorp/i;
+    const hardcodedOrpSensors = Object.entries(entities)
       .filter(
         ([key, entity]) =>
           key.startsWith('sensor.') &&
-          key.toLowerCase().includes('waterorp') &&
+          orpPattern.test(key) &&
           !isNaN(parseFloat(entity.state))
       )
       .map(([key, entity]) => ({
@@ -48,7 +50,7 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
           s.context === 'water'
       );
 
-    let combinedSensors = [...normalizedSensors, ...ogbOrpSensor];
+    let combinedSensors = [...normalizedSensors, ...hardcodedOrpSensors];
 
     // Remove duplicates by sensor id
     combinedSensors = Array.from(

@@ -14,6 +14,7 @@ import { useGlobalState } from '../Components/Context/GlobalContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
 import CropSteeringOverview from '../Components/Dashboard/CropSteeringOverview';
+import { classifyAndNormalize, filterSensorsByRoom } from '../Components/Cards/SliderCards/sensorClassifier';
 import { FaSpinner, FaLeaf } from 'react-icons/fa';
 
 
@@ -113,47 +114,61 @@ const Dashboard = () => {
     };
   }, [currentRoom]);
 
-  // Detect water sensors dynamically
+  const waterSensorsRef = useRef({});
+
+  // Detect water sensors dynamically using sensorClassifier (matches entity_id + friendly_name)
   const waterSensors = useMemo(() => {
     if (!entities) return {};
 
-    const room = currentRoom?.trim()?.toLowerCase() || 'default';
     const sensors = {};
 
+    // Use classifyAndNormalize like WaterCard does - matches on both entity_id and friendly_name
+    const normalized = classifyAndNormalize(entities)
+      .filter(
+        (s) =>
+          ['ph', 'ec', 'tds', 'oxidation', 'temperature'].includes(s.category) &&
+          s.context === 'water'
+      );
+
+    // Apply room filter
+    const roomFiltered = currentRoom
+      ? filterSensorsByRoom(normalized, currentRoom)
+      : normalized;
+
+    // Map first match per category to expected keys
+    for (const s of roomFiltered) {
+      const key = s.category === 'oxidation' ? 'orp' : s.category;
+      if (!sensors[key]) {
+        sensors[key] = { id: s.id };
+      }
+    }
+
+    // Hardcoded ORP/oxidation fallback – catches naming patterns that classifyAndNormalize might misclassify
+    const orpPattern = /(?:^|_)orp(?:_|$)|(?:^|_)oxidation(?:_|$)|waterorp/i;
+    Object.entries(entities).forEach(([key, entity]) => {
+      if (sensors.orp) return; // already found
+      if (!key.startsWith('sensor.') || typeof entity.state === 'undefined') return;
+      if (orpPattern.test(key)) {
+        sensors.orp = { id: key };
+      }
+    });
+
+    // Tank/Reservoir Level - manual regex on entity_id
+    const room = currentRoom?.trim()?.toLowerCase() || 'default';
     Object.entries(entities).forEach(([key, entity]) => {
       const keyLower = key.toLowerCase();
-      
-      // pH sensors - look for 'ph' in sensor name
-      if (keyLower.includes('ph') && !keyLower.includes('phase')) {
-        sensors.ph = { id: key, ...entity };
-      }
-      
-      // EC sensors
-      if (keyLower.includes('ec_') || keyLower.includes('_ec') || keyLower.includes('tds')) {
-        sensors.ec = { id: key, ...entity };
-      }
-      
-      // ORP sensors
-      if (keyLower.includes('orp')) {
-        sensors.orp = { id: key, ...entity };
-      }
-      
-      // TDS sensors (if not already matched as EC)
-      if (keyLower.includes('tds') && !sensors.ec) {
-        sensors.tds = { id: key, ...entity };
-      }
-      
-      // Water temperature
-      if ((keyLower.includes('water_temp') || keyLower.includes('water_temperature') || keyLower.includes('waterpump_temp')) && (keyLower.includes(room) || keyLower.includes('water'))) {
-        sensors.temp = { id: key, ...entity };
-      }
-      
-      // Tank/Reservoir Level
       if ((keyLower.includes('tank_level') || keyLower.includes('reservoir_level') || keyLower.includes('water_level')) && (keyLower.includes(room) || !keyLower.includes('_room'))) {
         sensors.tankLevel = { id: key, ...entity };
       }
     });
 
+    // Only return new object if sensor IDs actually changed (prevents cascade-refetch on every HA state update)
+    const prev = waterSensorsRef.current;
+    const keys = ['ph', 'ec', 'temp', 'tds', 'orp', 'tankLevel'];
+    const changed = keys.some(k => sensors[k]?.id !== prev[k]?.id);
+    if (!changed) return prev;
+
+    waterSensorsRef.current = sensors;
     return sensors;
   }, [entities, currentRoom]);
 
