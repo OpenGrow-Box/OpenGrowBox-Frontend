@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import BottomBar from '../Components/Navigation/BottomBar';
 import DashboardTitle from '../Components/Dashboard/DashboardTitle';
 import SettingsPanel from '../Components/Settings/SettingsPanel';
-import AdminPanel from '../Components/Settings/AdminPanel';
+import IntegrationUpdateBanner from '../Components/Settings/IntegrationUpdateBanner';
 
 const Settings = () => {
   return (
@@ -14,10 +14,9 @@ const Settings = () => {
 
       <InnerContent>
         <MainSection>
+         <IntegrationUpdateBanner/>
 
          <SettingsPanel/>
-
-         <AdminPanel/>
 
          </MainSection>
 

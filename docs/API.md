@@ -353,19 +353,29 @@ number.ogb_hydroretriveintervall_flower
 number.ogb_hydroretriveduration_flower
 ```
 
-**Feeding Controls:**
+**Feeding Controls (Full-Tank Recipe in ml):**
 ```
 number.ogb_feed_ec_target_flower
 number.ogb_feed_ph_target_flower
 number.ogb_feed_tolerance_ec_flower
 number.ogb_feed_tolerance_ph_flower
-number.ogb_feed_nutrient_a_flower
-number.ogb_feed_nutrient_b_flower
-number.ogb_feed_nutrient_c_flower
-number.ogb_feed_nutrient_w_flower
-number.ogb_feed_nutrient_x_flower
-number.ogb_feed_nutrient_y_flower
-number.ogb_feed_nutrient_ph_flower
+number.ogb_feed_nutrient_a_flower   # ml for full tank, concentration derived automatically
+number.ogb_feed_nutrient_b_flower   # ml for full tank, concentration derived automatically
+number.ogb_feed_nutrient_c_flower   # ml for full tank, concentration derived automatically
+number.ogb_feed_nutrient_w_flower   # ml for full tank, set 0 to disable
+number.ogb_feed_nutrient_x_flower   # ml for full tank, set 0 to disable
+number.ogb_feed_nutrient_y_flower   # ml for full tank, set 0 to disable
+number.ogb_feed_nutrient_ph_flower  # ml for full tank, set 0 to disable
+```
+
+**Calculated Concentration Sensors (read-only, ml/L):**
+```
+sensor.ogb_nutrient_concentration_a_flower
+sensor.ogb_nutrient_concentration_b_flower
+sensor.ogb_nutrient_concentration_c_flower
+sensor.ogb_nutrient_concentration_x_flower
+sensor.ogb_nutrient_concentration_y_flower
+sensor.ogb_nutrient_concentration_ph_down_flower
 ```
 
 ### Controls (Input Select)
@@ -410,7 +420,38 @@ select.ogb_vpd_devicedampening_flower
 select.ogb_rooms                    # Room selection
 text.ogb_accesstoken               # Premium access token
 input_text.ogb_server_url           # Backend server URL
+update.opengrowbox_update           # Backend self-update (see below)
 ```
+
+### Update Entity (`update.opengrowbox_update`)
+
+Since the backend integration is no longer distributed via HACS, it checks GitHub
+releases itself and exposes a native Home Assistant `update` entity. It's already
+included in the global `entities` object from `subscribeEntities` - no extra
+subscription needed.
+
+```jsx
+const updateEntity = entities['update.opengrowbox_update'];
+updateEntity.attributes.installed_version;  // currently running version
+updateEntity.attributes.latest_version;     // latest GitHub release tag
+updateEntity.attributes.release_url;        // GitHub release page
+updateEntity.attributes.release_summary;    // truncated changelog
+updateEntity.attributes.in_progress;        // true while installing
+```
+
+Trigger an install (see `IntegrationUpdateBanner.jsx` for the full component):
+
+```jsx
+await connection.sendMessagePromise({
+  type: 'call_service',
+  domain: 'update',
+  service: 'install',
+  service_data: { entity_id: 'update.opengrowbox_update' },
+});
+```
+
+Home Assistant must be restarted after install to finish loading the new version
+(`homeassistant.restart` service).
 
 ## Service Calls
 

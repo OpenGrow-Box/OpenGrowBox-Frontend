@@ -31,7 +31,7 @@ const capitalize = (str) => {
   return str.charAt(0).toUpperCase() + str.slice(1).toLowerCase()
 }
 
-const Wizzard = () => {
+const Wizzard = ({ onComplete }) => {
   const { currentPlan, subscription, userEmail, userId } = usePremium()
   const { connection, currentRoom, haToken, haBaseUrl, haApiBaseUrl } = useHomeAssistant()
   const contentRef = useRef(null)

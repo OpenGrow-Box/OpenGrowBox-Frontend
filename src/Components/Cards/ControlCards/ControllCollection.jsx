@@ -539,8 +539,8 @@ const dynamicFilters = {
     activeInGroups: ['Feed Settings'],
     conditions: {
       'Tank Feed': {
-        includeKeywords: ['feed',  'ec', 'ph', 'tolerance', 'tank'],
-        excludeKeywords: ['plant','nutrient', 'individual', 'hydro'],
+        includeKeywords: ['feed', 'ec', 'ph', 'tolerance', 'tank', 'nutrient'],
+        excludeKeywords: ['plant', 'individual', 'hydro'],
         additionalTooltips: {
           'ogb_feed_ec_target_': 'EC target for tank feeding system',
           'ogb_feed_ph_target_': 'pH target for tank feeding system'
@@ -567,8 +567,8 @@ const dynamicFilters = {
         additionalTooltips: {}
       },
       'Config': {
-        includeKeywords: ['feed'],
-        excludeKeywords: ['Nutrient',],
+        includeKeywords: ['feed', 'pump', 'flowrate', 'nutrient'],
+        excludeKeywords: ['hydro_retrive', 'hydro_cycle'],
         additionalTooltips: {}
       }
     }
@@ -595,7 +595,7 @@ const groupMappings = {
   },
   'Feed Settings': {
     includeKeywords: ['pump', 'feed'],
-    excludeKeywords: ['Device', 'water', 'hydro','tolerance','nutrient'],
+    excludeKeywords: ['Device', 'water', 'hydro', 'tolerance'],
   },
   'Special Settings': {
     includeKeywords: ['area','medium','planttype','season','energy',],
@@ -720,13 +720,21 @@ const ControllCollection = ({ option }) => {
     [`ogb_feed_tolerance_ec_${currentRoom?.toLowerCase()}`]: 'Set your EC Tolerance in %',
     [`ogb_feed_tolerance_ph_${currentRoom?.toLowerCase()}`]: 'Set your PH Tolerance in %',
 
-    [`ogb_feed_nutrient_a_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
-    [`ogb_feed_nutrient_b_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
-    [`ogb_feed_nutrient_c_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
-    [`ogb_feed_nutrient_w_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
-    [`ogb_feed_nutrient_x_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
-    [`ogb_feed_nutrient_y_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
-    [`ogb_feed_nutrient_ph_${currentRoom?.toLowerCase()}`]: 'Set your Pump ML value it Provides on x/ML',
+    [`ogb_feed_nutrient_a_${currentRoom?.toLowerCase()}`]: 'ml of Nutrient A for a completely full tank. The system derives the concentration (ml/L) automatically.',
+    [`ogb_feed_nutrient_b_${currentRoom?.toLowerCase()}`]: 'ml of Nutrient B for a completely full tank. The system derives the concentration (ml/L) automatically.',
+    [`ogb_feed_nutrient_c_${currentRoom?.toLowerCase()}`]: 'ml of Nutrient C for a completely full tank. The system derives the concentration (ml/L) automatically.',
+    [`ogb_feed_nutrient_w_${currentRoom?.toLowerCase()}`]: 'ml of Nutrient W for a completely full tank. Set to 0 to disable.',
+    [`ogb_feed_nutrient_x_${currentRoom?.toLowerCase()}`]: 'ml of Custom X for a completely full tank. Set to 0 to disable.',
+    [`ogb_feed_nutrient_y_${currentRoom?.toLowerCase()}`]: 'ml of Custom Y for a completely full tank. Set to 0 to disable.',
+    [`ogb_feed_nutrient_ph_${currentRoom?.toLowerCase()}`]: 'ml of pH adjuster for a completely full tank. Set to 0 to disable.',
+
+    // Calculated concentration sensors (read-only)
+    [`ogb_nutrient_concentration_a_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for Nutrient A.',
+    [`ogb_nutrient_concentration_b_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for Nutrient B.',
+    [`ogb_nutrient_concentration_c_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for Nutrient C.',
+    [`ogb_nutrient_concentration_x_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for Custom X.',
+    [`ogb_nutrient_concentration_y_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for Custom Y.',
+    [`ogb_nutrient_concentration_ph_down_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for pH adjuster.',
 
     [`ogb_owndevicesets_${currentRoom?.toLowerCase()}`]: 'Enable to manually map entities to device types. Default uses naming convention.',
     [`ogb_light_device_select_${currentRoom?.toLowerCase()}`]: 'Select a light entity. Requires Own Device Sets enabled.',

@@ -3,6 +3,7 @@ import styled, { keyframes, css } from 'styled-components';
 import { FaDiscord, FaTelegram, FaBook, FaLeaf, FaMobile } from 'react-icons/fa';
 import {ogbversions} from '../../config';
 import { fetchAllContributors } from '../../utils/contributorsService';
+import { isVersionNewer } from '../../utils/versionCompare';
 import OGBIcon from '../../misc/OGBIcon';
 import DevBageHallOfFame from './DevBageHallOfFame';
 
@@ -11,28 +12,6 @@ const SettingsFooter = () => {
   const [appVersion, setAppVersion] = useState('Laden...');
   const [hasUpdate, setHasUpdate] = useState(false);
   const [contributors, setContributors] = useState([]);
-  
-  // Helper function to compare semantic versions
-  const isVersionNewer = (remoteVersion, localVersion) => {
-    // Remove 'v' prefix if present
-    const cleanRemote = remoteVersion.replace(/^v/, '');
-    const cleanLocal = localVersion.replace(/^v/, '');
-
-    // Split versions into parts
-    const remoteParts = cleanRemote.split('.').map(Number);
-    const localParts = cleanLocal.split('.').map(Number);
-
-    // Compare each part
-    for (let i = 0; i < Math.max(remoteParts.length, localParts.length); i++) {
-      const remotePart = remoteParts[i] || 0;
-      const localPart = localParts[i] || 0;
-
-      if (remotePart > localPart) return true;
-      if (remotePart < localPart) return false;
-    }
-
-    return false; // Versions are equal
-  };
 
   useEffect(() => {
     const fetchLatestRelease = async () => {
