@@ -481,6 +481,16 @@ const LoadingState = styled.div`
   height: 60vh;
   text-align: center;
   padding: 2rem;
+
+  @media (max-width: 768px) {
+    height: 50vh;
+    padding: 1.5rem;
+  }
+
+  @media (max-width: 480px) {
+    height: 40vh;
+    padding: 1rem;
+  }
 `;
 
 const LoadingSpinner = styled.div`
@@ -493,6 +503,15 @@ const LoadingSpinner = styled.div`
     from { transform: rotate(0deg); }
     to { transform: rotate(360deg); }
   }
+
+  @media (max-width: 768px) {
+    font-size: 2.5rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
 `;
 
 const LoadingText = styled.h3`
@@ -500,6 +519,10 @@ const LoadingText = styled.h3`
   margin: 0 0 0.5rem 0;
   font-size: 1.2rem;
   font-weight: 500;
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
 `;
 
 const LoadingSubtext = styled.p`
@@ -520,12 +543,29 @@ const EmptyState = styled.div`
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
   margin-top: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 2rem 1.5rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 1.5rem 1rem;
+  }
 `;
 
 const EmptyIcon = styled.div`
   font-size: 3rem;
   margin-bottom: 1rem;
   opacity: 0.7;
+
+  @media (max-width: 768px) {
+    font-size: 2.5rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 2rem;
+    margin-bottom: 0.75rem;
+  }
 `;
 
 const EmptyTitle = styled.h3`
@@ -533,6 +573,10 @@ const EmptyTitle = styled.h3`
   margin: 0 0 0.5rem 0;
   font-size: 1.2rem;
   font-weight: 500;
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
 `;
 
 const EmptyMessage = styled.p`
@@ -606,6 +650,18 @@ const EnergyHeader = styled.div`
   margin-bottom: 1.5rem;
   padding-bottom: 1rem;
   border-bottom: 1px solid var(--glass-border-light);
+
+  @media (max-width: 768px) {
+    margin-bottom: 1rem;
+    padding-bottom: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.5rem;
+  }
 `;
 
 const EnergyTitle = styled.h2`
@@ -613,6 +669,14 @@ const EnergyTitle = styled.h2`
   font-size: 1.5rem;
   font-weight: 600;
   margin: 0;
+
+  @media (max-width: 768px) {
+    font-size: 1.25rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1.1rem;
+  }
 `;
 
 const CropSteeringContent = styled(MainSection)`
@@ -729,6 +793,11 @@ const ChartGrid = styled.div`
   flex-direction: column;
   gap: 1.5rem;
   width: 100%;
+
+  @media (max-width: 768px) {
+    gap: 1.25rem;
+  }
+
   @media (max-width: 480px) {
     gap: 1rem;
   }
@@ -761,5 +830,6 @@ const ContainerHeader = styled.div`
     padding: 0 0.75rem;
     height: 4.5vh;
     min-height: 40px;
+    gap: 0.5rem;
   }
 `;

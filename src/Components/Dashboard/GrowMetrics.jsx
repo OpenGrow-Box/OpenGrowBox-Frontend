@@ -1614,12 +1614,12 @@ const Controls = styled.div`
 
   @media (max-width: 768px) {
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.5rem;
     margin-bottom: 2rem;
   }
 
   @media (max-width: 640px) {
-    gap: 1rem;
+    gap: 0.5rem;
     margin-bottom: 1.75rem;
   }
 `;
@@ -1667,6 +1667,16 @@ const MetricsGrid = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
   gap: 1.5rem;
   margin-bottom: 2rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 `;
 
 const MetricCard = styled.div`
@@ -1692,12 +1702,16 @@ const MetricCard = styled.div`
   }
 
   @media (max-width: 768px) {
-    padding: 1.5rem;
+    padding: 1rem;
   }
 
   @media (max-width: 640px) {
     padding: 1.25rem;
     border-radius: 16px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
   }
 `;
 
@@ -1743,6 +1757,11 @@ const StatsGrid = styled.div`
   
   @media (min-width: 768px) {
     grid-template-columns: repeat(4, 1fr);
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
   }
 `;
 
@@ -1861,6 +1880,10 @@ const SummaryGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 1rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const SummaryItem = styled.div`

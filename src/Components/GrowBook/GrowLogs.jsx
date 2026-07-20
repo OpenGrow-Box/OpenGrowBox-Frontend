@@ -2036,13 +2036,6 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
 
   return (
     <LogItemContainer $logType={logType}>
-      <LogHeader $logType={logType}>
-        <RoomInfo>
-          <RoomName $color={roomColors.bg}>{displayRoomName}</RoomName>
-          {parsedInfo.message && <MessageText>{parsedInfo.message}</MessageText>}
-        </RoomInfo>
-        <TimeStamp>{date}</TimeStamp>
-      </LogHeader>
        <LogContent>
         {sensorData && sensorData}
         {actionData && actionData}
@@ -2257,7 +2250,8 @@ const GrowLogs = () => {
     <LogContainer>
       {/* Search and Filter Header */}
       <LogHeader>
-        <SearchContainer>
+        <SearchRow>
+          <LiveBadge>Live</LiveBadge>
           <SearchInput
             type="text"
             placeholder="Search logs..."
@@ -2285,7 +2279,7 @@ const GrowLogs = () => {
             <option value="missing-devices">Missing Devices</option>
             <option value="auth-success">Auth Success</option>
           </FilterSelect>
-        </SearchContainer>
+        </SearchRow>
         <LogCount>
           {displayedLogs.length} of {filteredLogs.length} logs
         </LogCount>
@@ -2477,17 +2471,6 @@ const LogContainer = styled.div`
   }
 `;
 
-const SearchContainer = styled.div`
-  display: flex;
-  gap: 0.75rem;
-  flex: 1;
-
-  @media (max-width: 480px) {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-`;
-
 const SearchInput = styled.input`
   flex: 1;
   padding: 0.5rem 0.75rem;
@@ -2496,6 +2479,7 @@ const SearchInput = styled.input`
   background: rgba(255, 255, 255, 0.1);
   color: var(--main-text-color, #fff);
   font-size: 0.9rem;
+  min-width: 0;
 
   &::placeholder {
     color: var(--second-text-color, #ccc);
@@ -2507,9 +2491,15 @@ const SearchInput = styled.input`
     background: rgba(255, 255, 255, 0.15);
   }
 
+  @media (max-width: 768px) {
+    padding: 0.5rem 0.625rem;
+    font-size: 0.9rem;
+  }
+
   @media (max-width: 480px) {
-    padding: 0.6rem 0.75rem;
-    font-size: 1rem; /* Prevent zoom on iOS */
+    padding: 0.5rem 0.625rem;
+    font-size: 1rem;
+    flex: 1 1 0;
   }
 `;
 
@@ -2522,6 +2512,7 @@ const FilterSelect = styled.select`
   font-size: 0.9rem;
   cursor: pointer;
   min-width: 120px;
+  flex-shrink: 0;
 
   &:focus {
     outline: none;
@@ -2534,19 +2525,78 @@ const FilterSelect = styled.select`
     color: var(--main-text-color);
   }
 
+  @media (max-width: 768px) {
+    min-width: 100px;
+    font-size: 0.85rem;
+    padding: 0.45rem 0.5rem;
+  }
+
   @media (max-width: 480px) {
-    min-width: unset;
-    flex: 1;
+    min-width: 0;
+    flex: 0 1 auto;
+    font-size: 0.8rem;
+    padding: 0.45rem 0.5rem;
   }
 `;
 
 const LogCount = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
   color: var(--second-text-color, #ccc);
   font-size: 0.85rem;
   white-space: nowrap;
 
   @media (max-width: 768px) {
-    text-align: center;
+    align-self: flex-end;
+    font-size: 0.8rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.75rem;
+  }
+`;
+
+const LiveBadge = styled.span`
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 0.2rem 0.6rem;
+  background: rgba(34, 197, 94, 0.15);
+  border: 1px solid rgba(34, 197, 94, 0.4);
+  border-radius: 12px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: #22c55e;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  white-space: nowrap;
+  flex-shrink: 0;
+
+  &::before {
+    content: '';
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #22c55e;
+    box-shadow: 0 0 6px #22c55e;
+    animation: livePulse 2s ease-in-out infinite;
+  }
+
+  @keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.15rem 0.45rem;
+    font-size: 0.6rem;
+    gap: 4px;
+
+    &::before {
+      width: 5px;
+      height: 5px;
+    }
   }
 `;
 
@@ -2614,7 +2664,7 @@ const GrowLogContainer = styled.div`
   @media (max-width: 640px) {
     border-left: none;
     border-top: 1px solid rgba(255, 255, 255, 0.1);
-    padding: 0.75rem 0 0;
+    padding: 0.5rem 0 0;
   }
 
   @media (max-width: 768px) {
@@ -2710,18 +2760,36 @@ const LogItemContainer = styled.div`
 const LogHeader = styled.div`
   display: flex;
   justify-content: space-between;
-  align-items: flex-start;
-  padding: 1rem 1.25rem 0.75rem;
+  align-items: center;
+  padding: 0.75rem 1rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  gap: 0.5rem;
 
-  @media (max-width: 1024px) {
-    padding: 0.75rem;
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.5rem 0.75rem;
+    gap: 0.375rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.375rem;
+  }
+`;
+
+const SearchRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  width: 100%;
+
+  @media (max-width: 768px) {
     gap: 0.5rem;
   }
 
-  @media (max-width: 768px) {
-    padding: 0.5rem;
-    flex-direction: column;
+  @media (max-width: 480px) {
+    flex-wrap: wrap;
     gap: 0.375rem;
   }
 `;
@@ -2750,11 +2818,23 @@ const TimeStamp = styled.div`
   font-size: 0.75rem;
   white-space: nowrap;
   margin-left: 1rem;
+
+  @media (max-width: 768px) {
+    margin-left: 0;
+    font-size: 0.7rem;
+  }
 `;
 
 const LogContent = styled.div`
   padding: 1rem 1.25rem 1.25rem;
 
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+  }
 `;
 
 const DeviceActionContainer = styled.div`
@@ -2767,6 +2847,14 @@ const DeviceHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const DeviceIcon = styled.div`
@@ -2823,6 +2911,18 @@ const DeviceIcon = styled.div`
       : '0 6px 20px rgba(0, 0, 0, 0.15)'
     };
   }
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 1.1rem;
+  }
 `;
 
 const DeviceInfo = styled.div`
@@ -2837,6 +2937,14 @@ const DeviceName = styled.div`
   font-size: 1.1rem;
   font-weight: 600;
   text-transform: capitalize;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const DeviceMessage = styled.div`
@@ -2850,6 +2958,10 @@ const DeviceDetails = styled.div`
   align-items: center;
   gap: 1rem;
   flex-wrap: wrap;
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const DataBadge = styled.div`
@@ -2860,6 +2972,10 @@ const DataBadge = styled.div`
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.75rem;
+  }
 `;
 
 const CycleLabel = styled.div`
@@ -2880,6 +2996,10 @@ const SensorGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 1rem;
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const SensorItem = styled.div`
@@ -2938,6 +3058,15 @@ const ActionGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const ActionItem = styled.div`
@@ -3014,6 +3143,10 @@ const ActionBadge = styled.div`
     transform: translateY(-2px);
     box-shadow: 0 6px 20px rgba(0, 0, 0, 0.4);
   }
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 const ActionDetail = styled.div`
@@ -3032,6 +3165,10 @@ const DeviationContainer = styled.div`
   display: flex;
   gap: 1rem;
   flex-wrap: wrap;
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const DeviationItem = styled.div`
@@ -3055,6 +3192,11 @@ const DeviationItem = styled.div`
   };
   border-radius: 8px;
   min-width: 120px;
+
+  @media (max-width: 480px) {
+    min-width: 0;
+    padding: 0.5rem;
+  }
 `;
 
 const priorityColors = {
@@ -3195,6 +3337,14 @@ const DeadbandContainer = styled.div`
     right: 0;
     height: 3px;
     background: linear-gradient(90deg, #FFC107, #FF9800);
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
   }
 `;
 
@@ -3346,6 +3496,10 @@ const StatusBadge = styled.div`
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
   }
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const StatusBadgeHydro = styled.span`
@@ -3409,6 +3563,14 @@ const PumpControlsContainer = styled.div`
   border-radius: 12px;
   padding: 1rem;
   margin-top: 0.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+  }
 `;
 
 const PumpMetric = styled.div`
@@ -3471,6 +3633,16 @@ const LightControlsContainer = styled.div`
   border-radius: 12px;
   padding: 1rem;
   margin-top: 0.5rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 const DimmingControl = styled.div`
@@ -3502,6 +3674,14 @@ const DimmingValue = styled.div`
   font-weight: 700;
   text-align: center;
   text-shadow: 0 0 8px rgba(255, 215, 0, 0.3);
+
+  @media (max-width: 768px) {
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1.1rem;
+  }
 `;
 
 const DimmingBar = styled.div`
@@ -3658,6 +3838,14 @@ const NightVPDHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const NightVPDIcon = styled.div`
@@ -3676,6 +3864,18 @@ const NightVPDIcon = styled.div`
     transform: scale(1.05);
     box-shadow: 0 6px 20px rgba(52, 152, 219, 0.4);
   }
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 const NightVPDInfo = styled.div`
@@ -3689,6 +3889,10 @@ const NightVPDTitle = styled.div`
   color: var(--main-text-color);
   font-size: 1.1rem;
   font-weight: 600;
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
 `;
 
 const NightVPDRoom = styled.div`
@@ -3725,6 +3929,11 @@ const NightVPDStatus = styled.div`
   &:hover {
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.625rem;
+    gap: 0.625rem;
   }
 `;
 
@@ -3789,6 +3998,16 @@ const PIDControllerContainer = styled.div`
     0%, 100% { left: -100%; }
     50% { left: 100%; }
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 const PIDHeader = styled.div`
@@ -3796,6 +4015,14 @@ const PIDHeader = styled.div`
   justify-content: space-between;
   align-items: flex-start;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const PIDTitle = styled.div`
@@ -3820,6 +4047,18 @@ const PIDIcon = styled.div`
     transform: scale(1.05);
     box-shadow: 0 6px 20px rgba(116, 75, 162, 0.4);
   }
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 const PIDInfo = styled.div`
@@ -3834,6 +4073,10 @@ const PIDControllerType = styled.div`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  @media (max-width: 480px) {
+    font-size: 0.95rem;
+  }
 `;
 
 const PIDStatus = styled.div`
@@ -3902,6 +4145,15 @@ const PIDActionGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const PIDActionItem = styled.div`
@@ -4065,13 +4317,13 @@ export const MediumContainer = styled.div`
   }
 
   @media (max-width: 1024px) {
-    padding: 0.75rem;
-    gap: 0.75rem;
+    padding: 0.6rem;
+    gap: 0.5rem;
   }
 
   @media (max-width: 768px) {
     padding: 0.5rem;
-    gap: 0.5rem;
+    gap: 0.4rem;
     border-radius: 10px;
   }
 
@@ -4088,9 +4340,14 @@ export const MediumHeader = styled.div`
   gap: 0.75rem;
   margin-bottom: 0.5rem;
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     gap: 0.5rem;
     margin-bottom: 0.375rem;
+  }
+
+  @media (max-width: 768px) {
+    gap: 0.375rem;
+    margin-bottom: 0.25rem;
   }
 `;
 
@@ -4149,8 +4406,16 @@ export const MetricGroups = styled.div`
   flex-direction: column;
   gap: 1rem;
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     gap: 0.5rem;
+  }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
   }
 `;
 
@@ -4159,13 +4424,18 @@ export const MetricGroup = styled.div`
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
 
+  @media (max-width: 1024px) {
+    gap: 0.5rem;
+  }
+
   @media (max-width: 768px) {
     grid-template-columns: repeat(2, 1fr);
-    gap: 0.5rem;
+    gap: 0.375rem;
   }
 
   @media (max-width: 480px) {
     grid-template-columns: 1fr;
+    gap: 0.375rem;
   }
 `;
 
@@ -4191,9 +4461,18 @@ export const MetricCard = styled.div`
   transition: all 0.2s ease;
   position: relative;
 
+  @media (max-width: 1024px) {
+    padding: 0.6rem;
+  }
+
   @media (max-width: 768px) {
     padding: 0.5rem;
     border-radius: 6px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.375rem;
+    border-radius: 5px;
   }
 
   &:hover {
@@ -4332,6 +4611,16 @@ export const EnhancedSensorContainer = styled.div`
   border: 1px solid rgba(59, 130, 246, 0.3);
   border-radius: 12px;
   padding: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const EnhancedSensorHeader = styled.div`
@@ -4362,6 +4651,10 @@ export const EnhancedSensorGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const EnhancedSensorCard = styled.div`
@@ -4508,6 +4801,11 @@ export const DeviationGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+    gap: 0.5rem;
+  }
 `;
 
 export const DeviationCard = styled.div`
@@ -4548,6 +4846,16 @@ export const HydroContainer = styled.div`
   border: 1px solid rgba(6, 182, 212, 0.3);
   border-radius: 12px;
   padding: 1rem;
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const HydroHeader = styled.div`
@@ -4555,6 +4863,14 @@ export const HydroHeader = styled.div`
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const HydroIcon = styled.div`
@@ -4566,6 +4882,18 @@ export const HydroIcon = styled.div`
   align-items: center;
   justify-content: center;
   font-size: 1.2rem;
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const HydroInfo = styled.div`
@@ -4615,6 +4943,10 @@ export const HydroStatus = styled.div`
       50% { left: 100%; }
     }
   `}
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const HydroControls = styled.div`
@@ -4627,6 +4959,10 @@ export const ControlGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const ControlItem = styled.div`
@@ -4834,6 +5170,14 @@ export const CSContainerEnhanced = styled.div`
       100% { left: 100%; }
     }
   `}
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+  }
 `;
 
 export const CSHeaderEnhanced = styled.div`
@@ -4862,6 +5206,12 @@ export const CSIconEnhanced = styled.div`
   justify-content: center;
   font-size: 1.1rem;
   box-shadow: 0 0 15px ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'}50;
+
+  @media (max-width: 480px) {
+    width: 32px;
+    height: 32px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const CSInfoEnhanced = styled.div`
@@ -4935,6 +5285,11 @@ export const CSProgressContainer = styled.div`
   background: rgba(255, 255, 255, 0.05);
   border-radius: 8px;
   grid-column: span 2;
+
+  @media (max-width: 480px) {
+    grid-column: span 1;
+    padding: 0.5rem;
+  }
 `;
 
 export const CSProgressHeader = styled.div`
@@ -5010,6 +5365,10 @@ export const CSMessageEnhanced = styled.div`
   border-radius: 8px;
   border-left: 3px solid ${props => CS_PHASE_COLORS[props.phase]?.primary || '#22c55e'};
   font-family: 'SF Mono', 'Monaco', 'Inconsolata', 'Fira Code', monospace;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+  }
 `;
 
 export const CSTransitionBadge = styled.div`
@@ -5040,6 +5399,10 @@ export const CSWarningBanner = styled.div`
   border-radius: 8px;
   color: #f59e0b;
   font-size: 0.85rem;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+  }
 `;
 
 export const CSTimingInfo = styled.div`
@@ -5095,6 +5458,16 @@ export const EmergencyContainer = styled.div`
       50% { left: 100%; }
     }
   `}
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const EmergencyHeader = styled.div`
@@ -5126,6 +5499,18 @@ export const EmergencyIcon = styled.div`
       default: return '0 0 20px rgba(34, 197, 94, 0.5)';
     }
   }};
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const EmergencyInfo = styled.div`
@@ -5146,6 +5531,10 @@ export const EmergencyTitle = styled.h3`
   font-size: 1.1rem;
   font-weight: 600;
   text-shadow: ${props => props.severity === 'critical' ? '0 0 8px rgba(239, 68, 68, 0.5)' : 'none'};
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
 `;
 
 export const EmergencySubtitle = styled.div`
@@ -5158,6 +5547,10 @@ export const EmergencyStats = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const StatItem = styled.div`
@@ -5179,6 +5572,14 @@ export const StatValue = styled.div`
   font-size: 1.2rem;
   font-weight: 700;
   color: ${props => getStatusColor(props.status)};
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
 `;
 
 export const EmergencyDetails = styled.div`
@@ -5244,6 +5645,10 @@ export const HydroCastItem = styled.div`
   padding: 14px 20px;
   border: 1px solid rgba(15, 170, 170, 0.3);
   transition: all 0.3s ease;
+
+  @media (max-width: 480px) {
+    padding: 10px 14px;
+  }
   
   &:hover {
     border-color: #0fa;
@@ -5294,6 +5699,11 @@ export const DeviceBadge = styled.span`
   font-weight: 500;
   border: 1px solid rgba(15, 170, 170, 0.5);
   transition: all 0.3s ease;
+
+  @media (max-width: 480px) {
+    padding: 4px 10px;
+    font-size: 0.75rem;
+  }
   
   &::before {
     content: '⚡';
@@ -5344,6 +5754,16 @@ const LogHeaderRow = styled.div`
   &:hover {
     background: rgba(255, 255, 255, 0.05);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.625rem 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    flex-wrap: wrap;
+    padding: 0.5rem 0.625rem;
+    gap: 0.25rem;
+  }
 `;
 
 const LogSummary = styled.div`
@@ -5352,6 +5772,16 @@ const LogSummary = styled.div`
   gap: 0.75rem;
   flex: 1;
   min-width: 0;
+
+  @media (max-width: 768px) {
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.375rem;
+    flex: 1 1 100%;
+    min-width: 0;
+  }
 `;
 
 const RoomBadge = styled.div`
@@ -5365,6 +5795,16 @@ const RoomBadge = styled.div`
   white-space: nowrap;
   flex-shrink: 0;
   text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+
+  @media (max-width: 768px) {
+    padding: 0.2rem 0.6rem;
+    font-size: 0.72rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.15rem 0.45rem;
+    font-size: 0.65rem;
+  }
 `;
 
 const LogTypeIndicator = styled.div`
@@ -5408,6 +5848,11 @@ const LogPreview = styled.div`
 
   @media (max-width: 480px) {
     font-size: 0.75rem;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    line-height: 1.3;
+    max-height: 2.6em;
   }
 `;
 
@@ -5419,6 +5864,12 @@ const LogMeta = styled.div`
 
   @media (max-width: 768px) {
     gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    flex: 1 1 100%;
+    justify-content: space-between;
+    padding-top: 0.125rem;
   }
 `;
 
@@ -5481,12 +5932,30 @@ const MissingPumpsContainer = styled.div`
     height: 3px;
     background: linear-gradient(90deg, #fb923c, #ea580c, #c2410c);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 const MissingPumpsHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 const MissingPumpsIconWrapper = styled.div`
@@ -5500,6 +5969,18 @@ const MissingPumpsIconWrapper = styled.div`
   justify-content: center;
   color: white;
   box-shadow: 0 4px 15px rgba(251, 146, 60, 0.4);
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 const MissingPumpsPulse = styled.div`
@@ -5573,6 +6054,10 @@ const MissingPumpsMessage = styled.div`
   border: 1px solid rgba(251, 146, 60, 0.2);
   border-radius: 8px;
   padding: 0.75rem 1rem;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 0.75rem;
+  }
 `;
 
 const MissingPumpsMessageIcon = styled.div`
@@ -5635,6 +6120,16 @@ export const PlantConfigContainer = styled.div`
     height: 3px;
     background: linear-gradient(90deg, #22c55e, #3b82f6, #22c55e);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const PlantConfigHeader = styled.div`
@@ -5643,6 +6138,14 @@ export const PlantConfigHeader = styled.div`
   gap: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const PlantConfigIcon = styled.div`
@@ -5655,6 +6158,18 @@ export const PlantConfigIcon = styled.div`
   justify-content: center;
   color: white;
   box-shadow: 0 4px 15px rgba(34, 197, 94, 0.3);
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const PlantConfigInfo = styled.div`
@@ -5688,12 +6203,25 @@ export const PlantConfigStatusBadge = styled.div`
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const PlantConfigGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const PlantConfigSection = styled.div`
@@ -5779,6 +6307,16 @@ export const ReservoirContainer = styled.div`
       }
     }};
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const ReservoirHeader = styled.div`
@@ -5787,6 +6325,14 @@ export const ReservoirHeader = styled.div`
   gap: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const ReservoirIcon = styled.div`
@@ -5811,6 +6357,18 @@ export const ReservoirIcon = styled.div`
       default: return 'rgba(59, 130, 246, 0.3)';
     }
   }};
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const ReservoirInfo = styled.div`
@@ -5867,6 +6425,10 @@ export const ReservoirStatusBadge = styled.div`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const ReservoirContent = styled.div`
@@ -5883,6 +6445,10 @@ export const ReservoirLevelBar = styled.div`
   border-radius: 8px;
   overflow: hidden;
   border: 1px solid rgba(255, 255, 255, 0.1);
+
+  @media (max-width: 480px) {
+    height: 32px;
+  }
 `;
 
 export const ReservoirLevelFill = styled.div`
@@ -5925,12 +6491,20 @@ export const ReservoirLevelText = styled.div`
   font-weight: 700;
   text-shadow: 0 1px 3px rgba(0, 0, 0, 0.8);
   z-index: 1;
+
+  @media (max-width: 480px) {
+    font-size: 0.85rem;
+  }
 `;
 
 export const ReservoirDetails = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const ReservoirDetailItem = styled.div`
@@ -5993,6 +6567,14 @@ export const CooldownList = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
   gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const CooldownItem = styled.div`
@@ -6075,6 +6657,16 @@ export const CO2Container = styled.div`
       }
     }};
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const CO2Header = styled.div`
@@ -6083,6 +6675,14 @@ export const CO2Header = styled.div`
   gap: 1rem;
   padding-bottom: 0.75rem;
   border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const CO2Icon = styled.div`
@@ -6107,6 +6707,18 @@ export const CO2Icon = styled.div`
       default: return 'rgba(59, 130, 246, 0.3)';
     }
   }};
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const CO2Info = styled.div`
@@ -6163,6 +6775,10 @@ export const CO2StatusBadge = styled.div`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const CO2Content = styled.div`
@@ -6180,6 +6796,14 @@ export const CO2LevelDisplay = styled.div`
   background: rgba(0, 0, 0, 0.3);
   border-radius: 12px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+  }
 `;
 
 export const CO2LevelValue = styled.div`
@@ -6199,6 +6823,14 @@ export const CO2LevelValue = styled.div`
       default: return 'rgba(59, 130, 246, 0.3)';
     }
   }};
+
+  @media (max-width: 768px) {
+    font-size: 1.8rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1.4rem;
+  }
 `;
 
 export const CO2LevelUnit = styled.div`
@@ -6211,6 +6843,10 @@ export const CO2Details = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const CO2DetailItem = styled.div`
@@ -6264,12 +6900,30 @@ export const NightModeContainer = styled.div`
     height: 3px;
     background: linear-gradient(90deg, #191970, #483D8B, #6495ED);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const NightModeHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const NightModeIcon = styled.div`
@@ -6282,6 +6936,18 @@ export const NightModeIcon = styled.div`
   justify-content: center;
   color: white;
   box-shadow: 0 4px 15px rgba(25, 25, 112, 0.4);
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const NightModeInfo = styled.div`
@@ -6315,6 +6981,10 @@ export const NightModeBadge = styled.div`
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const NightModeMessage = styled.div`
@@ -6325,12 +6995,20 @@ export const NightModeMessage = styled.div`
   background: rgba(0, 0, 0, 0.2);
   border-radius: 8px;
   border-left: 3px solid #6495ED;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+  }
 `;
 
 export const NightModeMetrics = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const NightModeMetric = styled.div`
@@ -6460,12 +7138,30 @@ export const MissingDevicesContainer = styled.div`
     height: 3px;
     background: linear-gradient(90deg, #f59e0b, #d97706, #b45309);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const MissingDevicesHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const MissingDevicesIconWrapper = styled.div`
@@ -6479,6 +7175,18 @@ export const MissingDevicesIconWrapper = styled.div`
   justify-content: center;
   color: white;
   box-shadow: 0 4px 15px rgba(245, 158, 11, 0.4);
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const MissingDevicesPulse = styled.div`
@@ -6546,6 +7254,10 @@ export const MissingDevicesMessage = styled.div`
   border: 1px solid rgba(245, 158, 11, 0.2);
   border-radius: 8px;
   padding: 0.75rem 1rem;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 0.75rem;
+  }
 `;
 
 export const MissingDevicesMessageIcon = styled.div`
@@ -6608,12 +7320,30 @@ export const AuthSuccessContainer = styled.div`
     height: 3px;
     background: linear-gradient(90deg, #22c55e, #16a34a, #15803d);
   }
+
+  @media (max-width: 768px) {
+    padding: 0.75rem;
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.5rem;
+    gap: 0.5rem;
+  }
 `;
 
 export const AuthSuccessHeader = styled.div`
   display: flex;
   align-items: center;
   gap: 1rem;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+  }
 `;
 
 export const AuthSuccessIcon = styled.div`
@@ -6626,6 +7356,18 @@ export const AuthSuccessIcon = styled.div`
   justify-content: center;
   color: white;
   box-shadow: 0 4px 15px rgba(34, 197, 94, 0.4);
+
+  @media (max-width: 768px) {
+    width: 40px;
+    height: 40px;
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    width: 36px;
+    height: 36px;
+    font-size: 0.9rem;
+  }
 `;
 
 export const AuthSuccessInfo = styled.div`
@@ -6659,6 +7401,10 @@ export const AuthSuccessBadge = styled.div`
   border-radius: 20px;
   font-size: 0.85rem;
   font-weight: 600;
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.75rem;
+  }
 `;
 
 export const AuthSuccessMessage = styled.div`
@@ -6669,6 +7415,10 @@ export const AuthSuccessMessage = styled.div`
   border: 1px solid rgba(34, 197, 94, 0.2);
   border-radius: 8px;
   padding: 0.75rem 1rem;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 0.75rem;
+  }
 `;
 
 export const AuthSuccessMessageIcon = styled.div`
@@ -6693,6 +7443,10 @@ export const AuthSuccessDetails = styled.div`
   display: grid;
   grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 export const AuthSuccessDetailItem = styled.div`

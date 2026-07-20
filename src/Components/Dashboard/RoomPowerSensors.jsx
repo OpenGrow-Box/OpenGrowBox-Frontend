@@ -606,6 +606,12 @@ const Header = styled.div`
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+  }
 `;
 
 const HeaderSection = styled.div`
@@ -737,6 +743,11 @@ const EnergyTabs = styled.div`
   background: var(--glass-bg-secondary);
   padding: 0.25rem;
   border-radius: 12px;
+
+  @media (max-width: 480px) {
+    padding: 0.2rem;
+    gap: 0.15rem;
+  }
 `;
 
 const EnergyTab = styled.button`
@@ -840,6 +851,14 @@ const LivePowerValue = styled.div`
   font-size: 2rem;
   font-weight: 800;
   line-height: 1;
+
+  @media (max-width: 768px) {
+    font-size: 1.6rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1.3rem;
+  }
 `;
 
 const LivePowerMeta = styled.div`
@@ -972,6 +991,12 @@ const ConsumerItem = styled.div`
 
   &:hover {
     background: var(--glass-bg-primary);
+  }
+
+  @media (max-width: 480px) {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding: 0.5rem;
   }
 `;
 

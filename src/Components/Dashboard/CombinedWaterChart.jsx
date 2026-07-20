@@ -908,6 +908,15 @@ const ChartCard = styled.div`
   z-index: ${props => props.$fullscreen ? '9999' : '1'};
   padding: ${props => props.$fullscreen ? '2rem' : '1.5rem'};
   overflow: auto;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
 `;
 
 const ChartHeader = styled.div`
@@ -922,6 +931,15 @@ const HeaderTopRow = styled.div`
   align-items: flex-start;
   flex-wrap: wrap;
   gap: 0.5rem;
+
+  @media (max-width: 768px) {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.375rem;
+  }
 `;
 
 const TitleSection = styled.div`
@@ -942,6 +960,14 @@ const ChartTitle = styled.h3`
   font-weight: 700;
   color: var(--main-text-color);
   margin: 0;
+
+  @media (max-width: 768px) {
+    font-size: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 0.9rem;
+  }
 `;
 
 const ChartSubtitle = styled.span`
@@ -981,6 +1007,16 @@ const StatsRow = styled.div`
   background: var(--glass-bg-secondary);
   border-radius: 12px;
   flex-wrap: wrap;
+
+  @media (max-width: 768px) {
+    gap: 0.75rem;
+    padding: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    gap: 0.5rem;
+    padding: 0.375rem;
+  }
 `;
 
 const StatBox = styled.div`
@@ -991,6 +1027,16 @@ const StatBox = styled.div`
   flex: 1;
   min-width: 70px;
   position: relative;
+
+  @media (max-width: 768px) {
+    padding: 0.4rem;
+    min-width: 60px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.3rem;
+    min-width: 50px;
+  }
 `;
 
 const StatLabel = styled.span`
@@ -998,6 +1044,10 @@ const StatLabel = styled.span`
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.5px;
+
+  @media (max-width: 480px) {
+    font-size: 0.65rem;
+  }
 `;
 
 const StatValue = styled.span`
@@ -1007,6 +1057,14 @@ const StatValue = styled.span`
   display: flex;
   align-items: baseline;
   gap: 0.25rem;
+
+  @media (max-width: 768px) {
+    font-size: 1.2rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1rem;
+  }
 `;
 
 const Unit = styled.span`

@@ -188,7 +188,7 @@ const BackButton = styled(motion.button)`
     background: var(--glass-bg-primary, rgba(255, 255, 255, 0.12));
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 1024px) {
     display: flex;
   }
 `;

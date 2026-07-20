@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react'
 
 export const createDebugStepComponents = ({ icons, styles, connection, currentRoom }) => {
-  const { MdDownload, MdRefresh, MdCheck } = icons
+  const { MdDownload, MdRefresh, MdCheck, MdAssignment } = icons
   const {
     StepContent,
     LogContainer,
@@ -38,7 +38,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
           transition: 'all 0.2s ease',
         }}
       >
-        <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>{icon}</div>
+        <div style={{ fontSize: '2rem', marginBottom: '0.5rem', color: 'var(--primary-accent)' }}>{icon}</div>
         <h4 style={{ margin: '0 0 0.5rem 0' }}>{title}</h4>
         <p style={{ margin: 0, opacity: 0.7, fontSize: '0.85rem' }}>{description}</p>
       </div>
@@ -53,7 +53,7 @@ export const createDebugStepComponents = ({ icons, styles, connection, currentRo
             tool="logViewer" 
             title="Log Viewer" 
             description="View real-time and historical logs"
-            icon="📋"
+            icon={<MdAssignment />}
           />
         </div>
       </StepContent>

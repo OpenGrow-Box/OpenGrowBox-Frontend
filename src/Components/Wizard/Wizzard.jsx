@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components'
 import { motion } from 'framer-motion'
-import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdLightMode, MdThermostat, MdTune, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdRefresh, MdDevices, MdLabel, MdEdit, MdSave, MdSearch, MdClose, MdAutoAwesome, MdList, MdOutlineLabel, MdWindPower } from 'react-icons/md'
+import { MdCheck, MdArrowForward, MdArrowBack, MdEco, MdLocalFlorist, MdSpa, MdGrass, MdLightMode, MdThermostat, MdTune, MdContactSupport, MdBugReport, MdHelp, MdEmail, MdDownload, MdRefresh, MdDevices, MdLabel, MdEdit, MdSave, MdSearch, MdClose, MdAutoAwesome, MdList, MdOutlineLabel, MdWindPower, MdAssignment } from 'react-icons/md'
 import Wiz_minmax from './Wiz_minmax'
 import { usePremium } from '../Context/OGBPremiumContext'
 import { useHomeAssistant } from '../Context/HomeAssistantContext'
@@ -162,7 +162,7 @@ const Wizzard = ({ onComplete }) => {
   }), [supportContext])
 
   const debugStepsFactory = useMemo(() => createDebugStepComponents({
-    icons: { MdDownload, MdRefresh, MdCheck },
+    icons: { MdDownload, MdRefresh, MdCheck, MdAssignment },
     styles: {
       StepContent,
       SettingGroup,

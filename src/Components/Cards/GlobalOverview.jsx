@@ -87,6 +87,7 @@ const Container = styled.div`
   overflow: hidden;
   position: relative;
   transition: all 0.2s ease;
+  min-width: 0;
 
   &::before {
     content: '';
@@ -106,6 +107,10 @@ const Header = styled.div`
   padding: 0.75rem 1rem;
   cursor: pointer;
   background: rgba(255, 255, 255, 0.02);
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 0.75rem;
+  }
 `;
 
 const HeaderLeft = styled.div`
@@ -149,12 +154,26 @@ const Content = styled.div`
   display: flex;
   flex-direction: column;
   gap: 0.75rem;
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 0.75rem 0.75rem;
+    gap: 0.5rem;
+  }
 `;
 
 const StatsGrid = styled.div`
   display: grid;
   grid-template-columns: repeat(3, 1fr);
   gap: 0.5rem;
+  min-width: 0;
+
+  @media (max-width: 640px) {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  @media (max-width: 480px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const StatCard = styled.div`
@@ -166,10 +185,18 @@ const StatCard = styled.div`
   align-items: center;
   gap: 0.5rem;
   transition: all 0.2s ease;
+  min-width: 0;
 
-  &:hover {
-    background: rgba(255, 255, 255, 0.05);
-    border-color: rgba(255, 255, 255, 0.1);
+  @media (hover: hover) {
+    &:hover {
+      background: rgba(255, 255, 255, 0.05);
+      border-color: rgba(255, 255, 255, 0.1);
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.4rem 0.5rem;
+    gap: 0.375rem;
   }
 `;
 
@@ -183,6 +210,12 @@ const StatIcon = styled.div`
   background: rgba(74, 222, 128, 0.1);
   color: ${props => props.$accent === 'red' ? '#f87171' : props.$accent === 'purple' ? '#a78bfa' : '#4ade80'};
   flex-shrink: 0;
+
+  @media (max-width: 480px) {
+    width: 20px;
+    height: 20px;
+    border-radius: 5px;
+  }
 `;
 
 const StatInfo = styled.div`
@@ -197,6 +230,11 @@ const StatLabel = styled.div`
   letter-spacing: 0.5px;
   color: rgba(255, 255, 255, 0.5);
   margin-bottom: 0.15rem;
+
+  @media (max-width: 480px) {
+    font-size: 0.55rem;
+    letter-spacing: 0.3px;
+  }
 `;
 
 const StatValue = styled.div`
@@ -206,6 +244,10 @@ const StatValue = styled.div`
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
+
+  @media (max-width: 480px) {
+    font-size: 0.7rem;
+  }
 `;
 
 const StartInfo = styled.div`

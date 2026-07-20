@@ -652,6 +652,15 @@ const ChartCard = styled.div`
   z-index: ${props => props.$fullscreen ? '9999' : '1'};
   padding: ${props => props.$fullscreen ? '2rem' : '1.5rem'};
   overflow: auto;
+
+  @media (max-width: 768px) {
+    padding: 1rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.75rem;
+    border-radius: 8px;
+  }
 `;
 
 const ChartHeader = styled.div`
@@ -665,12 +674,22 @@ const HeaderTopRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+  @media (max-width: 480px) {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
 `;
 
 const HeaderBottomRow = styled.div`
   display: flex;
   justify-content: space-between;
   align-items: center;
+
+  @media (max-width: 480px) {
+    flex-wrap: wrap;
+    gap: 0.25rem;
+  }
 `;
 
 const HeaderActions = styled.div`
@@ -740,6 +759,11 @@ const FullscreenBtn = styled.button`
     color: var(--primary-accent);
     border-color: var(--primary-accent);
   }
+
+  @media (max-width: 480px) {
+    width: 28px;
+    height: 28px;
+  }
 `;
 
 const ExportBtnContainer = styled.div`
@@ -762,6 +786,11 @@ const ExportBtn = styled.button`
     background: var(--active-bg-color);
     color: var(--primary-accent);
     border-color: var(--primary-accent);
+  }
+
+  @media (max-width: 480px) {
+    width: 28px;
+    height: 28px;
   }
 `;
 
@@ -827,6 +856,11 @@ const TimeButton = styled.button`
   &:hover {
     background: ${props => props.$active ? 'var(--primary-accent)' : 'var(--glass-bg-primary)'};
   }
+
+  @media (max-width: 480px) {
+    padding: 0.3rem 0.4rem;
+    font-size: 0.68rem;
+  }
 `;
 
 const CurrentValue = styled.div`
@@ -840,6 +874,14 @@ const ValueNumber = styled.span`
   font-weight: 800;
   color: var(--main-text-color);
   line-height: 1;
+
+  @media (max-width: 768px) {
+    font-size: 2rem;
+  }
+
+  @media (max-width: 480px) {
+    font-size: 1.5rem;
+  }
 `;
 
 const ValueUnit = styled.span`
@@ -862,6 +904,16 @@ const StatsBar = styled.div`
   flex-wrap: wrap;
   margin-top: 0.5rem;
   justify-content: center;
+
+  @media (max-width: 768px) {
+    padding: 0.5rem 0.375rem;
+    gap: 0.5rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.375rem 0.25rem;
+    gap: 0.25rem;
+  }
 `;
 
 const TimeSelectorBottom = styled.div`
@@ -881,6 +933,16 @@ const StatBox = styled.div`
   flex: 1;
   min-width: 60px;
   align-items: center;
+
+  @media (max-width: 768px) {
+    padding: 0.375rem 0.5rem;
+    min-width: 50px;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.25rem 0.375rem;
+    min-width: 44px;
+  }
 `;
 
 const StatLabel = styled.span`
@@ -893,6 +955,10 @@ const StatLabel = styled.span`
 const StatValue = styled.span`
   font-size: 0.85rem;
   font-weight: 700;
+
+  @media (max-width: 480px) {
+    font-size: 0.75rem;
+  }
 `;
 
 const ChartContainer = styled.div`
@@ -941,4 +1007,10 @@ const NoDataState = styled.div`
   justify-content: center;
   gap: 1rem;
   color: var(--placeholder-text-color);
+  padding: 2rem;
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+    font-size: 0.85rem;
+  }
 `;

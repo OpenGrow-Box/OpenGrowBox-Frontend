@@ -393,20 +393,20 @@ const GrowDayCounter = () => {
 
         <StatsGrid>
            <StatCard>
-             <StatIcon><FaChartBar size={24} /></StatIcon>
-             <StatValue>{formatNumber(dates.planttotaldays)}</StatValue>
-             <StatLabel>Total Days</StatLabel>
-           </StatCard>
-           <StatCard>
-             <StatIcon><FaLeaf size={24} /></StatIcon>
-             <StatValue>{formatNumber(dates.bloomdays)}</StatValue>
-             <StatLabel>Bloom Days</StatLabel>
-           </StatCard>
-           <StatCard $highlight={parseFloat(dates.daysToChopChop) <= 7}>
-             <StatIcon><FaClock size={24} /></StatIcon>
-             <StatValue>{formatNumber(dates.daysToChopChop)}</StatValue>
-             <StatLabel>Days Left</StatLabel>
-           </StatCard>
+              <StatIcon $color="success"><FaChartBar size={24} /></StatIcon>
+              <StatValue $color="success">{formatNumber(dates.planttotaldays)}</StatValue>
+              <StatLabel>Total Days</StatLabel>
+            </StatCard>
+            <StatCard>
+              <StatIcon $color="primary"><FaLeaf size={24} /></StatIcon>
+              <StatValue $color="primary">{formatNumber(dates.bloomdays)}</StatValue>
+              <StatLabel>Bloom Days</StatLabel>
+            </StatCard>
+            <StatCard $highlight={parseFloat(dates.daysToChopChop) <= 7}>
+              <StatIcon $color={parseFloat(dates.daysToChopChop) <= 7 ? "error" : "warning"}><FaClock size={24} /></StatIcon>
+              <StatValue $color={parseFloat(dates.daysToChopChop) <= 7 ? "error" : "warning"}>{formatNumber(dates.daysToChopChop)}</StatValue>
+              <StatLabel>Days Left</StatLabel>
+            </StatCard>
           </StatsGrid>
 
           {/* Grow Finish Button */}
@@ -457,6 +457,14 @@ const CounterCard = styled.div`
     max-width: none;
   }
 
+  @media (max-width: 768px) {
+    padding: 1.25rem;
+  }
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+  }
+
   &::before {
     content: '';
     position: absolute;
@@ -499,6 +507,18 @@ const NoDataMessage = styled.div`
     font-size: 0.875rem;
     opacity: 0.8;
   }
+
+  @media (max-width: 480px) {
+    padding: 2rem 1rem;
+
+    svg {
+      margin-bottom: 0.75rem;
+    }
+
+    p {
+      font-size: 1rem;
+    }
+  }
 `;
 
 const CardHeader = styled.div`
@@ -524,6 +544,11 @@ const CardHeader = styled.div`
     );
     border-radius: 1px;
   }
+
+  @media (max-width: 480px) {
+    margin-bottom: 1.5rem;
+    padding-bottom: 1.25rem;
+  }
 `;
 
 const PlantTitleContainer = styled.div`
@@ -541,13 +566,15 @@ const PlantTitleWrapper = styled.div`
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
 
-  &:hover {
-    background: linear-gradient(135deg,
-      rgba(74, 222, 128, 0.08) 0%,
-      rgba(34, 197, 94, 0.05) 100%
-    );
-    transform: translateY(-2px);
-    box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+  @media (hover: hover) {
+    &:hover {
+      background: linear-gradient(135deg,
+        rgba(74, 222, 128, 0.08) 0%,
+        rgba(34, 197, 94, 0.05) 100%
+      );
+      transform: translateY(-2px);
+      box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
+    }
   }
 `;
 
@@ -590,6 +617,11 @@ const MediumBadge = styled.div`
 
   svg {
     opacity: 0.8;
+  }
+
+  @media (max-width: 480px) {
+    padding: 0.25rem 0.625rem;
+    font-size: 0.75rem;
   }
 `;
 
@@ -676,10 +708,12 @@ const PlantButton = styled.button`
     background: linear-gradient(135deg, var(--chart-success-color), var(--secondary-accent));
     color: white;
 
-    &:hover {
-      background: linear-gradient(135deg, var(--secondary-accent), var(--chart-success-color));
-      transform: scale(1.1) translateY(-2px);
-      box-shadow: 0 4px 16px var(--chart-success-color);
+    @media (hover: hover) {
+      &:hover {
+        background: linear-gradient(135deg, var(--secondary-accent), var(--chart-success-color));
+        transform: scale(1.1) translateY(-2px);
+        box-shadow: 0 4px 16px var(--chart-success-color);
+      }
     }
   `}
 
@@ -687,10 +721,12 @@ const PlantButton = styled.button`
     background: linear-gradient(135deg, var(--chart-error-color), var(--warning-accent-color));
     color: white;
 
-    &:hover {
-      background: linear-gradient(135deg, var(--warning-accent-color), var(--chart-error-color));
-      transform: scale(1.1) translateY(-2px);
-      box-shadow: 0 4px 16px var(--chart-error-color);
+    @media (hover: hover) {
+      &:hover {
+        background: linear-gradient(135deg, var(--warning-accent-color), var(--chart-error-color));
+        transform: scale(1.1) translateY(-2px);
+        box-shadow: 0 4px 16px var(--chart-error-color);
+      }
     }
   `}
 
@@ -733,6 +769,12 @@ const PhaseIndicator = styled.div`
   color: var(--chart-success-color);
   border: 1px solid rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.4);
   box-shadow: 0 2px 8px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
+
+  @media (max-width: 480px) {
+    padding: 0.5rem 1rem;
+    font-size: 0.75rem;
+    margin-bottom: 1rem;
+  }
 `;
 
 const CardTitle = styled.h2`
@@ -746,6 +788,10 @@ const CardTitle = styled.h2`
   justify-content: center;
   gap: 0.5rem;
   letter-spacing: 0.025em;
+
+  @media (max-width: 480px) {
+    font-size: 0.875rem;
+  }
 `;
 
 const ProgressSection = styled.div`
@@ -759,6 +805,11 @@ const ProgressSection = styled.div`
   border-radius: 16px;
   backdrop-filter: blur(8px);
   box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+    margin-bottom: 1.5rem;
+  }
 `;
 
 const ProgressLabel = styled.div`
@@ -805,8 +856,7 @@ const ProgressBar = styled.div`
   width: ${props => props.$progress}%;
   background: linear-gradient(135deg,
     var(--chart-success-color) 0%,
-    var(--chart-success-color) 50%,
-    var(--chart-success-color) 100%
+    var(--primary-accent) 100%
   );
   border-radius: 8px;
   transition: width 1.2s cubic-bezier(0.4, 0, 0.2, 1);
@@ -832,6 +882,12 @@ const InputSection = styled.div`
   background: var(--glass-bg-secondary);
   border-radius: 16px;
   border: 1px solid var(--glass-border);
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+  }
 `;
 
 const InputRow = styled.div`
@@ -921,9 +977,15 @@ const StatCard = styled.div`
   text-align: center;
   transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 
-  &:hover {
-    transform: translateY(-4px) scale(1.02);
-    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+  @media (hover: hover) {
+    &:hover {
+      transform: translateY(-4px) scale(1.02);
+      box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+    }
+  }
+
+  @media (max-width: 480px) {
+    padding: 1rem 0.75rem;
   }
 `;
 
@@ -931,17 +993,41 @@ const StatIcon = styled.div`
   font-size: 1.75rem;
   margin-bottom: 0.75rem;
   opacity: 0.8;
+  color: ${props => {
+    switch (props.$color) {
+      case 'primary': return 'var(--primary-accent)';
+      case 'warning': return 'var(--warning-accent-color)';
+      case 'error': return 'var(--chart-error-color)';
+      default: return 'var(--chart-success-color)';
+    }
+  }};
+
+  @media (max-width: 480px) {
+    font-size: 1.25rem;
+    margin-bottom: 0.5rem;
+  }
 `;
 
 const StatValue = styled.div`
   font-size: 1.5rem;
   font-weight: 800;
-  background: linear-gradient(135deg, var(--chart-success-color) 0%, var(--chart-success-color) 100%);
+  background: ${props => {
+    switch (props.$color) {
+      case 'primary': return 'linear-gradient(135deg, var(--primary-accent) 0%, var(--primary-accent) 100%)';
+      case 'warning': return 'linear-gradient(135deg, var(--warning-accent-color) 0%, var(--warning-accent-color) 100%)';
+      case 'error': return 'linear-gradient(135deg, var(--chart-error-color) 0%, var(--chart-error-color) 100%)';
+      default: return 'linear-gradient(135deg, var(--chart-success-color) 0%, var(--chart-success-color) 100%)';
+    }
+  }};
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
   margin-bottom: 0.5rem;
   letter-spacing: -0.025em;
+
+  @media (max-width: 480px) {
+    font-size: 1.125rem;
+  }
 `;
 
 const StatLabel = styled.div`
@@ -972,6 +1058,11 @@ const FinishSection = styled.div`
   border: 1px solid rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.2);
   border-radius: 16px;
   text-align: center;
+
+  @media (max-width: 480px) {
+    padding: 1rem;
+    margin-top: 1.5rem;
+  }
 `;
 
 const FinishButton = styled.button`
@@ -989,15 +1080,23 @@ const FinishButton = styled.button`
   transition: all 0.3s ease;
   box-shadow: 0 4px 12px rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.3);
 
-  &:hover:not(:disabled) {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.4);
-    background: linear-gradient(135deg, var(--chart-error-color) 0%, var(--chart-error-color) 100%);
+  @media (hover: hover) {
+    &:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 6px 20px rgba(var(--chart-error-color-rgb, 239, 68, 68), 0.4);
+      background: linear-gradient(135deg, var(--chart-error-color) 0%, var(--chart-error-color) 100%);
+    }
   }
 
   &:disabled {
     opacity: 0.5;
     cursor: not-allowed;
+  }
+
+  @media (max-width: 480px) {
+    width: 100%;
+    justify-content: center;
+    padding: 0.75rem 1rem;
   }
 `;
 
