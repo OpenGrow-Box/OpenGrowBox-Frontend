@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import PropTypes from 'prop-types';
 import SelectCard from './SelectCard';
 import SliderCard from './SliderCard';
 import SwitchCard from './SwitchCard';
@@ -124,11 +125,18 @@ const dynamicFilters = {
     conditions: {
       'NO': {
         includeKeywords: ["lights"],
-        excludeKeywords: ["volt"],
+        excludeKeywords: ["volt", "dimm_steps"],
         additionalTooltips: {}
       },
       'YES': {
-        includeKeywords: ["lights"],
+        includeKeywords: [
+          "lights",
+          "light_dimm_steps",
+          "lightfarred_dimm_steps",
+          "lightuv_dimm_steps",
+          "lightblue_dimm_steps",
+          "lightred_dimm_steps",
+        ],
         excludeKeywords: [],
         additionalTooltips: {}
       }
@@ -292,7 +300,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'],
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["ventilation_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -311,7 +319,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["exhaust_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -330,7 +338,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["intake_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -349,7 +357,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["cooler_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -368,7 +376,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["heater_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -387,7 +395,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["humidifier_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -406,7 +414,7 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: [],
+        includeKeywords: ["dehumidifier_dimm_steps"],
         excludeKeywords: [],
         additionalTooltips: {}
       },
@@ -620,9 +628,9 @@ const groupMappings = {
 
 const ControllCollection = ({ option }) => {
   const { entities, currentRoom } = useHomeAssistant();
-  const [currentControl, setCurrentControl] = useState('Home');
+  const [currentControl] = useState('Home');
 
-  const entityTooltips = {
+  const entityTooltips = useMemo(() => ({
     [`ogb_plantstage_${currentRoom?.toLowerCase()}`]: 'Set the current plant stage. Lights will adjust to the new min/max if dimmable.',
     [`ogb_tentmode_${currentRoom?.toLowerCase()}`]: 'Select a grow mode to activate automated control. Check the wiki for detailed mode descriptions.',
     [`ogb_holdvpdnight_${currentRoom?.toLowerCase()}`]: 'Enable to control VPD during nighttime. If disabled, all devices will turn off at night.',
@@ -698,11 +706,39 @@ const ControllCollection = ({ option }) => {
 
     [`ogb_exhaust_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for exhaust. Requires Exhaust Min/Max enabled.',
     [`ogb_exhaust_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for exhaust. Requires Exhaust Min/Max enabled.',
-    [`ogb_intake_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for intake. Requires Exhaust Min/Max enabled.',
-    [`ogb_intake_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for intake. Requires Exhaust Min/Max enabled.',
-   
+    [`ogb_exhaust_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for exhaust. Requires Exhaust Min/Max enabled.',
+
+    [`ogb_intake_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for intake. Requires Intake Min/Max enabled.',
+    [`ogb_intake_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for intake. Requires Intake Min/Max enabled.',
+    [`ogb_intake_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for intake. Requires Intake Min/Max enabled.',
+
     [`ogb_ventilation_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for ventilation. Requires Ventilation Min/Max enabled.',
     [`ogb_ventilation_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for ventilation. Requires Ventilation Min/Max enabled.',
+    [`ogb_ventilation_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for ventilation. Requires Ventilation Min/Max enabled.',
+
+    [`ogb_heater_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for heater. Requires Heater Min/Max enabled.',
+    [`ogb_heater_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for heater. Requires Heater Min/Max enabled.',
+    [`ogb_heater_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for heater. Requires Heater Min/Max enabled.',
+
+    [`ogb_cooler_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for cooler. Requires Cooler Min/Max enabled.',
+    [`ogb_cooler_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for cooler. Requires Cooler Min/Max enabled.',
+    [`ogb_cooler_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for cooler. Requires Cooler Min/Max enabled.',
+
+    [`ogb_humidifier_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for humidifier. Requires Humidifier Min/Max enabled.',
+    [`ogb_humidifier_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for humidifier. Requires Humidifier Min/Max enabled.',
+    [`ogb_humidifier_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for humidifier. Requires Humidifier Min/Max enabled.',
+
+    [`ogb_dehumidifier_duty_max_${currentRoom?.toLowerCase()}`]: 'Set custom max duty cycle for dehumidifier. Requires Dehumidifier Min/Max enabled.',
+    [`ogb_dehumidifier_duty_min_${currentRoom?.toLowerCase()}`]: 'Set custom min duty cycle for dehumidifier. Requires Dehumidifier Min/Max enabled.',
+    [`ogb_dehumidifier_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for dehumidifier. Requires Dehumidifier Min/Max enabled.',
+
+    [`ogb_light_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for main lights. Requires Light Min/Max enabled.',
+    [`ogb_lightfarred_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for Far Red lights. Requires Light Min/Max enabled.',
+    [`ogb_lightuv_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for UV lights. Requires Light Min/Max enabled.',
+    [`ogb_lightblue_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for Blue lights. Requires Light Min/Max enabled.',
+    [`ogb_lightred_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for Red lights. Requires Light Min/Max enabled.',
+
+    [`ogb_co2_dimm_steps_${currentRoom?.toLowerCase()}`]: 'Set dimming step size (1-10%) for CO2 output.',
 
     [`ogb_hydro_mode_${currentRoom?.toLowerCase()}`]: 'Enable for watering systems based on different Mediums.',
     [`ogb_hydro_cycle_${currentRoom?.toLowerCase()}`]: 'Enable to use interval and duration for water cycling.',
@@ -768,7 +804,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_planttype_${currentRoom?.toLowerCase()}`]: 'Select your Plant Geno Type', 
     [`ogb_energy_price_${currentRoom?.toLowerCase()}`]: 'Set your energy coust per KWH', 
 
-  };
+  }), [currentRoom]);
 
   // 🎯 Dynamische Filter-Logik - NUR FÜR AKTUELLE GRUPPE
   const getActiveDynamicFilters = useMemo(() => {
@@ -779,7 +815,7 @@ const ControllCollection = ({ option }) => {
     };
 
     // Nur Filter anwenden, die für die aktuelle Gruppe (option) aktiv sind
-    Object.entries(dynamicFilters).forEach(([filterKey, filterConfig]) => {
+    Object.entries(dynamicFilters).forEach(([, filterConfig]) => {
       // 🔥 Prüfen ob dieser Filter in der aktuellen Gruppe aktiv sein soll
       if (!filterConfig.activeInGroups.includes(option)) {
         return; // Skip diesen Filter, er ist nicht für diese Gruppe
@@ -925,7 +961,7 @@ const ControllCollection = ({ option }) => {
         const result = matchesInclude && !matchesExclude && roomMatches && isOGB;
         return result;
       })
-      .map(([key, entity]) => {
+      .map(([, entity]) => {
         const cleanKey = entity.entity_id.split('.').pop();
         // Try exact match first, then try with normalized room name
         let tooltip = mergedTooltips[cleanKey] || '';
@@ -1031,6 +1067,10 @@ const ControllCollection = ({ option }) => {
       )}
     </div>
   );
+};
+
+ControllCollection.propTypes = {
+  option: PropTypes.string.isRequired,
 };
 
 export default ControllCollection;
