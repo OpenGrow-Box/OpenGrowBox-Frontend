@@ -143,21 +143,21 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
 };
 
 const OgbIcon = () => (
-  <motion.span
-
-    initial={{ color: "#4CAF50" }}
-    animate={{ color: ["#4CAF50", "#FF9800"] }}
-    transition={{
-      duration: 3,
-      repeat: Infinity,
-      repeatType: "mirror",
-    }}
-    style={{ display: 'inline-block' }}
-  >
+  <StaticIcon style={{ display: 'inline-block' }}>
     <OGBIcon style={{ width: '1.2em', height: '1.2em' }} />
-  </motion.span>
+  </StaticIcon>
 );
 
+
+const StaticIcon = styled.span`
+  display: inline-block;
+  color: #4CAF50;
+  transition: color 0.3s ease;
+
+  &:hover {
+    color: #FF9800;
+  }
+`;
 
 const TitleContainer = styled.div`
   display: flex;
@@ -255,7 +255,7 @@ const WizardButton = styled(motion.button)`
 
   svg {
     font-size: 1.5rem;
-    animation: gentle-shine 4s ease-in-out infinite;
+    filter: drop-shadow(0 0 2px rgba(58, 217, 234, 0.3));
   }
 
   &:hover {
@@ -263,21 +263,12 @@ const WizardButton = styled(motion.button)`
     transform: scale(1.1);
     
     svg {
-      animation: none;
+      filter: drop-shadow(0 0 4px rgba(58, 217, 234, 0.5));
     }
   }
 
   &:active {
     transform: scale(0.95);
-  }
-
-  @keyframes gentle-shine {
-    0%, 100% {
-      filter: drop-shadow(0 0 2px rgba(58, 217, 234, 0.3));
-    }
-    50% {
-      filter: drop-shadow(0 0 6px rgba(58, 217, 234, 0.6));
-    }
   }
 
   @media (max-width: 768px) {

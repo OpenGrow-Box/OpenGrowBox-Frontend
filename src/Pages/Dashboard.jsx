@@ -812,9 +812,7 @@ const ContainerHeader = styled.div`
   min-height: 50px;
   margin-bottom: 0.5rem;
   padding: 0 2rem;
-  background: rgba(0, 0, 0, 0.4);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
+  background: rgba(0, 0, 0, 0.55);
   box-shadow: 0 2px 5px rgba(0, 0, 0, 0.3);
   gap: 1rem;
   position: relative;
