@@ -542,6 +542,23 @@ const dynamicFilters = {
     }
   },
 
+  multi_mediumctrl: {
+    selectEntity: 'ogb_multi_mediumctrl_',
+    activeInGroups: ['Hydro Settings'], 
+    conditions: {
+      'YES': {
+        includeKeywords: ['medium', 'multi', 'avg', 'sensor'],
+        excludeKeywords: [],
+        additionalTooltips: {}
+      },
+      'NO': {
+        includeKeywords: [],
+        excludeKeywords: ['medium', 'multi', 'avg'],
+        additionalTooltips: {}
+      }
+    }
+  },
+
   feed_plan: {
     selectEntity: 'ogb_feed_plan_',
     activeInGroups: ['Feed Settings'],
@@ -607,7 +624,7 @@ const groupMappings = {
   },
   'Special Settings': {
     includeKeywords: ['area','medium','planttype','season','energy',],
-    excludeKeywords: ["mediumctrl",'determination'],
+    excludeKeywords: ['determination'],
   },
   'Targets': {
     includeKeywords: ['weight', 'min', 'max', 'nightset'],
@@ -772,6 +789,16 @@ const ControllCollection = ({ option }) => {
     [`ogb_nutrient_concentration_y_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for Custom Y.',
     [`ogb_nutrient_concentration_ph_down_${currentRoom?.toLowerCase()}`]: 'Read-only: calculated ml/L concentration for pH adjuster.',
 
+    // Pump Flow Rates (ml/min) - Used to calculate precise pump run times for each nutrient
+    [`ogb_pump_flowrate_a_${currentRoom?.toLowerCase()}`]: 'Flow rate of Nutrient A pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_b_${currentRoom?.toLowerCase()}`]: 'Flow rate of Nutrient B pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_c_${currentRoom?.toLowerCase()}`]: 'Flow rate of Nutrient C pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_w_${currentRoom?.toLowerCase()}`]: 'Flow rate of Water pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_ph_down_${currentRoom?.toLowerCase()}`]: 'Flow rate of pH Down pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_ph_up_${currentRoom?.toLowerCase()}`]: 'Flow rate of pH Up pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_x_${currentRoom?.toLowerCase()}`]: 'Flow rate of Custom X pump in ml/min. Used to calculate dose duration from target ml.',
+    [`ogb_pump_flowrate_y_${currentRoom?.toLowerCase()}`]: 'Flow rate of Custom Y pump in ml/min. Used to calculate dose duration from target ml.',
+
     [`ogb_owndevicesets_${currentRoom?.toLowerCase()}`]: 'Enable to manually map entities to device types. Default uses naming convention.',
     [`ogb_light_device_select_${currentRoom?.toLowerCase()}`]: 'Select a light entity. Requires Own Device Sets enabled.',
     [`ogb_exhaust_device_select_${currentRoom?.toLowerCase()}`]: 'Select an exhaust entity. Requires Own Device Sets enabled.',
@@ -800,8 +827,9 @@ const ControllCollection = ({ option }) => {
   
     [`ogb_light_controltype_${currentRoom?.toLowerCase()}`]: 'Select your Light Method  for DLI Light Mode', 
     [`ogb_hydro_plant_watering_${currentRoom?.toLowerCase()}`]: 'Select your Plant Watering Method - Needs binded Sensors to Medium',
-    [`ogb_multi_mediumctrl_${currentRoom?.toLowerCase()}`]: 'Select your if we calc AVG or Single Multi Medium Control - UPCOMMING', 
+    [`ogb_multi_mediumctrl_${currentRoom?.toLowerCase()}`]: 'Enable multi-medium averaging: YES = average VWC/EC across all medium sensors for crop steering. NO = use single sensor (first found). Required for Crop-Steering mode.',
     [`ogb_planttype_${currentRoom?.toLowerCase()}`]: 'Select your Plant Geno Type', 
+    [`ogb_plantspecies_${currentRoom?.toLowerCase()}`]: 'Select your plant species. This adjusts optimal VPD, temperature, and humidity targets for each growth stage.',
     [`ogb_energy_price_${currentRoom?.toLowerCase()}`]: 'Set your energy coust per KWH', 
 
   }), [currentRoom]);
