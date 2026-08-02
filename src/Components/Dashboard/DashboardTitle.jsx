@@ -143,21 +143,19 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
 };
 
 const OgbIcon = () => (
-  <StaticIcon style={{ display: 'inline-block' }}>
+  <motion.span
+    initial={{ color: "#4CAF50" }}
+    animate={{ color: ["#4CAF50", "#FF9800"] }}
+    transition={{
+      duration: 3,
+      repeat: Infinity,
+      repeatType: "mirror",
+    }}
+    style={{ display: 'inline-block' }}
+  >
     <OGBIcon style={{ width: '1.2em', height: '1.2em' }} />
-  </StaticIcon>
+  </motion.span>
 );
-
-
-const StaticIcon = styled.span`
-  display: inline-block;
-  color: #4CAF50;
-  transition: color 0.3s ease;
-
-  &:hover {
-    color: #FF9800;
-  }
-`;
 
 const TitleContainer = styled.div`
   display: flex;
