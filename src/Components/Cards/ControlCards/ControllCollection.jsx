@@ -16,8 +16,8 @@ const dynamicFilters = {
     activeInGroups: ['Main Control'], 
     conditions: {
       'Drying': {
-        includeKeywords: ['drying'],
-        excludeKeywords: ['vpd', 'plant', 'stage', 'light', 'co2', "m2", "leaf", 'feed', 'hydro',"crop","ambient"],
+        includeKeywords: ['drying',"dampening"],
+        excludeKeywords: ['plant', 'stage', 'light', 'co2', "m2", "leaf", 'feed', 'hydro',"crop","ambient","tolerance","deadband","target"],
         additionalTooltips: {}
       },
       'VPD Perfection': {

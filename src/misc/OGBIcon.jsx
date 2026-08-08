@@ -1,3 +1,5 @@
+import { memo } from 'react';
+
 const OGBIcon = (props) => (
   <svg
     viewBox="0 0 143 149"
@@ -56,4 +58,4 @@ const OGBIcon = (props) => (
     </g>
   </svg>
 );
-export default OGBIcon;
+export default memo(OGBIcon);

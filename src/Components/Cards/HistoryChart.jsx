@@ -7,7 +7,7 @@ import { FaLeaf, FaTimes, FaChartLine, FaChartBar, FaExclamationTriangle, FaChar
 import { formatDateTime, formatTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
 
-// Realistic color mapping functions based on sensor data
+// Single fixed color per sensor type (consistent with the Analytics charts)
 const getSensorType = (sensorId) => {
   const id = sensorId.toLowerCase();
   if (id.includes('temp') || id.includes('temperature')) return 'temperature';
@@ -17,63 +17,43 @@ const getSensorType = (sensorId) => {
   return 'default';
 };
 
-const getTemperatureColor = (value) => {
-  if (value <= 10) return getThemeColor('--chart-primary-color'); // Very cold - theme blue
-  if (value <= 15) return getThemeColor('--chart-primary-color'); // Cold - theme blue
-  if (value <= 20) return getThemeColor('--chart-secondary-color'); // Cool - theme cyan
-  if (value <= 25) return getThemeColor('--chart-success-color'); // Moderate - theme green
-  if (value <= 28) return getThemeColor('--chart-warning-color'); // Warm - theme yellow
-  if (value <= 32) return getThemeColor('--warning-text-color'); // Hot - theme orange
-  return getThemeColor('--chart-error-color'); // Very hot - theme red
-};
-
-const getHumidityColor = (value) => {
-  if (value <= 25) return getThemeColor('--chart-error-color'); // Very dry - theme red
-  if (value <= 40) return getThemeColor('--warning-accent-color'); // Dry - theme orange
-  if (value <= 55) return getThemeColor('--chart-warning-color'); // Moderate dry - theme yellow
-  if (value <= 70) return getThemeColor('--chart-success-color'); // Comfortable - theme green
-  if (value <= 85) return getThemeColor('--chart-success-color'); // Humid - theme green
-  return getThemeColor('--chart-primary-color'); // Very humid - theme blue
-};
-
-const getVPDColor = (value) => {
-  if (value <= 0.4) return getThemeColor('--chart-primary-color'); // Very low - theme blue
-  if (value <= 0.8) return getThemeColor('--chart-secondary-color'); // Low - theme cyan
-  if (value <= 1.2) return getThemeColor('--chart-success-color'); // Moderate - theme green
-  if (value <= 1.6) return getThemeColor('--chart-warning-color'); // High - theme yellow
-  if (value <= 2.0) return getThemeColor('--warning-text-color'); // Very high - theme orange
-  return getThemeColor('--chart-error-color'); // Extreme - theme red
-};
-
-const getCO2Color = (value) => {
-  if (value < 300) return getThemeColor('--sensor-co2-color'); // Very low - theme CO2 color
-  if (value < 400) return getThemeColor('--chart-primary-color'); // Low - theme blue
-  if (value < 600) return getThemeColor('--chart-secondary-color'); // Moderate - theme cyan
-  if (value < 800) return getThemeColor('--chart-success-color'); // Good - theme green
-  if (value < 1000) return getThemeColor('--chart-warning-color'); // High - theme yellow
-  if (value < 1200) return getThemeColor('--warning-text-color'); // Very high - theme orange
-  if (value < 1500) return getThemeColor('--chart-error-color'); // Too high - theme red
-  return getThemeColor('--chart-error-color'); // Extremely high - theme red
-};
-
-const getSensorColor = (sensorType, value) => {
+const getSeriesColor = (sensorType) => {
   switch (sensorType) {
     case 'temperature':
-      return getTemperatureColor(value);
+      return '#22c55e';
     case 'humidity':
-      return getHumidityColor(value);
+      return '#3b82f6';
     case 'vpd':
-      return getVPDColor(value);
+      return '#f59e0b';
     case 'co2':
-      return getCO2Color(value);
+      return '#a855f7';
     default:
-      // Default gradient based on value range
-      if (value < 20) return getThemeColor('--chart-primary-color');
-      if (value < 40) return getThemeColor('--chart-success-color');
-      if (value < 60) return getThemeColor('--chart-warning-color');
-      if (value < 80) return getThemeColor('--warning-text-color');
-      return getThemeColor('--chart-error-color');
+      return '#14b8a6';
   }
+};
+
+// High/low point colors: low = blue, normal = green, high = red
+const getPointColor = (sensorType, value) => {
+  let low, high;
+  switch (sensorType) {
+    case 'temperature':
+      low = 18; high = 28;
+      break;
+    case 'humidity':
+      low = 40; high = 70;
+      break;
+    case 'vpd':
+      low = 0.8; high = 1.6;
+      break;
+    case 'co2':
+      low = 400; high = 1000;
+      break;
+    default:
+      low = 20; high = 80;
+  }
+  if (value < low) return '#3b82f6'; // Low - blue
+  if (value > high) return '#ef4444'; // High - red
+  return '#22c55e'; // Normal - green
 };
 
 const LoadingIndicator = () => (
@@ -153,16 +133,18 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 250
        // Detect sensor type for realistic color mapping
        const sensorType = getSensorType(sensorId);
 
-       // Daten mit realistischen, sensor-basierten Farben formatieren
+       // Single fixed color for the whole series (no value-based rainbow)
+       const seriesColor = getSeriesColor(sensorType);
+
        const formattedData = yData.map(value => {
-         const color = getSensorColor(sensorType, value);
+         const pointColor = getPointColor(sensorType, value);
          return {
            value,
            itemStyle: {
-             color: color,
-            borderColor: getThemeColor('--main-text-color'),
+             color: pointColor,
+             borderColor: getThemeColor('--main-text-color'),
              borderWidth: 2,
-             shadowColor: color,
+             shadowColor: pointColor,
              shadowBlur: 6,
              shadowOffsetX: 0,
              shadowOffsetY: 2
@@ -330,164 +312,41 @@ const HistoryChart = ({ sensorId, onClose, minThreshold = 20, maxThreshold = 250
           animationEasing: 'cubicOut',
           lineStyle: {
             width: 4,
-            color: (() => {
-              // Create dynamic gradient based on sensor type
-              switch (sensorType) {
-                case 'temperature':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 1, y2: 0,
-                    colorStops: [
-                      { offset: 0, color: getThemeColor('--chart-primary-color') }, // Cold blue
-                      { offset: 0.3, color: getThemeColor('--chart-primary-color') }, // Blue
-                      { offset: 0.6, color: getThemeColor('--chart-success-color') }, // Green
-                      { offset: 1, color: getThemeColor('--chart-error-color') } // Hot red
-                    ]
-                  };
-                case 'humidity':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 1, y2: 0,
-                    colorStops: [
-                      { offset: 0, color: getThemeColor('--chart-error-color') }, // Dry red
-                      { offset: 0.4, color: getThemeColor('--chart-warning-color') }, // Yellow
-                      { offset: 0.7, color: getThemeColor('--chart-success-color') }, // Green
-                      { offset: 1, color: getThemeColor('--chart-primary-color') } // Humid blue
-                    ]
-                  };
-                case 'vpd':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 1, y2: 0,
-                    colorStops: [
-                      { offset: 0, color: getThemeColor('--chart-primary-color') }, // Low VPD blue
-                      { offset: 0.5, color: getThemeColor('--chart-success-color') }, // Moderate green
-                      { offset: 1, color: getThemeColor('--chart-error-color') } // High VPD red
-                    ]
-                  };
-                case 'co2':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 1, y2: 0,
-                    colorStops: [
-                      { offset: 0, color: getThemeColor('--sensor-co2-color') }, // Very low - purple
-                      { offset: 0.2, color: getThemeColor('--chart-primary-color') }, // Low - blue
-                      { offset: 0.4, color: getThemeColor('--chart-success-color') }, // Good - green
-                      { offset: 0.6, color: getThemeColor('--chart-warning-color') }, // High - yellow
-                      { offset: 0.8, color: getThemeColor('--warning-text-color') }, // Very high - orange
-                      { offset: 1, color: getThemeColor('--chart-error-color') } // Too high - red
-                    ]
-                  };
-                default:
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 1, y2: 0,
-                    colorStops: [
-                      { offset: 0, color: getThemeColor('--chart-success-color') },
-                      { offset: 0.5, color: getThemeColor('--main-arrow-up') },
-                      { offset: 1, color: getThemeColor('--cannabis-active-color') }
-                    ]
-                  };
-              }
-            })(),
-            shadowColor: (sensorType === 'temperature' ? 'rgba(59, 130, 246, 0.6)' :
-                         sensorType === 'humidity' ? 'rgba(59, 130, 246, 0.6)' :
-                         sensorType === 'vpd' ? 'rgba(239, 68, 68, 0.6)' :
-                         sensorType === 'co2' ? 'rgba(139, 92, 246, 0.6)' :
-                         'rgba(74, 222, 128, 0.6)'),
+            color: seriesColor,
+            shadowColor: seriesColor + '66',
             shadowBlur: 16,
             shadowOffsetY: 4
           },
           symbol: 'circle',
           symbolSize: 8,
           itemStyle: {
-            color: params => params.data.itemStyle.color,
+            color: seriesColor,
             borderColor: '#ffffff',
             borderWidth: 2,
-            shadowColor: params => params.data.itemStyle.shadowColor,
+            shadowColor: seriesColor + '66',
             shadowBlur: 8,
             shadowOffsetX: 0,
             shadowOffsetY: 2
           },
           areaStyle: {
-            color: (() => {
-              switch (sensorType) {
-                case 'temperature':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 0, y2: 1,
-                    colorStops: [
-                      { offset: 0, color: 'rgba(59, 130, 246, 0.25)' },
-                      { offset: 0.4, color: 'rgba(16, 185, 129, 0.15)' },
-                      { offset: 0.8, color: 'rgba(239, 68, 68, 0.08)' },
-                      { offset: 1, color: 'rgba(239, 68, 68, 0.02)' }
-                    ]
-                  };
-                case 'humidity':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 0, y2: 1,
-                    colorStops: [
-                      { offset: 0, color: 'rgba(239, 68, 68, 0.25)' },
-                      { offset: 0.4, color: 'rgba(234, 179, 8, 0.15)' },
-                      { offset: 0.7, color: 'rgba(16, 185, 129, 0.08)' },
-                      { offset: 1, color: 'rgba(59, 130, 246, 0.02)' }
-                    ]
-                  };
-                case 'vpd':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 0, y2: 1,
-                    colorStops: [
-                      { offset: 0, color: 'rgba(59, 130, 246, 0.25)' },
-                      { offset: 0.5, color: 'rgba(16, 185, 129, 0.15)' },
-                      { offset: 1, color: 'rgba(239, 68, 68, 0.02)' }
-                    ]
-                  };
-                case 'co2':
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 0, y2: 1,
-                    colorStops: [
-                      { offset: 0, color: 'rgba(139, 92, 246, 0.25)' }, // Purple
-                      { offset: 0.2, color: 'rgba(59, 130, 246, 0.2)' }, // Blue
-                      { offset: 0.4, color: 'rgba(16, 185, 129, 0.15)' }, // Green
-                      { offset: 0.6, color: 'rgba(234, 179, 8, 0.1)' }, // Yellow
-                      { offset: 0.8, color: 'rgba(245, 158, 11, 0.08)' }, // Orange
-                      { offset: 1, color: 'rgba(239, 68, 68, 0.02)' } // Red
-                    ]
-                  };
-                default:
-                  return {
-                    type: 'linear',
-                    x: 0, y: 0, x2: 0, y2: 1,
-                    colorStops: [
-                      { offset: 0, color: 'rgba(74, 222, 128, 0.25)' },
-                      { offset: 0.4, color: 'rgba(34, 197, 94, 0.15)' },
-                      { offset: 0.8, color: 'rgba(22, 163, 74, 0.08)' },
-                      { offset: 1, color: 'rgba(21, 128, 61, 0.02)' }
-                    ]
-                  };
-              }
-            })()
+            color: {
+              type: 'linear',
+              x: 0, y: 0, x2: 0, y2: 1,
+              colorStops: [
+                { offset: 0, color: seriesColor + '40' },
+                { offset: 1, color: seriesColor + '05' }
+              ]
+            }
           },
             emphasis: {
               focus: 'series',
               lineStyle: {
                 width: 6,
                 shadowBlur: 20,
-                shadowColor: (sensorType === 'temperature' ? 'rgba(59, 130, 246, 0.9)' :
-                             sensorType === 'humidity' ? 'rgba(59, 130, 246, 0.9)' :
-                             sensorType === 'vpd' ? 'rgba(239, 68, 68, 0.9)' :
-                             sensorType === 'co2' ? 'rgba(139, 92, 246, 0.9)' :
-                             'rgba(74, 222, 128, 0.9)')
+                shadowColor: seriesColor + '99'
               },
             itemStyle: {
-              shadowColor: (sensorType === 'temperature' ? 'rgba(59, 130, 246, 0.9)' :
-                           sensorType === 'humidity' ? 'rgba(59, 130, 246, 0.9)' :
-                           sensorType === 'vpd' ? 'rgba(239, 68, 68, 0.9)' :
-                           sensorType === 'co2' ? 'rgba(139, 92, 246, 0.9)' :
-                           'rgba(74, 222, 128, 0.9)'),
+              shadowColor: seriesColor + '99',
               shadowBlur: 16,
               borderWidth: 3
             },

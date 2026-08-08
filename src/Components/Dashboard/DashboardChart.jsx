@@ -30,6 +30,11 @@ const SensorChart = ({
   
   const currentRegion = state.Settings?.region || 'EU';
   
+  // If the underlying entity reports µS/cm (typical for generic EC probes) but the
+  // chart displays in mS/cm, scale the raw values by 0.001 (518 µS/cm -> 0.518 mS/cm).
+  const entityUnit = entities?.[sensorId]?.attributes?.unit_of_measurement || '';
+  const microToMilliScale = /µs|μs|us\/cm/i.test(entityUnit) && /mS\/cm/i.test(unit) ? 0.001 : 1;
+  
   const celsiusToFahrenheit = (celsius) => {
     return Math.round((celsius * 9/5 + 32) * 100) / 100;
   };
@@ -59,6 +64,7 @@ const SensorChart = ({
   // Store chart data in ref for live updates
   const chartDataRef = useRef({ xData: [], yData: [] });
   const currentValueRef = useRef(null);
+  const scaleRef = useRef(1);
 
   const [startDate, setStartDate] = useState(getDefaultDate(-12 * 60 * 60 * 1000));
   const [endDate, setEndDate] = useState(getDefaultDate());
@@ -188,7 +194,18 @@ const SensorChart = ({
         }
 
         const sensorData = data[0];
-        const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
+
+        // Detect EC µS/cm -> mS/cm scaling: either the entity explicitly reports µS/cm,
+        // or the chart expects mS/cm while raw values are large (> 50) and the entity
+        // does not explicitly say mS/cm (handles missing/wrong unit attributes).
+        const rawValues = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
+        const rawMax = rawValues.length ? Math.max(...rawValues) : 0;
+        const isMicroUnit = /µs|μs|us\/cm/i.test(entityUnit);
+        const isMilliUnit = /mS\/cm/i.test(entityUnit);
+        const effectiveScale = isMicroUnit ? 0.001 : (unit && /mS\/cm/i.test(unit) && !isMilliUnit && rawMax >= 50 ? 0.001 : 1);
+        scaleRef.current = effectiveScale;
+
+        const values = sensorData.map(item => parseFloat(item.state) * effectiveScale).filter(v => !isNaN(v));
         
         // Calculate stats - use fallback to 0
         const current = values.length > 0 ? values[values.length - 1] : 0;
@@ -220,7 +237,7 @@ const SensorChart = ({
         // Prepare chart data - filter out NaN and fill gaps with last valid value
         let lastValidValue = null;
         const filledYData = sensorData.map(item => {
-          const val = parseFloat(item.state);
+          const val = parseFloat(item.state) * effectiveScale;
           if (!isNaN(val)) {
             lastValidValue = val;
             return val;
@@ -433,7 +450,7 @@ const SensorChart = ({
     };
 
     fetchHistoryData();
-  }, [startDate, endDate, sensorId, haApiBaseUrl, accessToken, minThreshold, maxThreshold, title, unit, chartType]);
+  }, [startDate, endDate, sensorId, haApiBaseUrl, accessToken, minThreshold, maxThreshold, title, unit, chartType, microToMilliScale]);
 
   // Live update effect - update chart when entity changes via WebSocket
   useEffect(() => {
@@ -442,8 +459,17 @@ const SensorChart = ({
     const entity = entities[sensorId];
     if (!entity || !entity.state) return;
 
-    const newValue = parseFloat(entity.state);
-    if (isNaN(newValue)) return;
+    const rawValue = parseFloat(entity.state);
+    if (isNaN(rawValue)) return;
+
+    // Use the same EC scale the initial fetch detected; if that hasn't run yet,
+    // fall back to the same unit/value heuristic.
+    const isMicroUnit = /µs|μs|us\/cm/i.test(entityUnit);
+    const isMilliUnit = /mS\/cm/i.test(entityUnit);
+    const detectedScale = isMicroUnit ? 0.001 : (unit && /mS\/cm/i.test(unit) && !isMilliUnit && rawValue >= 50 ? 0.001 : 1);
+    scaleRef.current = detectedScale;
+
+    const newValue = rawValue * detectedScale;
 
     // Only update if value changed
     if (currentValueRef.current === newValue) return;
@@ -502,7 +528,7 @@ const SensorChart = ({
         avg: convertedAvg.toFixed(2)
       }));
     }
-  }, [entities, sensorId]);
+  }, [entities, sensorId, microToMilliScale]);
 
   const getTrendIcon = () => {
     if (stats.trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
@@ -618,15 +644,15 @@ const SensorChart = ({
       <StatsBar>
         <StatBox>
           <StatLabel>Min</StatLabel>
-          <StatValue style={{ color: getThemeColor('--chart-error-color') }}>{stats.min}{getDisplayUnit(unit)}</StatValue>
+          <StatValue style={{ color: getThemeColor('--chart-error-color') }}>{stats.min} {getDisplayUnit(unit)}</StatValue>
         </StatBox>
         <StatBox>
           <StatLabel>Avg</StatLabel>
-          <StatValue style={{ color: getThemeColor('--chart-warning-color') }}>{stats.avg}{getDisplayUnit(unit)}</StatValue>
+          <StatValue style={{ color: getThemeColor('--chart-warning-color') }}>{stats.avg} {getDisplayUnit(unit)}</StatValue>
         </StatBox>
         <StatBox>
           <StatLabel>Max</StatLabel>
-          <StatValue style={{ color: getThemeColor('--chart-success-color') }}>{stats.max}{getDisplayUnit(unit)}</StatValue>
+          <StatValue style={{ color: getThemeColor('--chart-success-color') }}>{stats.max} {getDisplayUnit(unit)}</StatValue>
         </StatBox>
       </StatsBar>
     </ChartCard>
@@ -702,6 +728,14 @@ const ChartTitleRow = styled.div`
   display: flex;
   align-items: center;
   gap: 0.5rem;
+  min-width: 0;
+  flex: 1;
+  justify-content: flex-end;
+
+  @media (max-width: 480px) {
+    justify-content: flex-start;
+    width: 100%;
+  }
 `;
 
 const ChartTypeSelector = styled.div`
@@ -711,6 +745,7 @@ const ChartTypeSelector = styled.div`
   padding: 0.25rem;
   border-radius: 8px;
   margin-left: 0.5rem;
+  flex-shrink: 0;
 `;
 
 const ChartMenuLabel = styled.span`
@@ -832,6 +867,14 @@ const ChartTitle = styled.h3`
   font-weight: 700;
   color: var(--main-text-color);
   margin: 0;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+
+  @media (max-width: 480px) {
+    font-size: 0.95rem;
+  }
 `;
 
 const TimeSelector = styled.div`

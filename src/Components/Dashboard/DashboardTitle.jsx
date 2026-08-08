@@ -1,4 +1,4 @@
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion } from 'framer-motion';
 import styled from 'styled-components';
 import { MdArrowBack, MdAutoAwesome } from 'react-icons/md';
 import { createPortal } from 'react-dom';
@@ -114,18 +114,21 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
             {thirdText}
           </motion.span>
 
-          <AnimatePresence>
             <motion.div
-              key="cannabis"
               initial={{ scale: 0, rotate: -90 }}
               animate={{ scale: 1, rotate: 0 }}
-              exit={{ scale: 0, rotate: 90 }}
-              transition={{ type: 'spring', stiffness: 260, damping: 20 }}
-              style={{ display: 'inline-block', margin: '0 8px' }}
+              transition={{
+                type: 'spring',
+                stiffness: 260,
+                damping: 20,
+              }}
+              style={{
+                display: 'inline-block',
+                margin: '0 8px',
+              }}
             >
-              <OgbIcon />
+              <AnimatedOGBIcon />
             </motion.div>
-          </AnimatePresence>
         </TitleContent>
 
         <WizardButton
@@ -141,21 +144,6 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
     </>
   );
 };
-
-const OgbIcon = () => (
-  <motion.span
-    initial={{ color: "#4CAF50" }}
-    animate={{ color: ["#4CAF50", "#FF9800"] }}
-    transition={{
-      duration: 3,
-      repeat: Infinity,
-      repeatType: "mirror",
-    }}
-    style={{ display: 'inline-block' }}
-  >
-    <OGBIcon style={{ width: '1.2em', height: '1.2em' }} />
-  </motion.span>
-);
 
 const TitleContainer = styled.div`
   display: flex;
@@ -217,11 +205,6 @@ const TitleContent = styled.div`
     }
     span:last-child {
       color: rgb(227, 168, 20);
-    }
-    svg {
-      width: 1.2rem;
-      height: 1.2rem;
-      transform: scale(1.1) rotate(15deg);
     }
   }
 
@@ -343,6 +326,29 @@ const WizardCloseButton = styled(motion.button)`
 
   &:hover {
     background: var(--glass-bg-primary, rgba(255, 255, 255, 0.12));
+  }
+`;
+
+const AnimatedOGBIcon = styled(OGBIcon)`
+  width: 1.2em;
+  height: 1.2em;
+  display: inline-block;
+  color: #4caf50;
+
+  animation: ogbColorShift 4s ease-in-out infinite alternate;
+
+  @keyframes ogbColorShift {
+    0% {
+      color: #4caf50;
+    }
+
+    50% {
+      color: #8bc34a;
+    }
+
+    100% {
+      color: #ff9800;
+    }
   }
 `;
 

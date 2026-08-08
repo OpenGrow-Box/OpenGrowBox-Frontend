@@ -277,7 +277,8 @@ const GrowDayCounter = () => {
     >
       <CounterCard>
         <CardHeader>
-          <PlantTitleContainer>
+          <HeaderLeft>
+            <CardTitle><FaSeedling size={16} /> Grow Day Counter - <Highlight>{getRoomDisplayName(currentRoom)}</Highlight></CardTitle>
             {isEditingPlant ? (
               <PlantEditContainer>
                 <PlantInput
@@ -306,13 +307,15 @@ const GrowDayCounter = () => {
               </PlantEditContainer>
              ) : (
                 <PlantTitleWrapper onClick={startEditingPlant}>
-                  <PlantTitle>{currentMedium.plant_name || currentMedium.medium_name || 'Unknown Plant'}</PlantTitle>
+                  <PlantTitleRow>
+                    <PlantTitle>{currentMedium.plant_name || currentMedium.medium_name || 'Unknown Plant'}</PlantTitle>
+                    <EditIcon><FaEdit size={14} /></EditIcon>
+                    <MediumBadge>
+                      <FaFlask size={12} />
+                      {currentMedium.medium_name || `Medium ${currentMediumIndex + 1}`}
+                    </MediumBadge>
+                  </PlantTitleRow>
                   <BreederSubtitle>{currentMedium.breeder_name || 'Unknown Breeder'}</BreederSubtitle>
-                  <MediumBadge>
-                    <FaFlask size={12} />
-                    {currentMedium.medium_name || `Medium ${currentMediumIndex + 1}`}
-                  </MediumBadge>
-                  <EditIcon><FaEdit size={16} /></EditIcon>
                 </PlantTitleWrapper>
              )}
             
@@ -329,14 +332,14 @@ const GrowDayCounter = () => {
                  )}
                </UpdateStatus>
              )}
-          </PlantTitleContainer>
-          
-          <PhaseIndicator $phase={phase}>{phase}</PhaseIndicator>
-            <CardTitle><FaSeedling size={20} /> Grow Day Counter - <Highlight>{getRoomDisplayName(currentRoom)}</Highlight></CardTitle>
+          </HeaderLeft>
         </CardHeader>
 
         <ProgressSection>
-          <ProgressLabel>Bloom Progress</ProgressLabel>
+          <ProgressHeader>
+            <ProgressLabel>Bloom Progress</ProgressLabel>
+            <PhaseIndicator $phase={phase}>{phase}</PhaseIndicator>
+          </ProgressHeader>
           <ProgressBarContainer>
             <ProgressBar $progress={progress} />
             <ProgressText>{progress.toFixed(1)}%</ProgressText>
@@ -523,8 +526,8 @@ const NoDataMessage = styled.div`
 
 const CardHeader = styled.div`
   text-align: center;
-  margin-bottom: 2.5rem;
-  padding-bottom: 2rem;
+  margin-bottom: 1.25rem;
+  padding-bottom: 0.75rem;
   position: relative;
 
   &::after {
@@ -546,22 +549,26 @@ const CardHeader = styled.div`
   }
 
   @media (max-width: 480px) {
-    margin-bottom: 1.5rem;
-    padding-bottom: 1.25rem;
+    margin-bottom: 1rem;
+    padding-bottom: 0.625rem;
   }
 `;
 
-const PlantTitleContainer = styled.div`
-  margin-bottom: 1rem;
+const HeaderLeft = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.375rem;
+  min-width: 0;
 `;
 
 const PlantTitleWrapper = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 0.5rem;
+  gap: 0.125rem;
   cursor: pointer;
-  padding: 0.75rem 1rem;
+  padding: 0.25rem 0.5rem;
   border-radius: 12px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   position: relative;
@@ -572,14 +579,25 @@ const PlantTitleWrapper = styled.div`
         rgba(74, 222, 128, 0.08) 0%,
         rgba(34, 197, 94, 0.05) 100%
       );
-      transform: translateY(-2px);
       box-shadow: 0 4px 12px rgba(74, 222, 128, 0.15);
     }
   }
 `;
 
+const PlantTitleRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+  justify-content: flex-start;
+
+  @media (max-width: 640px) {
+    justify-content: center;
+  }
+`;
+
 const PlantTitle = styled.h1`
-  font-size: 2rem;
+  font-size: 1.375rem;
   font-weight: 800;
   margin: 0;
   background: linear-gradient(135deg, var(--chart-success-color), var(--primary-accent), var(--secondary-accent));
@@ -590,12 +608,12 @@ const PlantTitle = styled.h1`
   line-height: 1.1;
 
   @media (max-width: 480px) {
-    font-size: 1.75rem;
+    font-size: 1.25rem;
   }
 `;
 
 const BreederSubtitle = styled.div`
-  font-size: 1rem;
+  font-size: 0.8125rem;
   font-weight: 600;
   color: var(--second-text-color);
   opacity: 0.8;
@@ -605,12 +623,11 @@ const MediumBadge = styled.div`
   display: inline-flex;
   align-items: center;
   gap: 0.375rem;
-  padding: 0.375rem 0.875rem;
-  margin-top: 0.5rem;
+  padding: 0.25rem 0.625rem;
   background: var(--glass-bg-primary);
   border: 1px solid var(--chart-success-color);
   border-radius: 16px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 600;
   color: var(--chart-success-color);
   box-shadow: 0 2px 6px var(--chart-success-color);
@@ -620,13 +637,13 @@ const MediumBadge = styled.div`
   }
 
   @media (max-width: 480px) {
-    padding: 0.25rem 0.625rem;
-    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.6875rem;
   }
 `;
 
 const EditIcon = styled.span`
-  font-size: 1rem;
+  font-size: 0.875rem;
   opacity: 0.7;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   color: var(--chart-success-color);
@@ -641,14 +658,14 @@ const EditIcon = styled.span`
 const PlantEditContainer = styled.div`
   display: flex;
   flex-direction: column;
-  gap: 0.75rem;
+  gap: 0.5rem;
   align-items: center;
   width: 100%;
 `;
 
 const PlantInput = styled.input`
-  font-size: 1.5rem;
-  font-weight: 800;
+  font-size: 1rem;
+  font-weight: 600;
   color: var(--chart-success-color);
   background: linear-gradient(135deg,
     var(--main-bg-Innercard-color) 0%,
@@ -657,10 +674,10 @@ const PlantInput = styled.input`
   backdrop-filter: blur(8px);
   border: 2px solid rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.4);
   border-radius: 12px;
-  padding: 0.75rem 1rem;
+  padding: 0.5rem 0.75rem;
   text-align: center;
   width: 100%;
-  max-width: 400px;
+  max-width: 260px;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
   box-shadow: 0 2px 8px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
 
@@ -680,19 +697,19 @@ const PlantInput = styled.input`
 `;
 
 const BreederInput = styled(PlantInput)`
-  font-size: 1.125rem;
+  font-size: 0.875rem;
   font-weight: 600;
 `;
 
 const PlantEditButtons = styled.div`
   display: flex;
   gap: 0.75rem;
-  margin-top: 0.5rem;
+  margin-top: 0.375rem;
 `;
 
 const PlantButton = styled.button`
-  width: 3rem;
-  height: 3rem;
+  width: 2.25rem;
+  height: 2.25rem;
   border: none;
   border-radius: 50%;
   cursor: pointer;
@@ -758,11 +775,10 @@ const UpdateStatus = styled.div`
 
 const PhaseIndicator = styled.div`
   display: inline-block;
-  padding: 0.625rem 1.5rem;
+  padding: 0.375rem 0.875rem;
   border-radius: 24px;
-  font-size: 0.875rem;
+  font-size: 0.75rem;
   font-weight: 700;
-  margin-bottom: 1.5rem;
   letter-spacing: 0.025em;
   text-transform: uppercase;
   background: rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
@@ -771,26 +787,44 @@ const PhaseIndicator = styled.div`
   box-shadow: 0 2px 8px rgba(var(--chart-success-color-rgb, 34, 197, 94), 0.15);
 
   @media (max-width: 480px) {
-    padding: 0.5rem 1rem;
-    font-size: 0.75rem;
-    margin-bottom: 1rem;
+    padding: 0.25rem 0.75rem;
+    font-size: 0.6875rem;
   }
 `;
 
 const CardTitle = styled.h2`
-  font-size: 1.125rem;
+  font-size: 0.75rem;
   font-weight: 600;
-  margin: 0;
-  opacity: 0.85;
+  margin: 0 0 0.5rem;
+  padding-bottom: 0.5rem;
+  opacity: 0.7;
   color: var(--second-text-color);
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 0.5rem;
+  gap: 0.375rem;
   letter-spacing: 0.025em;
+  position: relative;
+  width: 100%;
+
+  &::after {
+    content: '';
+    position: absolute;
+    bottom: 0;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 35%;
+    height: 2px;
+    background: linear-gradient(90deg,
+      transparent 0%,
+      rgba(74, 222, 128, 0.5) 50%,
+      transparent 100%
+    );
+    border-radius: 1px;
+  }
 
   @media (max-width: 480px) {
-    font-size: 0.875rem;
+    font-size: 0.6875rem;
   }
 `;
 
@@ -812,11 +846,20 @@ const ProgressSection = styled.div`
   }
 `;
 
+const ProgressHeader = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  margin-bottom: 1rem;
+`;
+
 const ProgressLabel = styled.div`
+  flex: 1;
   font-size: 1rem;
   font-weight: 700;
-  margin-bottom: 1rem;
-  text-align: center;
+  margin: 0;
+  text-align: left;
   color: var(--main-text-color);
   letter-spacing: 0.025em;
   text-transform: uppercase;

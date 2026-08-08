@@ -16,6 +16,7 @@ import {
 import { LuHeater } from "react-icons/lu";
 import { GiIceCube, GiSunset, GiSunrise, GiSun, GiMoon } from "react-icons/gi";
 import { WiHumidity, WiWindy } from "react-icons/wi";
+import { parseCSMessage, isCropSteeringMessage } from "../../misc/csMessageParser";
 
 // Generate a consistent color from a string (room name)
 const stringToColor = (str) => {
@@ -53,8 +54,8 @@ const getLogType = (data) => {
   if (entry?.Type === "INVALID PUMPS") return 'missing-pumps';
   if (entry?.Mode === "Hydro") return 'hydro-mode';
   if (entry?.Type === "CSLOG") return 'cs-log';
+  if (entry?.Mode === 'Crop-Steering') return 'cs-log';
   if (entry?.Mode === 'Plant-Watering') return 'hydro-mode';
-  if (entry?.Mode === 'Crop-Steering') return 'hydro-mode';
   if (entry?.VPDStatus === "InDeadband" || msg.includes('deadband')) return 'vpd-deadband';
   if (entry?.vpdTarget !== undefined || entry?.vpdTargetMin !== undefined) return 'vpd';
 
@@ -75,6 +76,7 @@ const getLogType = (data) => {
   if (["PID", "MPC", "AI"].includes((entry.controllerType || '').toUpperCase())) return 'pid-controller';
   if (entry.controllerType === "MPC") return 'pid-controller';
   if (entry.medium === true) return 'medium-stats';
+  if (isCropSteeringMessage(msg)) return 'cs-log';
   if (entry.isNightMode === true) return 'night-mode';
   if (entry.NightVPDHold !== undefined) return 'night-vpd';
 
@@ -1389,88 +1391,9 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
   };
 
  const formatCSData = (data) => {
-   if (data.Type !== "CSLOG") return null;
-
-   const message = data.Message || "";
+   const message = data.Message || data.message || "";
+   if (data.Type !== "CSLOG" && !isCropSteeringMessage(message)) return null;
    
-   // Parse message to extract phase and type
-   const parseCSMessage = (msg) => {
-     const result = {
-       phase: null,
-       type: 'info',
-       shotNumber: null,
-       maxShots: null,
-       vwc: null,
-       vwcTarget: null,
-       duration: null,
-       nextInterval: null,
-       dryback: null,
-       fromPhase: null,
-       toPhase: null,
-     };
-
-     // Detect phase from message
-     if (msg.includes('P0') || msg.includes('p0')) result.phase = 'p0';
-     else if (msg.includes('P1') || msg.includes('p1')) result.phase = 'p1';
-     else if (msg.includes('P2') || msg.includes('p2')) result.phase = 'p2';
-     else if (msg.includes('P3') || msg.includes('p3')) result.phase = 'p3';
-
-     // Detect message type
-     if (msg.includes('WARNING') || msg.includes('stuck')) result.type = 'warning';
-     else if (msg.includes('ERROR') || msg.includes('failed')) result.type = 'error';
-     else if (msg.includes('Started') || msg.includes('started')) result.type = 'success';
-     else if (msg.includes('->') || msg.includes('→')) result.type = 'transition';
-     else if (msg.includes('Shot') && msg.includes('/')) result.type = 'shot';
-     else if (msg.includes('Emergency')) result.type = 'warning';
-
-     // Parse shot info: "P1 Shot 1/13" or "Shot 1/13"
-     const shotMatch = msg.match(/Shot\s+(\d+)\/(\d+)/i);
-     if (shotMatch) {
-       result.shotNumber = parseInt(shotMatch[1]);
-       result.maxShots = parseInt(shotMatch[2]);
-     }
-
-     // Parse VWC: "VWC: 19.0%" or "VWC 19.0%"
-     const vwcMatch = msg.match(/VWC[:\s]+(\d+\.?\d*)%/i);
-     if (vwcMatch) {
-       result.vwc = parseFloat(vwcMatch[1]);
-     }
-
-     // Parse VWC target: "(target: 65.0%)"
-     const targetMatch = msg.match(/target[:\s]+(\d+\.?\d*)%/i);
-     if (targetMatch) {
-       result.vwcTarget = parseFloat(targetMatch[1]);
-     }
-
-     // Parse duration: "Duration: 91s" or "(45s)"
-     const durationMatch = msg.match(/Duration[:\s]+(\d+)s|[\(](\d+)s[\)]/i);
-     if (durationMatch) {
-       result.duration = parseInt(durationMatch[1] || durationMatch[2]);
-     }
-
-     // Parse next interval: "Next in: 35min" or "Next in: 45min"
-     const intervalMatch = msg.match(/Next\s+in[:\s]+(\d+)min/i);
-     if (intervalMatch) {
-       result.nextInterval = parseInt(intervalMatch[1]);
-     }
-
-     // Parse dryback: "Dryback was 15.2%" or "dryback 10.5%"
-     const drybackMatch = msg.match(/[Dd]ryback[:\s]+was?\s*(\d+\.?\d*)%?/i);
-     if (drybackMatch) {
-       result.dryback = parseFloat(drybackMatch[1]);
-     }
-
-     // Parse phase transition: "P1 → P2" or "p0 -> p1"
-     const transitionMatch = msg.match(/([Pp][0-3])\s*[→\->]+\s*([Pp][0-3])/);
-     if (transitionMatch) {
-       result.fromPhase = transitionMatch[1].toLowerCase();
-       result.toPhase = transitionMatch[2].toLowerCase();
-       result.type = 'transition';
-     }
-
-     return result;
-   };
-
    const parsed = parseCSMessage(message);
    
    // Phase display names and icons
@@ -1531,6 +1454,9 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
      if (parsed.type === 'transition') {
        return 'Phase Transition';
      }
+     if (parsed.type === 'emergency') {
+       return 'Emergency irrigation';
+     }
      if (parsed.type === 'warning') {
        return 'Attention Required';
      }
@@ -1563,7 +1489,7 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
        </CSHeaderEnhanced>
 
        {/* Shot counter for P1 irrigation shots */}
-       {parsed.type === 'shot' && parsed.shotNumber && (
+       {(parsed.type === 'shot' || parsed.type === 'emergency') && parsed.shotNumber && (
          <CSShotCounter>
            <CSShotDots>
              {renderShotDots()}
@@ -1615,16 +1541,16 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
          </CSTransitionBadge>
        )}
 
-       {/* Warning banner for alerts */}
-       {parsed.type === 'warning' && (
-         <CSWarningBanner>
+       {/* Warning/emergency banner for alerts */}
+       {(parsed.type === 'warning' || parsed.type === 'emergency') && (
+         <CSWarningBanner $emergency={parsed.type === 'emergency'}>
            <FaExclamationTriangle size={16} />
            <span>{message}</span>
          </CSWarningBanner>
        )}
 
        {/* Standard message display for non-parsed content */}
-       {parsed.type !== 'warning' && (
+       {parsed.type !== 'warning' && parsed.type !== 'emergency' && (
          <CSMessageEnhanced phase={displayPhase}>
            {message}
          </CSMessageEnhanced>
@@ -2344,20 +2270,22 @@ const ExpandableLogItem = ({ log, isExpanded, onToggle, getRoomDisplayName }) =>
   const logType = getLogType(parsedInfo);
 
   const roomColors = stringToColor(log.room);
-  const displayRoomName = getRoomDisplayName ? getRoomDisplayName(log.room) : (log.room || 'Unknown');
+  const rawRoomName = getRoomDisplayName ? getRoomDisplayName(log.room) : (log.room || 'Unknown');
+  const displayRoomName = String(rawRoomName).split(' - ')[0].trim();
+  const preview = getLogPreview(parsedInfo);
 
   return (
     <LogItemContainer $logType={logType} $isExpanded={isExpanded}>
       <LogHeaderRow onClick={onToggle}>
         <LogSummary>
-          <RoomBadge $bgColor={roomColors.bg} $textColor={roomColors.text} $borderColor={roomColors.border}>
+          <RoomBadge $bgColor={roomColors.bg} $textColor={roomColors.text} $borderColor={roomColors.border} title={rawRoomName}>
             {displayRoomName}
           </RoomBadge>
           <LogTypeIndicator $logType={logType}>
             {getLogTypeIcon(logType)}
           </LogTypeIndicator>
-          <LogPreview>
-            {getLogPreview(parsedInfo)}
+          <LogPreview title={preview}>
+            {preview}
           </LogPreview>
         </LogSummary>
         <LogMeta>
@@ -2407,10 +2335,15 @@ const getLogTypeIcon = (logType) => {
 const getLogPreview = (parsedInfo) => {
   if (!parsedInfo) return 'Log data';
 
+  const compactMedium = (msg) => {
+    const match = String(msg).match(/Medium:\s*(.+?)\s*Info/i);
+    return match ? match[1] : msg;
+  };
+
   // Try to get a meaningful preview - check most specific first
-  if (parsedInfo.Message) return parsedInfo.Message;
-  if (parsedInfo.message) return parsedInfo.message;
-  
+  if (parsedInfo.Message) return compactMedium(parsedInfo.Message);
+  if (parsedInfo.message) return compactMedium(parsedInfo.message);
+
   // Night Mode
   if (parsedInfo.isNightMode === true) return parsedInfo.message || 'Night Mode';
 
@@ -2423,29 +2356,29 @@ const getLogPreview = (parsedInfo) => {
 
   // Night VPD Hold
   if (parsedInfo.NightVPDHold !== undefined) return 'Night VPD Hold';
-  
+
   // VPD readings
   if (parsedInfo.VPD !== undefined) return `VPD: ${parsedInfo.VPD} kPa`;
-  
+
   // Actions
   if (parsedInfo.action) return parsedInfo.action;
   if (parsedInfo.Action && parsedInfo.Device) return `${parsedInfo.Device}: ${parsedInfo.Action}`;
-  
+
   // Crop Steering
-  if (parsedInfo.Type === 'CSLOG') return parsedInfo.Message || 'Crop Steering';
-  
+  if (parsedInfo.Type === 'CSLOG') return parsedInfo.Message ? compactMedium(parsedInfo.Message) : 'Crop Steering';
+
   // Hydro modes
   if (parsedInfo.Mode === 'Crop-Steering') return 'Crop Steering';
   if (parsedInfo.Mode === 'Hydro') return 'Hydro Mode';
   if (parsedInfo.Mode === 'Plant-Watering') return 'Plant Watering';
   if (parsedInfo.Mode) return `Mode: ${parsedInfo.Mode}`;
-  
+
   // Device actions
   if (parsedInfo.Device) return `${parsedInfo.Device}: ${parsedInfo.Action || 'Action'}`;
-  
+
   // Controller types
   if (parsedInfo.controllerType) return `${parsedInfo.controllerType} Controller`;
-  
+
   // Room name as last resort
   if (parsedInfo.Name) return parsedInfo.Name;
 
@@ -5394,11 +5327,12 @@ export const CSWarningBanner = styled.div`
   align-items: center;
   gap: 0.75rem;
   padding: 0.75rem;
-  background: rgba(245, 158, 11, 0.15);
-  border: 1px solid rgba(245, 158, 11, 0.4);
+  background: ${props => props.$emergency ? 'rgba(239, 68, 68, 0.15)' : 'rgba(245, 158, 11, 0.15)'};
+  border: 1px solid ${props => props.$emergency ? 'rgba(239, 68, 68, 0.4)' : 'rgba(245, 158, 11, 0.4)'};
   border-radius: 8px;
-  color: #f59e0b;
+  color: ${props => props.$emergency ? '#ef4444' : '#f59e0b'};
   font-size: 0.85rem;
+  font-weight: ${props => props.$emergency ? '600' : '400'};
 
   @media (max-width: 480px) {
     padding: 0.5rem;
@@ -5835,12 +5769,13 @@ const LogTypeIndicator = styled.div`
 const LogPreview = styled.div`
   color: var(--main-text-color, #fff);
   font-size: 0.85rem;
-  white-space: normal;
+  white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
   flex: 1;
   min-width: 0;
-  word-break: break-word;
+  max-width: 100%;
+  cursor: default;
 
   @media (max-width: 768px) {
     font-size: 0.8rem;
@@ -5848,11 +5783,6 @@ const LogPreview = styled.div`
 
   @media (max-width: 480px) {
     font-size: 0.75rem;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    line-height: 1.3;
-    max-height: 2.6em;
   }
 `;
 

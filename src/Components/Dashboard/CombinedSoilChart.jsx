@@ -4,21 +4,20 @@ import EChartsWrapper from '../Common/EChartsWrapper';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
-import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaDownload, FaTint, FaBolt, FaFlask, FaThermometerHalf } from 'react-icons/fa';
+import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaDownload, FaTint, FaBolt, FaThermometerHalf } from 'react-icons/fa';
 import { Maximize2, Minimize2, LineChart, BarChart3, Image, FileSpreadsheet } from 'lucide-react';
 
 const CombinedSoilChart = ({
   soilSensors,
+  mediumSeries = null,
   isGlobalLiveMode = false,
   globalLiveRefreshTrigger = 0,
   onLiveModeChange,
   chartHeight = 350
 }) => {
-  const getDefaultDate = (offset = 0) => {
-    const date = new Date(Date.now() + offset);
-    return new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-      .toISOString().slice(0, 16);
-  };
+  // HA history API + sensor timestamps are UTC — always use the same UTC convention
+  // for the window (start/end) so the chart extends to "now" on every refresh.
+  const toDateString = (date) => date.toISOString().slice(0, 16);
 
   const { haApiBaseUrl, haToken: accessToken, entities } = useHomeAssistant();
   const isDev = import.meta.env.DEV;
@@ -26,7 +25,7 @@ const CombinedSoilChart = ({
 
   // Stable key from sensor IDs only (not values) to prevent re-fetches on every entity update
   const sensorIdsKey = useMemo(() =>
-    ['moisture', 'ec', 'ph', 'temperature']
+    ['moisture', 'ec', 'temperature']
       .map(k => soilSensors?.[k]?.id)
       .filter(Boolean)
       .sort()
@@ -37,14 +36,13 @@ const CombinedSoilChart = ({
   const chartDataRef = useRef({
     moisture: { xData: [], yData: [] },
     ec: { xData: [], yData: [] },
-    ph: { xData: [], yData: [] },
     temperature: { xData: [], yData: [] }
   });
-  const currentValuesRef = useRef({ moisture: null, ec: null, ph: null, temperature: null });
-  const chartOptionsRef = useRef(null);
+  const currentValuesRef = useRef({ moisture: null, ec: null, temperature: null });
+  const lastPointsRef = useRef({});
 
-  const [startDate, setStartDate] = useState(getDefaultDate(-12 * 60 * 60 * 1000));
-  const [endDate, setEndDate] = useState(getDefaultDate());
+  const [startDate, setStartDate] = useState(() => toDateString(new Date(Date.now() - 12 * 60 * 60 * 1000)));
+  const [endDate, setEndDate] = useState(() => toDateString(new Date()));
   const [chartOptions, setChartOptions] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
@@ -54,7 +52,6 @@ const CombinedSoilChart = ({
   const [stats, setStats] = useState({
     moisture: { current: '--', min: '--', max: '--', avg: '--', trend: 'stable' },
     ec: { current: '--', min: '--', max: '--', avg: '--', trend: 'stable' },
-    ph: { current: '--', min: '--', max: '--', avg: '--', trend: 'stable' },
     temperature: { current: '--', min: '--', max: '--', avg: '--', trend: 'stable' }
   });
   const [chartType, setChartType] = useState('line');
@@ -73,18 +70,19 @@ const CombinedSoilChart = ({
     }
     
     if (isLiveMode) {
+      // Live mode: rolling 1h window so every series has data and reaches "now"
       const now = new Date();
-      setStartDate(now.toISOString().slice(0, 16));
-      setEndDate(now.toISOString().slice(0, 16));
-      
+      setStartDate(toDateString(new Date(now.getTime() - 60 * 60 * 1000)));
+      setEndDate(toDateString(now));
+
       liveIntervalRef.current = setInterval(() => {
-        const currentTime = new Date();
-        setEndDate(currentTime.toISOString().slice(0, 16));
+        setEndDate(toDateString(new Date()));
       }, 30000);
     } else {
       const hours = view === '6h' ? 6 : view === '12h' ? 12 : view === '24h' ? 24 : 168;
-      setStartDate(getDefaultDate(-hours * 60 * 60 * 1000));
-      setEndDate(getDefaultDate());
+      const now = new Date();
+      setStartDate(toDateString(new Date(now.getTime() - hours * 60 * 60 * 1000)));
+      setEndDate(toDateString(now));
     }
   };
 
@@ -98,11 +96,13 @@ const CombinedSoilChart = ({
       setLoading(true);
       setError(null);
 
-      const availableSensors = ['moisture', 'ec', 'ph', 'temperature'].filter(
+      const metricKeys = ['moisture', 'ec', 'temperature'];
+      const availableSensors = metricKeys.filter(
         s => soilSensors?.[s]
       );
+      const hasMediumData = metricKeys.some(s => mediumSeries?.[s]?.length);
 
-      if (availableSensors.length === 0) {
+      if (availableSensors.length === 0 && !hasMediumData) {
         setError('No soil sensors found');
         setLoading(false);
         return;
@@ -149,13 +149,23 @@ const CombinedSoilChart = ({
               }
 
               const sensorData = data[0];
-              const values = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
-              
-              const xData = sensorData.map(item => item.last_changed);
+
+              // Scale µS/cm EC entities to mS/cm (generic EC probes report microsiemens).
+              // Fallback: if the entity does not explicitly claim mS/cm and raw values are
+              // large (> 50), assume µS/cm even when HA omits the unit attribute.
+              const entityUnit = entities?.[sensorId]?.attributes?.unit_of_measurement || '';
+              const rawValues = sensorData.map(item => parseFloat(item.state)).filter(v => !isNaN(v));
+              const rawMax = rawValues.length ? Math.max(...rawValues) : 0;
+              const isMicroUnit = /µs|μs|us\/cm/i.test(entityUnit);
+              const isMilliUnit = /mS\/cm/i.test(entityUnit);
+              const scale = sensorKey === 'ec' && (isMicroUnit || (!isMilliUnit && rawMax >= 50)) ? 0.001 : 1;
+
+              const xData = sensorData.map(item => new Date(item.last_changed).getTime());
               const yData = sensorData.map(item => {
-                const val = parseFloat(item.state);
+                const val = parseFloat(item.state) * scale;
                 return isNaN(val) ? null : val;
               });
+              const values = yData.filter(v => v !== null);
 
               if (values.length > 0) {
                 currentValuesRef.current[sensorKey] = values[values.length - 1];
@@ -199,23 +209,40 @@ const CombinedSoilChart = ({
         const colorMap = {
           moisture: '#3b82f6',
           ec: '#8b5cf6',
-          ph: '#22c55e',
           temperature: '#f59e0b'
         };
         const unitMap = {
           moisture: '%',
           ec: ' mS/cm',
-          ph: '',
           temperature: ' °C'
         };
 
-        availableSensors.forEach((sensorKey) => {
-          const data = allData[sensorKey];
-          if (!data?.yData?.length) return;
+        metricKeys.forEach((sensorKey) => {
+          const haData = allData[sensorKey];
 
-          const values = data.yData.filter(v => v !== null);
-          if (values.length === 0) return;
+          // Build time-stamped points [timestamp, value] so every line is
+          // correctly aligned on the shared time axis regardless of sample rate.
+          const haPts = haData?.xData?.length
+            ? haData.xData.map((t, i) => [t, haData.yData[i]]).filter(p => p[1] !== null)
+            : [];
 
+          // Medium-event points are the authoritative per-medium values; HA history
+          // backfills the past. Merge with medium points taking precedence.
+          const merged = new Map();
+          haPts.forEach(p => merged.set(p[0], p[1]));
+          (mediumSeries?.[sensorKey] || []).forEach(p => merged.set(p[0], p[1]));
+          let points = [...merged].sort((a, b) => a[0] - b[0]);
+
+          // If neither source returned anything (transient API hiccup, sensor briefly
+          // unavailable), keep the last known points so the line doesn't vanish.
+          if (points.length === 0) {
+            const last = lastPointsRef.current[sensorKey];
+            if (last && last.length) points = last;
+          }
+          if (points.length === 0) return;
+          lastPointsRef.current[sensorKey] = points;
+
+          const values = points.map(p => p[1]);
           const current = values[values.length - 1];
           const min = Math.min(...values);
           const max = Math.max(...values);
@@ -240,13 +267,13 @@ const CombinedSoilChart = ({
 
           series.push({
             name: sensorKey.charAt(0).toUpperCase() + sensorKey.slice(1),
-            data: data.yData,
+            data: points,
             type: chartType === 'area' ? 'line' : chartType,
             smooth: 0.3,
             symbol: chartType === 'line' ? 'circle' : 'rect',
             symbolSize: chartType === 'line' ? 4 : 8,
             showSymbol: chartType === 'line' ? false : true,
-            yAxisIndex: sensorKey === 'moisture' ? 0 : sensorKey === 'ec' ? 1 : sensorKey === 'ph' ? 2 : 3,
+            yAxisIndex: sensorKey === 'moisture' ? 0 : sensorKey === 'ec' ? 1 : 2,
             itemStyle: { color: colorMap[sensorKey] },
             lineStyle: {
               width: 3,
@@ -273,73 +300,74 @@ const CombinedSoilChart = ({
           return;
         }
 
-        const chart = chartRef.current?.getEchartsInstance();
-
-        if (chartOptionsRef.current && chart) {
-          // Incremental update: nur Daten aktualisieren, kein kompletter Rebuild
-          chart.setOption({
-            xAxis: { data: allData[availableSensors[0]]?.xData || [] },
-            series: series.map(s => ({ data: s.data }))
-          });
-        } else {
-          // Erstmaliger Aufbau: komplette Option setzen
-          const newOptions = {
-            backgroundColor: 'transparent',
-            grid: { top: 60, right: 80, bottom: 60, left: 60 },
-            tooltip: {
-              trigger: 'axis',
-              backgroundColor: getThemeColor('--main-bg-card-color'),
-              borderColor: '#3b82f6',
-              borderWidth: 1,
-              padding: [12, 16],
-              textStyle: { color: textColor, fontSize: 13 },
-              formatter: (params) => {
-                if (!params?.length) return '';
-                const p = params[0];
-                const date = formatDateTime(p.axisValue);
-                let html = `<div style="font-weight:600;margin-bottom:4px">${date}</div>`;
-                params.forEach(param => {
-                  const unit = unitMap[param.seriesName.toLowerCase()] || '';
-                  html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
-                    <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${param.color}"></span>
-                    <span>${param.seriesName}:</span>
-                    <span style="font-weight:700">${param.value != null ? Number(param.value).toFixed(2) : '--'}${unit}</span>
-                  </div>`;
-                });
-                return html;
+        const newOptions = {
+          backgroundColor: 'transparent',
+          grid: { top: 60, right: 140, bottom: 60, left: 60 },
+          tooltip: {
+            trigger: 'axis',
+            backgroundColor: getThemeColor('--main-bg-card-color'),
+            borderColor: '#3b82f6',
+            borderWidth: 1,
+            padding: [12, 16],
+            textStyle: { color: textColor, fontSize: 13 },
+            // Show ALL series at the hovered time, even when their timestamps
+            // don't line up exactly (HA history vs medium events) - pick the
+            // nearest point of each series to the hovered axis value.
+            formatter: (params) => {
+              if (!params?.length) return '';
+              const p = params[0];
+              const date = formatDateTime(p.axisValue);
+              const t = typeof p.axisValue === 'number' ? p.axisValue : new Date(p.axisValue).getTime();
+              let html = `<div style="font-weight:600;margin-bottom:4px">${date}</div>`;
+              series.forEach(s => {
+                const data = s.data || [];
+                let nearest = null;
+                for (const pt of data) {
+                  nearest = pt;
+                  if (pt[0] >= t) break;
+                }
+                if (!nearest) return;
+                const unit = unitMap[s.name.toLowerCase()] || '';
+                const raw = nearest[1];
+                const value = raw != null && !isNaN(raw) ? Number(raw).toFixed(2) : '--';
+                const color = s.itemStyle?.color || colorMap[s.name.toLowerCase()];
+                html += `<div style="display:flex;align-items:center;gap:8px;margin-top:4px">
+                  <span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${color}"></span>
+                  <span>${s.name}:</span>
+                  <span style="font-weight:700">${value}${unit}</span>
+                </div>`;
+              });
+              return html;
+            }
+          },
+          dataZoom: [{ type: 'inside', start: 0, end: 100 }],
+          xAxis: {
+            type: 'time',
+            boundaryGap: false,
+            axisLine: { lineStyle: { color: gridColor } },
+            axisLabel: {
+              color: secondaryTextColor,
+              fontSize: 11,
+              formatter: (value) => {
+                const date = new Date(value);
+                const now = new Date();
+                if (isNaN(date.getTime())) return '';
+                if (date.toDateString() === now.toDateString()) {
+                  return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
+                }
+                return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
               }
             },
-            dataZoom: [{ type: 'inside', start: 0, end: 100 }],
-            xAxis: {
-              type: 'category',
-              data: allData[availableSensors[0]]?.xData || [],
-              boundaryGap: false,
-              axisLine: { lineStyle: { color: gridColor } },
-              axisLabel: {
-                color: secondaryTextColor,
-                fontSize: 11,
-                formatter: (value) => {
-                  const date = new Date(value);
-                  const now = new Date();
-                  if (date.toDateString() === now.toDateString()) {
-                    return `${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-                  }
-                  return `${date.getDate()}.${date.getMonth() + 1} ${date.getHours()}:${date.getMinutes().toString().padStart(2, '0')}`;
-                }
-              },
-              splitLine: { show: false }
-            },
-            yAxis: [
-              { type: 'value', name: 'Moisture %', position: 'left', axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { lineStyle: { color: gridColor + '30', type: 'dashed' } } },
-              { type: 'value', name: 'EC mS', position: 'right', offset: 0, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } },
-              { type: 'value', name: 'pH', position: 'right', offset: 35, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } },
-              { type: 'value', name: 'Temp °C', position: 'right', offset: 70, axisLine: { show: false }, axisLabel: { color: secondaryTextColor }, splitLine: { show: false } }
-            ],
-            series
-          };
-          chartOptionsRef.current = newOptions;
-          setChartOptions(newOptions);
-        }
+            splitLine: { show: false }
+          },
+          yAxis: [
+            { type: 'value', name: 'Moisture %', position: 'left', axisLine: { show: false }, axisLabel: { color: secondaryTextColor, fontSize: 10 }, nameTextStyle: { color: secondaryTextColor, fontSize: 10, padding: [0, 0, 0, 30] }, splitLine: { lineStyle: { color: gridColor + '30', type: 'dashed' } } },
+            { type: 'value', name: 'EC mS', position: 'right', offset: 0, axisLine: { show: false }, axisLabel: { color: secondaryTextColor, fontSize: 10 }, nameTextStyle: { color: secondaryTextColor, fontSize: 10, padding: [0, 0, 0, 20] }, splitLine: { show: false } },
+            { type: 'value', name: 'Temp °C', position: 'right', offset: 60, axisLine: { show: false }, axisLabel: { color: secondaryTextColor, fontSize: 10 }, nameTextStyle: { color: secondaryTextColor, fontSize: 10, padding: [0, 0, 0, 20] }, splitLine: { show: false } }
+          ],
+          series
+        };
+        setChartOptions(newOptions);
 
       } catch (err) {
         console.error('Soil chart error:', err);
@@ -351,12 +379,7 @@ const CombinedSoilChart = ({
 
     // Always fetch when dependencies change
     fetchSoilData();
-  }, [startDate, endDate, sensorIdsKey, haApiBaseUrl, accessToken, chartType]);
-
-  // Reset chart on chartType change to force full rebuild
-  useEffect(() => {
-    chartOptionsRef.current = null;
-  }, [chartType]);
+  }, [startDate, endDate, sensorIdsKey, haApiBaseUrl, accessToken, chartType, mediumSeries]);
 
   // Sync with global live mode (like CombinedClimateChart)
   useEffect(() => {
@@ -370,7 +393,7 @@ const CombinedSoilChart = ({
     if (isLive) return;
 
     const interval = setInterval(() => {
-      setEndDate(new Date().toISOString().slice(0, 16));
+      setEndDate(toDateString(new Date()));
     }, 60000);
 
     return () => clearInterval(interval);
@@ -404,12 +427,12 @@ const CombinedSoilChart = ({
   const handleExportCSV = () => {
     if (!chartOptions?.series) return;
     
-    const xData = chartOptions.xAxis?.data || [];
+    const xData = [...new Set(chartOptions.series.flatMap(s => (s.data || []).map(p => p[0])))].sort((a, b) => a - b);
     const series = chartOptions.series;
     
     const headers = ['Timestamp', ...series.map(s => s.name)].join(',');
-    const rows = xData.map((x, i) => {
-      return [x, ...series.map(s => s.data?.[i] ?? '')].join(',');
+    const rows = xData.map((t) => {
+      return [new Date(t).toISOString(), ...series.map(s => (s.data || []).find(p => p[0] === t)?.[1] ?? '')].join(',');
     });
     
     const csvContent = [headers, ...rows].join('\n');
@@ -522,7 +545,6 @@ const CombinedSoilChart = ({
             <StatLabel>
               {key === 'moisture' && <FaTint size={12} />}
               {key === 'ec' && <FaBolt size={12} />}
-              {key === 'ph' && <FaFlask size={12} />}
               {key === 'temperature' && <FaThermometerHalf size={12} />}
               {key.charAt(0).toUpperCase() + key.slice(1)}
             </StatLabel>
