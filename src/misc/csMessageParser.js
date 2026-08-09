@@ -60,6 +60,10 @@ export const parseCSMessage = (msg = '') => {
   const vwcMatch = msg.match(/VWC[:\s]+(\d+\.?\d*)%/i);
   if (vwcMatch) result.vwc = parseFloat(vwcMatch[1]);
 
+  // For shot messages like "VWC: 54.2% → 55.1%", use the post-shot value (after the arrow).
+  const arrowVwcMatch = msg.match(/[→\->]+\s*(\d+\.?\d*)%/i);
+  if (arrowVwcMatch) result.vwc = parseFloat(arrowVwcMatch[1]);
+
   const targetMatch = msg.match(/target[:\s]+(\d+\.?\d*)%/i);
   if (targetMatch) result.vwcTarget = parseFloat(targetMatch[1]);
 

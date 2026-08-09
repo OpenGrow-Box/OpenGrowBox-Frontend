@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react';
+import { useState, useMemo, useEffect, useRef, useCallback } from 'react';
 import styled from 'styled-components';
 import { useHomeAssistant } from '../Context/HomeAssistantContext';
 import { useMedium } from '../Context/MediumContext';
@@ -144,6 +144,26 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
   const { mediums, currentMediumIndex, setCurrentMediumIndex, currentMedium } = useMedium();
   const { plantStages, getStageConfig } = usePlantStages();
 
+  // Ask the backend to emit a fresh CropSteering state snapshot + recent history
+  // when the UI opens or changes room. This prevents the dashboard from waiting
+  // for the next periodic heartbeat/event to show mode, phase, target and calibration.
+  const requestCSState = useCallback(async (room) => {
+    if (!connection || !room) return;
+    try {
+      await connection.sendMessagePromise({
+        type: 'fire_event',
+        event_type: 'RequestCropSteeringState',
+        event_data: {
+          room,
+          requestId: `cs-state-${Date.now()}`,
+          atTime: new Date().toISOString(),
+        },
+      });
+    } catch (error) {
+      // Backend may not have the listener yet; periodic heartbeats will still fill the state.
+    }
+  }, [connection]);
+
   // Get current stage from medium
   const currentStage = useMemo(() => {
     if (!currentMedium) return 'midVeg';
@@ -243,6 +263,11 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
   const csEventsRef = useRef({});
   const csEventsPrevRef = useRef('');
 
+  // Periodic state snapshot from backend (mode, phase, calibration, target).
+  const [csState, setCsState] = useState({});
+  const csStateRef = useRef({});
+  const csStatePrevRef = useRef('');
+
   // Latest medium-status snapshot per room (from "Medium: ... Info" events).
   const [mediumStatus, setMediumStatus] = useState({});
   const mediumSnapRef = useRef({});
@@ -275,6 +300,19 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
 
       const room = getRoomFromPayload(data);
       if (!room) return;
+
+      // Backend periodic state heartbeat (mode, phase, calibration, target).
+      if (data.Type === 'CSSTATE') {
+        const snap = { ts: event.time_fired || Date.now(), ...data };
+        const nextState = { ...csStateRef.current, [room]: snap };
+        csStateRef.current = nextState;
+        const serialized = JSON.stringify(nextState);
+        if (serialized !== csStatePrevRef.current) {
+          csStatePrevRef.current = serialized;
+          setCsState(nextState);
+        }
+        return;
+      }
 
       // Medium-status snapshots ("Medium: SOIL_1 Info") - stored per MEDIUM so each
       // plant has its own status. Falls back to the room key when no medium name is sent.
@@ -425,17 +463,58 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       }
     };
 
-    let unsubscribe = null;
+    // Handle the dashboard state snapshot response from the backend. It contains the
+    // current mode/phase/target/calibration plus a replay of recent LogForClient events
+    // so the UI shows history immediately without waiting for live events.
+    const handleStateResponse = (event) => {
+      const data = event?.data;
+      if (!data || typeof data !== 'object') return;
+      const room = data.room || data.name;
+      if (!room) return;
+
+      if (data.state && typeof data.state === 'object') {
+        const snap = { ts: event.time_fired || Date.now(), ...data.state };
+        const nextState = { ...csStateRef.current, [room]: snap };
+        csStateRef.current = nextState;
+        const serialized = JSON.stringify(nextState);
+        if (serialized !== csStatePrevRef.current) {
+          csStatePrevRef.current = serialized;
+          setCsState(nextState);
+        }
+      }
+
+      if (Array.isArray(data.events)) {
+        data.events.forEach((ev) => {
+          if (!ev || !ev.payload) return;
+          handleEvent({ data: ev.payload, time_fired: ev.time_fired || event.time_fired });
+        });
+      }
+    };
+
+    let unsubscribeLog = null;
+    let unsubscribeState = null;
     connection.subscribeEvents(handleEvent, 'LogForClient').then((unsub) => {
-      unsubscribe = typeof unsub === 'function' ? unsub : null;
+      unsubscribeLog = typeof unsub === 'function' ? unsub : null;
+    }).catch(() => { /* ignore */ });
+    connection.subscribeEvents(handleStateResponse, 'CropSteeringState').then((unsub) => {
+      unsubscribeState = typeof unsub === 'function' ? unsub : null;
+      requestCSState(currentRoom);
     }).catch(() => { /* ignore */ });
 
     return () => {
-      if (unsubscribe) {
-        try { unsubscribe(); } catch { /* ignore */ }
+      if (unsubscribeLog) {
+        try { unsubscribeLog(); } catch { /* ignore */ }
+      }
+      if (unsubscribeState) {
+        try { unsubscribeState(); } catch { /* ignore */ }
       }
     };
-  }, [connection]);
+  }, [connection, requestCSState]);
+
+  // Re-request state whenever the selected room changes.
+  useEffect(() => {
+    requestCSState(currentRoom);
+  }, [currentRoom, requestCSState]);
 
   // Latest crop steering event data for the current room (matches the selected medium's room).
   const csRoomData = useMemo(() => {
@@ -445,24 +524,46 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
 
     const history = roomState.history || [];
     const withVwc = history.filter(h => typeof h.vwc === 'number');
-    const current = withVwc.length ? withVwc[withVwc.length - 1].vwc : null;
-    const previous = withVwc.length > 1 ? withVwc[withVwc.length - 2].vwc : null;
-    const delta = (current !== null && previous !== null) ? current - previous : null;
-    const vwcSeries = withVwc.slice(-10).map(h => h.vwc);
 
-    // Latest calibration snapshot seen in the stream (most recent Calibration payload).
-    const calibration = [...history].reverse().find(h => h.calibration)?.calibration || null;
+    // Completed shot post-shot VWC values, in chronological order.
+    const shotVwcs = withVwc.filter(h => h.shotNumber).map(h => h.vwc);
+    // "Previous VWC" = end VWC of the last completed shot, so the delta shows
+    // the actual dryback since that shot instead of shifting with every reading.
+    const previous = shotVwcs.length ? shotVwcs[shotVwcs.length - 1] : null;
+
+    // Dedupe consecutive identical VWC values so the "last 2" history never shows
+    // duplicates like 58.0, 58.0 when a shot reading and a medium reading collide.
+    const vwcSeries = withVwc
+      .reduce((acc, h) => {
+        const val = h.vwc;
+        if (acc.length === 0 || acc[acc.length - 1] !== val) acc.push(val);
+        return acc;
+      }, [])
+      .slice(-10);
+
+    // Latest calibration snapshot from the event stream or the backend heartbeat state.
+    const historyCalibration = [...history].reverse().find(h => h.calibration)?.calibration || null;
+    const stateSnap = csState[currentRoom];
+    const calibration = historyCalibration || stateSnap?.Calibration || null;
+
+    // Current VWC: prefer the event history, fall back to the backend state snapshot.
+    const current = withVwc.length
+      ? withVwc[withVwc.length - 1].vwc
+      : (stateSnap?.VWC ?? null);
+    const delta = (current !== null && previous !== null) ? current - previous : null;
 
     return {
       ...(roomState.lastEvent || {}),
       current,
       previous,
-      delta,
+      delta: (current !== null && previous !== null) ? current - previous : null,
       vwcSeries,
       calibration,
-      vwcTarget: roomState.lastEvent?.vwcTarget || phaseTargets.moisture?.max || 65,
+      vwcTarget: roomState.lastEvent?.vwcTarget || stateSnap?.VWCTarget || phaseTargets.moisture?.max || 65,
+      csMode: stateSnap?.mode || stateSnap?.cropMode || null,
+      csPhase: stateSnap?.phase || stateSnap?.cropPhase || null,
     };
-  }, [csEvents, currentRoom, phaseTargets]);
+  }, [csEvents, csState, currentRoom, phaseTargets]);
 
   // Completed shots (in chronological order) with their post-shot VWC reading,
   // taken from the medium-status snapshot that arrived after each shot.
@@ -640,10 +741,12 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
   const vwcCurrent = mediumMoistureSeries.length
     ? mediumMoistureSeries[mediumMoistureSeries.length - 1][1]
     : (csRoomData?.current ?? null);
-  const vwcPrevious = mediumMoistureSeries.length > 1
+  // "Previous VWC" is anchored to the last completed shot's end VWC. If no shot
+  // has been recorded yet, fall back to the previous distinct medium reading.
+  const vwcPrevious = csRoomData?.previous ?? (mediumMoistureSeries.length > 1
     ? mediumMoistureSeries[mediumMoistureSeries.length - 2][1]
-    : (csRoomData?.previous ?? null);
-  const vwcDelta = (vwcCurrent !== null && vwcPrevious !== null) ? vwcCurrent - vwcPrevious : (csRoomData?.delta ?? null);
+    : null);
+  const vwcDelta = (vwcCurrent !== null && vwcPrevious !== null) ? vwcCurrent - vwcPrevious : null;
   const vwcTarget = csRoomData?.vwcTarget ?? phaseTargets.moisture?.max ?? 65;
 
   const csVwcPercent = vwcTarget
@@ -957,6 +1060,7 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
                 <PhaseText>
                   <PhaseName>{csPhaseName}</PhaseName>
                   <PhaseDesc>{csPhaseDesc}</PhaseDesc>
+                  {csRoomData?.csMode && <ModeBadge>{csRoomData.csMode}</ModeBadge>}
                 </PhaseText>
               </PhaseBox>
 
@@ -1215,6 +1319,19 @@ const PhaseName = styled.span`
 const PhaseDesc = styled.span`
   font-size: 0.68rem;
   color: var(--placeholder-text-color);
+`;
+
+const ModeBadge = styled.span`
+  font-size: 0.6rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 0.15rem 0.4rem;
+  border-radius: 999px;
+  background: rgba(96, 165, 250, 0.2);
+  color: #93c5fd;
+  width: fit-content;
+  margin-top: 0.15rem;
 `;
 
 const VwcBox = styled.div`
