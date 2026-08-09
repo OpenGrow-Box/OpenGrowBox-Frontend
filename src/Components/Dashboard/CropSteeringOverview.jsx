@@ -401,10 +401,11 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
         maxShots: parsed.maxShots,
         vwc,
         startVwc,
-        vwcTarget: parsed.vwcTarget,
+        vwcTarget: parsed.vwcTarget ?? data.VWCTarget ?? null,
         duration: parsed.duration,
         nextInterval: parsed.nextInterval,
         dryback: parsed.dryback,
+        calibration: data.Calibration || null,
         message: msg,
       };
 
@@ -449,12 +450,16 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
     const delta = (current !== null && previous !== null) ? current - previous : null;
     const vwcSeries = withVwc.slice(-10).map(h => h.vwc);
 
+    // Latest calibration snapshot seen in the stream (most recent Calibration payload).
+    const calibration = [...history].reverse().find(h => h.calibration)?.calibration || null;
+
     return {
       ...(roomState.lastEvent || {}),
       current,
       previous,
       delta,
       vwcSeries,
+      calibration,
       vwcTarget: roomState.lastEvent?.vwcTarget || phaseTargets.moisture?.max || 65,
     };
   }, [csEvents, currentRoom, phaseTargets]);
@@ -657,6 +662,53 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       );
     }
     return dots;
+  };
+
+  // Calibration values from the latest Calibration snapshot in the event stream.
+  const calibration = csRoomData?.calibration;
+  const calLearned = calibration?.Learned || null;
+  const calVwcMax = calibration?.P2?.VWCMax ?? calibration?.P1?.VWCMax ?? null;
+  const calVwcMin = calibration?.P3?.VWCMin ?? null;
+  const calFieldCapacity = calLearned?.field_capacity_vwc ?? null;
+  const calSaturation = calLearned?.max_saturation_vwc ?? null;
+  const calMinDryback = calLearned?.min_dryback_vwc ?? null;
+
+  const renderCalibrationCards = () => {
+    const fmt = (v, digits = 1) => (v !== null && v !== undefined && !isNaN(v) ? `${Number(v).toFixed(digits)}%` : '--');
+    return (
+      <CalibrationSection>
+        <CalibrationHeader>
+          <CalibrationTitle><FaBullseye size={12} /> Calibration</CalibrationTitle>
+          {calLearned && (
+            <CalibrationCount>
+              {calLearned.saturation_samples ?? 0} sat · {calLearned.dryback_samples ?? 0} dryback samples
+            </CalibrationCount>
+          )}
+        </CalibrationHeader>
+        <CalibrationGrid>
+          <CalibrationCard>
+            <span>VWCMax</span>
+            <b>{fmt(calVwcMax)}</b>
+          </CalibrationCard>
+          <CalibrationCard>
+            <span>VWCMin</span>
+            <b>{fmt(calVwcMin)}</b>
+          </CalibrationCard>
+          <CalibrationCard>
+            <span>Field Capacity</span>
+            <b>{fmt(calFieldCapacity)}</b>
+          </CalibrationCard>
+          <CalibrationCard>
+            <span>Max Saturation</span>
+            <b>{fmt(calSaturation)}</b>
+          </CalibrationCard>
+          <CalibrationCard>
+            <span>Min Dryback</span>
+            <b>{fmt(calMinDryback)}</b>
+          </CalibrationCard>
+        </CalibrationGrid>
+      </CalibrationSection>
+    );
   };
 
 
@@ -984,6 +1036,8 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
                 )}
               </ActivityMetrics>
             )}
+
+            {renderCalibrationCards()}
 
             {csRoomData.vwcSeries.length > 0 && (
               <VwcHistory>
@@ -1417,6 +1471,67 @@ const ActivityMetric = styled.div`
 
   b {
     font-size: 0.8rem;
+    color: var(--main-text-color);
+  }
+`;
+
+const CalibrationSection = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin-top: 0.5rem;
+  padding-top: 0.75rem;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+`;
+
+const CalibrationHeader = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+`;
+
+const CalibrationTitle = styled.span`
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.65rem;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: var(--placeholder-text-color);
+`;
+
+const CalibrationCount = styled.span`
+  font-size: 0.6rem;
+  color: var(--placeholder-text-color);
+`;
+
+const CalibrationGrid = styled.div`
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+  gap: 0.5rem;
+`;
+
+const CalibrationCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  background: var(--main-bg-card-color);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 8px;
+  padding: 0.4rem 0.6rem;
+
+  span {
+    font-size: 0.58rem;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: var(--placeholder-text-color);
+  }
+
+  b {
+    font-size: 0.85rem;
+    font-weight: 800;
     color: var(--main-text-color);
   }
 `;

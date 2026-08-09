@@ -54,6 +54,7 @@ const getLogType = (data) => {
   if (entry?.Type === "INVALID PUMPS") return 'missing-pumps';
   if (entry?.Mode === "Hydro") return 'hydro-mode';
   if (entry?.Type === "CSLOG") return 'cs-log';
+  if (entry?.Type === "CSWARNING") return 'cs-warning';
   if (entry?.Mode === 'Crop-Steering') return 'cs-log';
   if (entry?.Mode === 'Plant-Watering') return 'hydro-mode';
   if (entry?.VPDStatus === "InDeadband" || msg.includes('deadband')) return 'vpd-deadband';
@@ -2194,6 +2195,7 @@ const GrowLogs = () => {
             <option value="action">Actions</option>
             <option value="hydro-mode">Hydro Mode</option>
             <option value="cs-log">Crop Steering</option>
+            <option value="cs-warning">CS Warnings</option>
             <option value="pid-controller">PID Controller</option>
             <option value="medium-stats">Medium Stats</option>
             <option value="night-vpd">Night VPD</option>
@@ -2318,6 +2320,7 @@ const getLogTypeIcon = (logType) => {
     case 'action': return <FaBullseye />;
     case 'hydro-mode': return <WiHumidity />;
     case 'cs-log': return <MdOutlineWaterDrop />;
+    case 'cs-warning': return <FaExclamationTriangle />;
     case 'pid-controller': return <MdTune />;
     case 'medium-stats': return <FaLeaf />;
     case 'night-vpd': return <GiMoon />;
@@ -2651,6 +2654,7 @@ const LogItemContainer = styled.div`
       case 'plant-config': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(59, 130, 246, 0.1) 100%)';
       case 'reservoir': return 'linear-gradient(135deg, rgba(59, 130, 246, 0.1) 0%, rgba(37, 99, 235, 0.1) 100%)';
       case 'co2-safety': return 'linear-gradient(135deg, rgba(156, 163, 175, 0.1) 0%, rgba(107, 114, 128, 0.1) 100%)';
+      case 'cs-warning': return 'linear-gradient(135deg, rgba(245, 158, 11, 0.15) 0%, rgba(239, 68, 68, 0.12) 100%)';
       case 'missing-devices': return 'linear-gradient(135deg, rgba(245, 158, 11, 0.1) 0%, rgba(217, 119, 6, 0.1) 100%)';
       case 'auth-success': return 'linear-gradient(135deg, rgba(34, 197, 94, 0.1) 0%, rgba(22, 163, 74, 0.1) 100%)';
       default: return 'rgba(255, 255, 255, 0.05)';
