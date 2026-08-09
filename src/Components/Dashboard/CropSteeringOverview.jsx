@@ -525,11 +525,17 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
     const history = roomState.history || [];
     const withVwc = history.filter(h => typeof h.vwc === 'number');
 
+    // Latest backend state heartbeat snapshot for this room (used for fallbacks).
+    const stateSnap = csState[currentRoom];
+
     // Completed shot post-shot VWC values, in chronological order.
     const shotVwcs = withVwc.filter(h => h.shotNumber).map(h => h.vwc);
-    // "Previous VWC" = end VWC of the last completed shot, so the delta shows
-    // the actual dryback since that shot instead of shifting with every reading.
-    const previous = shotVwcs.length ? shotVwcs[shotVwcs.length - 1] : null;
+
+    // "Previous VWC" = end VWC of the last completed shot, or the last irrigation
+    // VWC reported by the backend state heartbeat when no shot history exists yet.
+    const previous = shotVwcs.length
+      ? shotVwcs[shotVwcs.length - 1]
+      : (stateSnap?.PreviousVWC ?? null);
 
     // Dedupe consecutive identical VWC values so the "last 2" history never shows
     // duplicates like 58.0, 58.0 when a shot reading and a medium reading collide.
@@ -543,7 +549,6 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
 
     // Latest calibration snapshot from the event stream or the backend heartbeat state.
     const historyCalibration = [...history].reverse().find(h => h.calibration)?.calibration || null;
-    const stateSnap = csState[currentRoom];
     const calibration = historyCalibration || stateSnap?.Calibration || null;
 
     // Current VWC: prefer the event history, fall back to the backend state snapshot.
@@ -551,6 +556,16 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       ? withVwc[withVwc.length - 1].vwc
       : (stateSnap?.VWC ?? null);
     const delta = (current !== null && previous !== null) ? current - previous : null;
+
+    // Active thresholds from the backend state heartbeat (fallback to calibration/presets).
+    const vwcMax = stateSnap?.VWCMax ?? calibration?.Targets?.VWCMax ?? calibration?.P2?.VWCMax ?? calibration?.P1?.VWCMax ?? phaseTargets.moisture?.max ?? 65;
+    const vwcMin = stateSnap?.VWCMin ?? calibration?.Targets?.VWCMin ?? calibration?.P3?.VWCMin ?? phaseTargets.moisture?.min ?? 55;
+
+    // Dryback info for P3 (and P2 dryback percentage from config).
+    const drybackInfo = stateSnap?.Dryback || {};
+    const drybackPercent = drybackInfo.drybackPercent ?? null;
+    const targetDrybackPercent = drybackInfo.targetDrybackPercent ?? stateSnap?.DrybackTargetPercent ?? calibration?.Targets?.DrybackTargetPercent ?? null;
+    const moistureDryback = stateSnap?.MoistureDryback ?? calibration?.Targets?.MoistureDryback ?? null;
 
     return {
       ...(roomState.lastEvent || {}),
@@ -560,6 +575,11 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
       vwcSeries,
       calibration,
       vwcTarget: roomState.lastEvent?.vwcTarget || stateSnap?.VWCTarget || phaseTargets.moisture?.max || 65,
+      vwcMax,
+      vwcMin,
+      dryback: drybackPercent,
+      targetDryback: targetDrybackPercent,
+      moistureDryback,
       csMode: stateSnap?.mode || stateSnap?.cropMode || null,
       csPhase: stateSnap?.phase || stateSnap?.cropPhase || null,
     };
@@ -768,13 +788,16 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
   };
 
   // Calibration values from the latest Calibration snapshot in the event stream.
+  // Use the backend-provided active thresholds as fallback until auto-calibration
+  // has collected enough samples, so the dashboard never shows empty cards.
   const calibration = csRoomData?.calibration;
   const calLearned = calibration?.Learned || null;
-  const calVwcMax = calibration?.P2?.VWCMax ?? calibration?.P1?.VWCMax ?? null;
-  const calVwcMin = calibration?.P3?.VWCMin ?? null;
-  const calFieldCapacity = calLearned?.field_capacity_vwc ?? null;
-  const calSaturation = calLearned?.max_saturation_vwc ?? null;
-  const calMinDryback = calLearned?.min_dryback_vwc ?? null;
+  const calTargets = calibration?.Targets || null;
+  const calVwcMax = calibration?.P2?.VWCMax ?? calibration?.P1?.VWCMax ?? calTargets?.VWCMax ?? null;
+  const calVwcMin = calibration?.P3?.VWCMin ?? calTargets?.VWCMin ?? null;
+  const calFieldCapacity = calLearned?.field_capacity_vwc ?? calTargets?.VWCTarget ?? null;
+  const calSaturation = calLearned?.max_saturation_vwc ?? calTargets?.VWCMax ?? null;
+  const calMinDryback = calLearned?.min_dryback_vwc ?? calTargets?.VWCMin ?? null;
 
   const renderCalibrationCards = () => {
     const fmt = (v, digits = 1) => (v !== null && v !== undefined && !isNaN(v) ? `${Number(v).toFixed(digits)}%` : '--');
@@ -1101,24 +1124,34 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
                   <ShotHistoryCount>{shotHistory.length} shot{shotHistory.length > 1 ? 's' : ''}</ShotHistoryCount>
                 </ShotHistoryHeader>
                 <ShotHistoryList>
-                  {shotHistory.map((s, i) => (
-                    <ShotHistoryItem key={`${s.number}-${s.ts}`}>
-                      <ShotHistoryNum>{s.number}</ShotHistoryNum>
-                      <ShotHistoryStartVwc title={s.startVwc !== null ? `Start VWC: ${s.startVwc.toFixed(1)}%` : 'Start VWC: --'}>
-                        {s.startVwc !== null ? `${s.startVwc.toFixed(1)}%` : '--'}
-                      </ShotHistoryStartVwc>
-                      <ShotHistoryArrow>→</ShotHistoryArrow>
-                      <ShotHistoryVwc title={s.vwc !== null ? `End VWC: ${s.vwc.toFixed(1)}%` : 'End VWC: --'}>
-                        {s.vwc !== null ? `${s.vwc.toFixed(1)}%` : '--'}
-                      </ShotHistoryVwc>
-                      <ShotHistoryTime>{formatDateTime(s.ts)}</ShotHistoryTime>
-                    </ShotHistoryItem>
-                  ))}
+                  {shotHistory.map((s, i) => {
+                    const shotDelta = (s.vwc !== null && s.vwc !== undefined && s.startVwc !== null && s.startVwc !== undefined)
+                      ? s.vwc - s.startVwc
+                      : null;
+                    return (
+                      <ShotHistoryItem key={`${s.number}-${s.ts}`}>
+                        <ShotHistoryNum>{s.number}</ShotHistoryNum>
+                        <ShotHistoryStartVwc title={s.startVwc !== null ? `Start VWC: ${s.startVwc.toFixed(1)}%` : 'Start VWC: --'}>
+                          {s.startVwc !== null ? `${s.startVwc.toFixed(1)}%` : '--'}
+                        </ShotHistoryStartVwc>
+                        <ShotHistoryArrow>→</ShotHistoryArrow>
+                        <ShotHistoryVwc title={s.vwc !== null ? `End VWC: ${s.vwc.toFixed(1)}%` : 'End VWC: --'}>
+                          {s.vwc !== null ? `${s.vwc.toFixed(1)}%` : '--'}
+                        </ShotHistoryVwc>
+                        {shotDelta !== null && (
+                          <ShotHistoryDelta $positive={shotDelta >= 0}>
+                            {shotDelta >= 0 ? '+' : ''}{shotDelta.toFixed(1)}%
+                          </ShotHistoryDelta>
+                        )}
+                        <ShotHistoryTime>{formatDateTime(s.ts)}</ShotHistoryTime>
+                      </ShotHistoryItem>
+                    );
+                  })}
                 </ShotHistoryList>
               </ShotHistory>
             )}
 
-            {(csRoomData.duration || csRoomData.nextInterval || csRoomData.dryback !== null) && (
+            {(csRoomData.duration || csRoomData.nextInterval || csRoomData.dryback !== null || csRoomData.vwcMax !== null || csRoomData.vwcMin !== null || csRoomData.moistureDryback !== null || csRoomData.targetDryback !== null) && (
               <ActivityMetrics>
                 {csRoomData.duration && (
                   <ActivityMetric>
@@ -1136,6 +1169,30 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
                   <ActivityMetric>
                     <span>Dryback</span>
                     <b>{csRoomData.dryback.toFixed(1)}%</b>
+                  </ActivityMetric>
+                )}
+                {csRoomData.targetDryback !== null && csRoomData.dryback === null && (
+                  <ActivityMetric>
+                    <span>Target Dryback</span>
+                    <b>{csRoomData.targetDryback.toFixed(1)}%</b>
+                  </ActivityMetric>
+                )}
+                {csRoomData.moistureDryback !== null && (
+                  <ActivityMetric>
+                    <span>P2 Dryback</span>
+                    <b>{csRoomData.moistureDryback.toFixed(1)}%</b>
+                  </ActivityMetric>
+                )}
+                {csRoomData.vwcMax !== null && (
+                  <ActivityMetric>
+                    <span>VWCMax</span>
+                    <b>{csRoomData.vwcMax.toFixed(1)}%</b>
+                  </ActivityMetric>
+                )}
+                {csRoomData.vwcMin !== null && (
+                  <ActivityMetric>
+                    <span>VWCMin</span>
+                    <b>{csRoomData.vwcMin.toFixed(1)}%</b>
                   </ActivityMetric>
                 )}
               </ActivityMetrics>
@@ -1565,6 +1622,15 @@ const ShotHistoryVwc = styled.span`
 const ShotHistoryTime = styled.span`
   font-size: 0.6rem;
   color: var(--placeholder-text-color);
+`;
+
+const ShotHistoryDelta = styled.span`
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: ${props => props.$positive ? 'var(--main-arrow-up, #22c55e)' : 'var(--error-text-color, #ef4444)'};
+  background: ${props => props.$positive ? 'rgba(34, 197, 94, 0.15)' : 'rgba(239, 68, 68, 0.15)'};
+  border-radius: 4px;
+  padding: 0.1rem 0.3rem;
 `;
 
 const ActivityMetrics = styled.div`

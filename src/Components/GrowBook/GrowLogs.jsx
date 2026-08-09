@@ -52,7 +52,7 @@ const getLogType = (data) => {
   if (data.rotation_success === true) return 'rotation-success';
   
   if (entry?.Type === "INVALID PUMPS") return 'missing-pumps';
-  if (entry?.Mode === "Hydro") return 'hydro-mode';
+  if (entry?.Type === "CSSTATE") return 'cs-log';
   if (entry?.Type === "CSLOG") return 'cs-log';
   if (entry?.Type === "CSWARNING") return 'cs-warning';
   if (entry?.Mode === 'Crop-Steering') return 'cs-log';
@@ -325,7 +325,8 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
     if (data.Device || data.Action) {
       const device = data.Device || 'Device';
       const action = data.Action || 'unknown';
-      const cycle = data.Cycle;
+      const cycleRaw = data.Cycle;
+      const cycle = cycleRaw === true || cycleRaw === 'true' || cycleRaw === 1 || cycleRaw === '1';
       const Dimmable = data.Dimmable;
       const voltage = data.Voltage;
       const sunrise = data.SunRise;
@@ -1558,9 +1559,76 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
        )}
      </CSContainerEnhanced>
    );
- };
+  };
 
- // Format Missing Pumps / Invalid Dripper Devices
+  // Format Crop Steering state heartbeat (CSSTATE) into a compact card
+  const formatCSStateData = (data) => {
+    if (data?.Type !== "CSSTATE") return null;
+
+    const phase = data.phase || 'info';
+    const phaseInfo = {
+      p0: { name: 'Monitor', icon: <FaSearch size={14} /> },
+      p1: { name: 'Saturate', icon: <MdOutlineWaterDrop size={16} /> },
+      p2: { name: 'Maintain', icon: <FaBullseye size={14} /> },
+      p3: { name: 'Night', icon: <FaMoon size={14} /> },
+    };
+    const currentPhaseInfo = phaseInfo[phase] || { name: 'Crop Steering', icon: <FaSeedling size={14} /> };
+
+    const vwc = data.VWC;
+    const target = data.VWCTarget;
+    const ec = data.EC;
+
+    return (
+      <CSContainerEnhanced phase={phase}>
+        <CSHeaderEnhanced>
+          <CSHeaderLeft>
+            <CSIconEnhanced phase={phase}>
+              {currentPhaseInfo.icon}
+            </CSIconEnhanced>
+            <CSInfoEnhanced>
+              <CSTitleEnhanced phase={phase}>
+                {data.mode || 'Crop Steering'} State
+              </CSTitleEnhanced>
+              <CSSubtitle>{data.Message || `Phase ${phase.toUpperCase()}`}</CSSubtitle>
+            </CSInfoEnhanced>
+          </CSHeaderLeft>
+          {phase && (
+            <CSPhaseBadge phase={phase}>
+              {phase.toUpperCase()}
+            </CSPhaseBadge>
+          )}
+        </CSHeaderEnhanced>
+        <CSContentGrid>
+          {vwc !== null && vwc !== undefined && (
+            <CSMetricCard>
+              <CSMetricLabel>VWC</CSMetricLabel>
+              <CSMetricValue phase={phase} highlight>{Number(vwc).toFixed(1)}%</CSMetricValue>
+            </CSMetricCard>
+          )}
+          {target !== null && target !== undefined && (
+            <CSMetricCard>
+              <CSMetricLabel>Target</CSMetricLabel>
+              <CSMetricValue>{Number(target).toFixed(1)}%</CSMetricValue>
+            </CSMetricCard>
+          )}
+          {ec !== null && ec !== undefined && (
+            <CSMetricCard>
+              <CSMetricLabel>EC</CSMetricLabel>
+              <CSMetricValue>{Number(ec).toFixed(2)} mS/cm</CSMetricValue>
+            </CSMetricCard>
+          )}
+          {data.isNightMode !== undefined && (
+            <CSMetricCard>
+              <CSMetricLabel>Light</CSMetricLabel>
+              <CSMetricValue>{data.isNightMode ? 'Night' : 'Day'}</CSMetricValue>
+            </CSMetricCard>
+          )}
+        </CSContentGrid>
+      </CSContainerEnhanced>
+    );
+  };
+
+  // Format Missing Pumps / Invalid Dripper Devices
    const formatMissingPumpsData = (data) => {
      if (data.Type !== "INVALID PUMPS") return null;
 
@@ -1950,9 +2018,10 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
    const plantWateringData = formatPlantWateringData(parsedInfo);
    const vpdTargetData = formatVPDTargetData(parsedInfo);
    const deadbandData = formatDeadbandData(parsedInfo);
-   const rotationData = formatRotationData(parsedInfo);
-   const csData = formatCSData(parsedInfo);
-   const deviceCDData = formatDeviceCDData(parsedInfo);
+    const rotationData = formatRotationData(parsedInfo);
+    const csData = formatCSData(parsedInfo);
+    const csStateData = formatCSStateData(parsedInfo);
+    const deviceCDData = formatDeviceCDData(parsedInfo);
     const missingPumpsData = formatMissingPumpsData(parsedInfo);
     const plantConfigData = formatPlantConfigData(parsedInfo);
     const reservoirData = formatReservoirData(parsedInfo);
@@ -1977,14 +2046,15 @@ const LogItem = ({ room, date, info, getRoomDisplayName }) => {
         {plantWateringData && plantWateringData}
         {vpdTargetData && vpdTargetData}
         {deadbandData && deadbandData}
-        {rotationData && rotationData}
-        {csData && csData}
-        {deviceCDData && deviceCDData}
-         {missingPumpsData && missingPumpsData}
-         {plantConfigData && plantConfigData}
-         {reservoirData && reservoirData}
-         {co2Data && co2Data}
-         {!sensorData && !actionData && !deviceData && !deviationData && !nightModeData && !nightVPDData && !missingDevicesData && !authSuccessData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && !co2Data && (
+         {rotationData && rotationData}
+         {csData && csData}
+         {csStateData && csStateData}
+         {deviceCDData && deviceCDData}
+          {missingPumpsData && missingPumpsData}
+          {plantConfigData && plantConfigData}
+          {reservoirData && reservoirData}
+          {co2Data && co2Data}
+          {!sensorData && !actionData && !deviceData && !deviationData && !nightModeData && !nightVPDData && !missingDevicesData && !authSuccessData && !mediumData && !castData && !plantWateringData && !vpdTargetData && !deadbandData && !rotationData && !csData && !csStateData && !deviceCDData && !missingPumpsData && !plantConfigData && !reservoirData && !co2Data && (
           <FallbackContent>
             <pre>{JSON.stringify(parsedInfo, null, 2)}</pre>
           </FallbackContent>
@@ -2369,6 +2439,7 @@ const getLogPreview = (parsedInfo) => {
 
   // Crop Steering
   if (parsedInfo.Type === 'CSLOG') return parsedInfo.Message ? compactMedium(parsedInfo.Message) : 'Crop Steering';
+  if (parsedInfo.Type === 'CSSTATE') return `${parsedInfo.mode || 'Crop Steering'} ${parsedInfo.phase ? parsedInfo.phase.toUpperCase() : ''}`.trim();
 
   // Hydro modes
   if (parsedInfo.Mode === 'Crop-Steering') return 'Crop Steering';
