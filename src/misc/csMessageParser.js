@@ -54,6 +54,13 @@ export const parseCSMessage = (msg = '') => {
     if (parenMatch) {
       result.shotNumber = parseInt(parenMatch[1]);
       result.maxShots = parseInt(parenMatch[2]);
+    } else {
+      // Fallback for older emergency messages like "Emergency irrigation 1/5"
+      const irrigationMatch = msg.match(/(?:emergency\s+)?irrigation\s+(\d+)\/(\d+)/i);
+      if (irrigationMatch) {
+        result.shotNumber = parseInt(irrigationMatch[1]);
+        result.maxShots = parseInt(irrigationMatch[2]);
+      }
     }
   }
 
