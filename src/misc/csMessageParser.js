@@ -68,7 +68,9 @@ export const parseCSMessage = (msg = '') => {
   if (vwcMatch) result.vwc = parseFloat(vwcMatch[1]);
 
   // For shot messages like "VWC: 54.2% → 55.1%", use the post-shot value (after the arrow).
-  const arrowVwcMatch = msg.match(/[→\->]+\s*(\d+\.?\d*)%/i);
+  // NOTE: only match a real arrow (→ or ->). A leading minus sign must NOT be
+  // treated as an arrow, otherwise "Dryback -338.8%" would be parsed as VWC 338.8.
+  const arrowVwcMatch = msg.match(/(?:→|->)\s*(\d+\.?\d*)%/i);
   if (arrowVwcMatch) result.vwc = parseFloat(arrowVwcMatch[1]);
 
   const targetMatch = msg.match(/target[:\s]+(\d+\.?\d*)%/i);
