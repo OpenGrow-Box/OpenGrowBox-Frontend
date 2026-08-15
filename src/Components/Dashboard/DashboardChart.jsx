@@ -6,7 +6,7 @@ import { useGlobalState } from '../Context/GlobalContext';
 import { formatDateTime } from '../../misc/formatDateTime';
 import { getThemeColor } from '../../utils/themeColors';
 import { FaExclamationTriangle, FaSpinner, FaChartLine, FaArrowUp, FaArrowDown, FaEquals, FaChartBar, FaDownload } from 'react-icons/fa';
-import { Maximize2, Minimize2, BarChart3, LineChart, Image, FileSpreadsheet } from 'lucide-react';
+import { BarChart3, LineChart, Image, FileSpreadsheet } from 'lucide-react';
 
 // Professional chart with advanced features
 const SensorChart = ({ 
@@ -15,7 +15,8 @@ const SensorChart = ({
   maxThreshold = 2500, 
   title = 'Sensor Trends', 
   unit = '', 
-  priority = 'medium'
+  priority = 'medium',
+  plantName = ''
 }) => {
   const getDefaultDate = (offset = 0) => {
     const date = new Date(Date.now() + offset);
@@ -76,7 +77,6 @@ const SensorChart = ({
   const liveIntervalRef = useRef(null);
   const [stats, setStats] = useState({ current: '--', min: '--', max: '--', avg: '--', trend: 'stable' });
   const [chartType, setChartType] = useState('line');
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [showChartMenu, setShowChartMenu] = useState(false);
   const [showExportMenu, setShowExportMenu] = useState(false);
   const chartRef = useRef(null);
@@ -450,7 +450,7 @@ const SensorChart = ({
     };
 
     fetchHistoryData();
-  }, [startDate, endDate, sensorId, haApiBaseUrl, accessToken, minThreshold, maxThreshold, title, unit, chartType, microToMilliScale]);
+  }, [startDate, endDate, sensorId, haApiBaseUrl, accessToken, minThreshold, maxThreshold, title, unit, chartType, microToMilliScale,plantName]);
 
   // Live update effect - update chart when entity changes via WebSocket
   useEffect(() => {
@@ -533,7 +533,6 @@ const SensorChart = ({
   const getTrendIcon = () => {
     if (stats.trend === 'up') return <FaArrowUp style={{ color: getThemeColor('--chart-success-color') }} />;
     if (stats.trend === 'down') return <FaArrowDown style={{ color: getThemeColor('--chart-error-color') }} />;
-    return <FaEquals style={{ color: getThemeColor('--second-text-color') }} />;
   };
 
   const hasValidData = chartOptions?.series?.[0]?.data?.length > 0;
@@ -561,14 +560,19 @@ const SensorChart = ({
   }
 
   return (
-    <ChartCard $fullscreen={isFullscreen}>
+    <ChartCard>
       <ChartHeader>
         <HeaderTopRow>
+
+            <ChartTitle>{plantName}</ChartTitle>  
           <CurrentValue>
+            <TrendIndicator>{getTrendIcon()}</TrendIndicator>
             <ValueNumber>{stats.current}</ValueNumber>
             <ValueUnit>{unit}</ValueUnit>
-            <TrendIndicator>{getTrendIcon()}</TrendIndicator>
           </CurrentValue>
+
+        </HeaderTopRow>
+
           <ChartTitleRow>
             <ChartTitle>{title}</ChartTitle>
             <ChartTypeSelector>
@@ -579,13 +583,6 @@ const SensorChart = ({
                 <BarChart3 size={14} />
               </ChartTypeBtn>
             </ChartTypeSelector>
-          </ChartTitleRow>
-        </HeaderTopRow>
-        <HeaderBottomRow>
-          <HeaderActions>
-            <FullscreenBtn onClick={() => setIsFullscreen(!isFullscreen)} title={isFullscreen ? 'Exit Fullscreen' : 'Fullscreen'}>
-              {isFullscreen ? <Minimize2 size={16} /> : <Maximize2 size={16} />}
-            </FullscreenBtn>
             <ExportBtnContainer>
               <ExportBtn onClick={() => setShowExportMenu(!showExportMenu)} title="Export">
                 <FaDownload size={14} />
@@ -603,6 +600,11 @@ const SensorChart = ({
                 </ExportMenu>
               )}
             </ExportBtnContainer>
+          </ChartTitleRow>
+
+        <HeaderBottomRow>
+          <HeaderActions>
+
           </HeaderActions>
           <TimeSelector>
             {['Live', '6h', '12h', '24h', '7d'].map(view => (
@@ -618,7 +620,7 @@ const SensorChart = ({
         </HeaderBottomRow>
       </ChartHeader>
 
-      <ChartContainer $fullscreen={isFullscreen}>
+      <ChartContainer>
         {loading ? (
           <LoadingState>
             <FaSpinner className="spin" size={32} />
@@ -630,7 +632,7 @@ const SensorChart = ({
             option={chartOptions}
             notMerge={false}
             lazyUpdate={false}
-            style={{ height: isFullscreen ? '70vh' : '280px', width: '100%' }}
+            style={{ height: '280px', width: '100%' }}
             opts={{ renderer: 'canvas' }}
           />
         ) : (
@@ -663,20 +665,17 @@ export default SensorChart;
 
 // Professional Styling
 const ChartCard = styled.div`
-  background: ${props => props.$fullscreen ? 'var(--main-bg-card-color)' : 'var(--glass-bg-primary)'};
+  background: var(--glass-bg-primary);
   border: 1px solid var(--glass-border);
   border-radius: 20px;
   padding: 1.5rem;
   display: flex;
   flex-direction: column;
   gap: 1rem;
-  position: ${props => props.$fullscreen ? 'fixed' : 'relative'};
-  top: ${props => props.$fullscreen ? '0' : 'auto'};
-  left: ${props => props.$fullscreen ? '0' : 'auto'};
-  width: ${props => props.$fullscreen ? '100vw' : '100%'};
-  height: ${props => props.$fullscreen ? '100vh' : 'auto'};
-  z-index: ${props => props.$fullscreen ? '9999' : '1'};
-  padding: ${props => props.$fullscreen ? '2rem' : '1.5rem'};
+  position: relative;
+  width: 100%;
+  height: auto;
+  z-index: 1;
   overflow: auto;
 
   @media (max-width: 768px) {
@@ -777,30 +776,6 @@ const ChartTypeBtn = styled.button`
   }
 `;
 
-const FullscreenBtn = styled.button`
-  background: var(--glass-bg-secondary);
-  border: 1px solid var(--glass-border);
-  border-radius: 8px;
-  padding: 0.5rem;
-  cursor: pointer;
-  color: var(--placeholder-text-color);
-  transition: all 0.2s ease;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  
-  &:hover {
-    background: var(--active-bg-color);
-    color: var(--primary-accent);
-    border-color: var(--primary-accent);
-  }
-
-  @media (max-width: 480px) {
-    width: 28px;
-    height: 28px;
-  }
-`;
-
 const ExportBtnContainer = styled.div`
   position: relative;
 `;
@@ -863,6 +838,7 @@ const ExportMenuBtn = styled.button`
 `;
 
 const ChartTitle = styled.h3`
+  flex:1;
   font-size: 1.1rem;
   font-weight: 700;
   color: var(--main-text-color);
@@ -909,11 +885,11 @@ const TimeButton = styled.button`
 const CurrentValue = styled.div`
   display: flex;
   align-items: baseline;
-  gap: 0.5rem;
+  gap: 0.35rem;
 `;
 
 const ValueNumber = styled.span`
-  font-size: 2.5rem;
+  font-size: 1.7rem;
   font-weight: 800;
   color: var(--main-text-color);
   line-height: 1;
@@ -1009,12 +985,11 @@ const ChartContainer = styled.div`
   background: var(--glass-bg-secondary);
   border-radius: 12px;
   overflow: hidden;
-  height: ${props => props.$fullscreen ? 'auto' : '240px'};
-  flex: ${props => props.$fullscreen ? '1' : 'none'};
+  height: 240px;
 `;
 
 const LoadingState = styled.div`
-  height: ${props => props.$fullscreen ? '50vh' : '240px'};
+  height: 240px;
   display: flex;
   flex-direction: column;
   align-items: center;

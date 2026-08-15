@@ -846,7 +846,7 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
     temperature: { title: 'Soil Temperature', unit: '°C', priority: 'medium' },
   };
 
-  const renderSensorCharts = (metric, sensors) => {
+  const renderSensorCharts = (metric, sensors,plantName) => {
     if (!sensors || sensors.length === 0) return null;
     // Skip sensors with a 0 / invalid value - that means the probe isn't reporting.
     const active = sensors.filter(s => s.value !== 0 && !isNaN(s.value));
@@ -869,6 +869,7 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
           isGlobalLiveMode={isGlobalLiveMode}
           globalLiveRefreshTrigger={globalLiveRefreshTrigger}
           onLiveModeChange={onLiveModeChange}
+          plantName={plantName}
         />
       );
     });
@@ -1240,10 +1241,10 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
 
           {/* Individual Charts */}
           <IndividualCharts>
-            {renderSensorCharts('moisture', soilSensors.moisture)}
-            {renderSensorCharts('ec', soilSensors.ec)}
-            {renderSensorCharts('ph', soilSensors.ph)}
-            {renderSensorCharts('temperature', soilSensors.temperature)}
+            {renderSensorCharts('moisture', soilSensors.moisture, currentMedium?.plant_name)}
+            {renderSensorCharts('ec', soilSensors.ec, currentMedium?.plant_name)}
+            {renderSensorCharts('ph', soilSensors.ph, currentMedium?.plant_name)}
+            {renderSensorCharts('temperature', soilSensors.temperature, currentMedium?.plant_name)}
           </IndividualCharts>
         </ChartGrid>
       ) : (
@@ -2024,8 +2025,12 @@ const ChartNote = styled.p`
 
 const IndividualCharts = styled.div`
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(min(300px, 100%), 1fr));
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 1rem;
+
+  @media (width < 768px) {
+    grid-template-columns: 1fr;
+  }
 `;
 
 const NoSensorsMessage = styled.div`
