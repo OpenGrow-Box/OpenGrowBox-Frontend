@@ -5,7 +5,7 @@ import MediumSelector from '../../Components/GrowBook/MediumSelector';
 
 import BottomBar from '../../Components/Navigation/BottomBar';
 
-import DashboardTitle from '../../Components/Dashboard/DashboardTitle';
+import HeaderTitle from '../../Components/Dashboard/HeaderTitle';
 import OGBNotes from '../../Components/GrowBook/OGBNotes';
 
 const MainContainer = styled.div`
@@ -142,7 +142,7 @@ const LiteGrowBook = () => {
   return (
     <MainContainer>
       <ContainerHeader>
-        <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Book"/>
+        <HeaderTitle firstText="OGB" secondText="Grow" thirdText="Book"/>
       </ContainerHeader>
 
       <InnerContent>

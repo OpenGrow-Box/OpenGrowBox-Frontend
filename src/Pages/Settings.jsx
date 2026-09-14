@@ -1,7 +1,7 @@
 
 import styled from 'styled-components';
 import BottomBar from '../Components/Navigation/BottomBar';
-import DashboardTitle from '../Components/Dashboard/DashboardTitle';
+import HeaderTitle from '../Components/Dashboard/HeaderTitle';
 import SettingsPanel from '../Components/Settings/SettingsPanel';
 import IntegrationUpdateBanner from '../Components/Settings/IntegrationUpdateBanner';
 
@@ -9,7 +9,7 @@ const Settings = () => {
   return (
     <MainContainer >
       <ContainerHeader>
-        <DashboardTitle firstText="OGB" secondText="Settings"/>
+        <HeaderTitle firstText="OGB" secondText="Settings"/>
       </ContainerHeader>
 
       <InnerContent>

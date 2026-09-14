@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { motion } from 'framer-motion';
 import { MdDashboard, MdWaterDrop, MdInsights, MdBolt } from 'react-icons/md';
 import { Droplets } from 'lucide-react';
-import DashboardTitle from '../Components/Dashboard/DashboardTitle';
+import HeaderTitle from '../Components/Dashboard/HeaderTitle';
 import DashboardChart from '../Components/Dashboard/DashboardChart';
 import CombinedClimateChart from '../Components/Dashboard/CombinedClimateChart';
 import CombinedWaterChart from '../Components/Dashboard/CombinedWaterChart';
@@ -195,7 +195,7 @@ const Dashboard = () => {
     return (
       <MainContainer>
         <ContainerHeader>
-          <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
+          <HeaderTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
         </ContainerHeader>
         <LoadingState>
           <LoadingSpinner>
@@ -212,7 +212,7 @@ const Dashboard = () => {
   return (
     <MainContainer>
       <ContainerHeader>
-        <DashboardTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
+        <HeaderTitle firstText="OGB" secondText="Grow" thirdText="Monitor"/>
       </ContainerHeader>
 
       <TabContainer>

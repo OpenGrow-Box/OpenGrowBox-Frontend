@@ -25,7 +25,7 @@ const getWizardPortalTarget = (anchorElement) => {
   return reactContainer || document.body;
 };
 
-const DashboardTitle = ({firstText,secondText,thirdText}) => {
+const HeaderTitle = ({firstText,secondText,thirdText}) => {
   const [showWizzard, setShowWizzard] = useState(false);
   const titleContainerRef = useRef(null);
   const wizardPortalTarget = useMemo(() => {
@@ -85,7 +85,8 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
           whileTap={{ scale: 0.9 }}
           title="Back to Home Assistant"
         >
-          <MdArrowBack />
+        
+        <MdArrowBack />
         </BackButton>
 
         <TitleContent>
@@ -131,6 +132,9 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
             </motion.div>
         </TitleContent>
 
+        </TitleContainer>
+      
+      {wizardPortalTarget && createPortal(
         <WizardButton
           onClick={() => setShowWizzard(true)}
           whileHover={{ scale: 1.1 }}
@@ -138,8 +142,10 @@ const DashboardTitle = ({firstText,secondText,thirdText}) => {
           title="Open Wizard - Quick setup guide"
         >
           <MdAutoAwesome />
-        </WizardButton>
-      </TitleContainer>
+        </WizardButton>,
+        wizardPortalTarget
+      )}
+
       {wizardModal}
     </>
   );
@@ -352,4 +358,4 @@ const AnimatedOGBIcon = styled(OGBIcon)`
   }
 `;
 
-export default DashboardTitle;
+export default HeaderTitle;

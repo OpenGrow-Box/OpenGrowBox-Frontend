@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect } from 'react';
 import styled from 'styled-components';
 import BottomBar from '../../Components/Navigation/BottomBar';
-import DashboardTitle from '../../Components/Dashboard/DashboardTitle';
+import HeaderTitle from '../../Components/Dashboard/HeaderTitle';
 import { useHomeAssistant } from '../../Components/Context/HomeAssistantContext';
 import { useGlobalState } from '../../Components/Context/GlobalContext';
 import EChartsWrapper from '../../Components/Common/EChartsWrapper';
@@ -277,7 +277,7 @@ const LiteDashboard = () => {
   return (
     <MainContainer>
       <ContainerHeader>
-        <DashboardTitle firstText="Lite" secondText="Dash" thirdText="board"/>
+        <HeaderTitle firstText="Lite" secondText="Dash" thirdText="board"/>
       </ContainerHeader>
 
       <Content>

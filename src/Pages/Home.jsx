@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { motion, AnimatePresence } from 'framer-motion';
 import { MdDevices, MdTerminal, MdVideocam, MdSmartToy } from 'react-icons/md';
 import BottomBar from '../Components/Navigation/BottomBar';
-import DashboardTitle from '../Components/Dashboard/DashboardTitle';
+import HeaderTitle from '../Components/Dashboard/HeaderTitle';
 import RoomsCard from '../Components/Cards/RoomsCard';
 import { useHomeAssistant } from '../Components/Context/HomeAssistantContext';
 import TentControlCard from '../Components/Dashboard/TentControlCard';
@@ -25,7 +25,7 @@ const Home = () => {
   return (
     <MainContainer>
       <ContainerHeader>
-        <DashboardTitle firstText="Open" secondText="Grow" thirdText="Box"/>
+        <HeaderTitle firstText="Open" secondText="Grow" thirdText="Box"/>
       </ContainerHeader>
 
       <InnerContent>

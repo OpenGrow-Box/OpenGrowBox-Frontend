@@ -113,7 +113,7 @@ const IntegrationUpdateBanner = () => {
   const handleRestart = async () => {
     if (!connection) return;
     if (safeModeEnabled && !window.confirm(
-      'Home Assistant neu starten? Dies betrifft dein gesamtes Smart Home, nicht nur diese App.'
+      'Restart Home Assistant? This affects your entire smart home, not just this app.'
     )) {
       return;
     }
@@ -141,18 +141,18 @@ const IntegrationUpdateBanner = () => {
           <HeaderText>
             <Title>OpenGrowBox Integration</Title>
             <Subtitle>
-              {hasUpdate ? 'Ein neues Update ist verfügbar' : 'Deine Installation ist aktuell'}
+              {hasUpdate ? 'A new update is available' : 'Your installation is up to date'}
             </Subtitle>
           </HeaderText>
         </HeaderLeft>
         <StatusBadge $hasUpdate={hasUpdate}>
-          {hasUpdate ? 'Update verfügbar' : 'Aktuell'}
+          {hasUpdate ? 'Update available' : 'Up to date'}
         </StatusBadge>
       </Header>
 
       <VersionRow>
         <VersionChip>
-          <VersionChipLabel>Installiert</VersionChipLabel>
+          <VersionChipLabel>Installed</VersionChipLabel>
           <VersionChipValue>{installedVersion || '–'}</VersionChipValue>
         </VersionChip>
 
@@ -160,7 +160,7 @@ const IntegrationUpdateBanner = () => {
           <>
             <ArrowIcon size={16} />
             <VersionChip $highlight>
-              <VersionChipLabel>Neu</VersionChipLabel>
+              <VersionChipLabel>New</VersionChipLabel>
               <VersionChipValue>{latestVersion}</VersionChipValue>
             </VersionChip>
           </>
@@ -177,7 +177,7 @@ const IntegrationUpdateBanner = () => {
         <ReleaseNotes>
           <ReleaseNotesToggle onClick={() => setNotesExpanded(!notesExpanded)}>
             {notesExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-            {notesExpanded ? 'Release-Notes ausblenden' : 'Was ist neu?'}
+            {notesExpanded ? 'Hide release notes' : "What's new?"}
           </ReleaseNotesToggle>
           {notesExpanded && <ReleaseNotesBody>{releaseSummary}</ReleaseNotesBody>}
         </ReleaseNotes>
@@ -188,11 +188,11 @@ const IntegrationUpdateBanner = () => {
           <UpdateButton onClick={handleUpdate} disabled={busy}>
             {busy ? (
               <>
-                <SpinIcon size={16} /> Update wird installiert…
+                <SpinIcon size={16} /> Installing update…
               </>
             ) : (
               <>
-                <Download size={16} /> Jetzt aktualisieren
+                <Download size={16} /> Update now
               </>
             )}
           </UpdateButton>
@@ -201,16 +201,16 @@ const IntegrationUpdateBanner = () => {
 
       {hasUpdate && !updateEntity && (
         <FallbackHint>
-          Diese Backend-Version unterstützt noch keine automatischen Updates. Bitte manuell
-          aktualisieren (siehe Changelog).
+          This backend version does not support automatic updates yet. Please
+          update manually (see changelog).
         </FallbackHint>
       )}
 
       {justInstalled && (
         <RestartHint>
-          <span>Update installiert – Home Assistant neu starten, um es abzuschließen.</span>
+          <span>Update installed – restart Home Assistant to complete it.</span>
           <RestartButton onClick={handleRestart}>
-            <RefreshCw size={14} /> Jetzt neu starten
+            <RefreshCw size={14} /> Restart now
           </RestartButton>
         </RestartHint>
       )}
@@ -249,6 +249,7 @@ const BannerContainer = styled.div`
   box-shadow: var(--main-shadow-art);
   border: 1px solid ${props => (props.$hasUpdate ? 'rgba(249, 115, 22, 0.35)' : 'var(--glass-border)')};
   width: 100%;
+  max-width: 1200px;
 `;
 
 const Header = styled.div`

@@ -1,7 +1,7 @@
 import { useMemo, useState, useEffect, useRef } from 'react';
 import styled from 'styled-components';
 import BottomBar from '../../Components/Navigation/BottomBar';
-import DashboardTitle from '../../Components/Dashboard/DashboardTitle';
+import HeaderTitle from '../../Components/Dashboard/HeaderTitle';
 import { useHomeAssistant } from '../../Components/Context/HomeAssistantContext';
 import { useGlobalState } from '../../Components/Context/GlobalContext';
 import { Thermometer, Droplets, Gauge, Lightbulb, Fan, Power, Video, VideoOff } from 'lucide-react';
@@ -11,7 +11,7 @@ import formatLabel from '../../misc/formatLabel';
 import formatRoomName from '../../misc/formatRoomName';
 
 const LiteHome = () => {
-  const { currentRoom, entities, connection, haBaseUrl, haToken: accessToken, haApiBaseUrl, areas } = useHomeAssistant();
+  const { currentRoom, entities, connection, haBaseUrl, haToken: accessToken, haApiBaseUrl, areas, sendCommand } = useHomeAssistant();
   const { state } = useGlobalState();
   
   const currentRegion = state.Settings?.region || 'EU';
@@ -156,11 +156,13 @@ const LiteHome = () => {
     return Object.entries(entities)
       .filter(([key, entity]) => {
         const isRelevantType =
-          key.startsWith('switch.') ||
-          key.startsWith('light.') ||
-          key.startsWith('fan.') ||
-          key.startsWith('climate.') ||
-          key.startsWith('humidifier.');
+          (key.startsWith('switch.') ||
+            key.startsWith('light.') ||
+            key.startsWith('fan.') ||
+            key.startsWith('climate.') ||
+            key.startsWith('humidifier.')) &&
+          !key.includes('template') &&
+          !key.startsWith('switch.ogb_');
         
         const isHidden = entity.hidden === true || entity.attributes?.hidden === true;
         const isDisabled = entity.disabled === true || entity.attributes?.disabled === true;
@@ -256,7 +258,7 @@ const LiteHome = () => {
   return (
     <MainContainer>
       <ContainerHeader>
-        <DashboardTitle firstText="Open" secondText="Grow" thirdText="Box"/>
+        <HeaderTitle firstText="Open" secondText="Grow" thirdText="Box"/>
       </ContainerHeader>
 
       <Content>

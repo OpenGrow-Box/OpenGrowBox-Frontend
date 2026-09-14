@@ -65,6 +65,18 @@ const SettingsFooter = () => {
 
   return (
     <>
+      <NewsSlider>
+        <NewsTrack>
+          {[0, 1].map((i) => (
+            <span key={i}>
+              ⚠️ Latest News: Starting 01/01/2027 the Naming Convention will be
+              discontinued – everything will be handled via Labeling from then
+              on!
+            </span>
+          ))}
+        </NewsTrack>
+      </NewsSlider>
+
       <FooterContainer>
         <OGBCopyright onClick={handleWebPageClick}>
           <IconWrapper>
@@ -92,10 +104,13 @@ const SettingsFooter = () => {
         </SocialButtonsContainer>
         
         <VersionBadge onClick={handleVersionClick} $hasUpdate={hasUpdate}>
-          <VersionTag $hasUpdate={hasUpdate}>{hasUpdate ? 'UPDATE' : 'v'}</VersionTag>
+          <VersionTag $hasUpdate={hasUpdate}>{hasUpdate ? 'UPDATE' : 'GUI'}</VersionTag>
           <VersionNum>{appVersion}</VersionNum>
         </VersionBadge>
       </FooterContainer>
+
+
+
       <DevBageHallOfFame users={contributors} />
     </>
   );
@@ -114,6 +129,11 @@ const pulse = keyframes`
   50% { transform: scale(1.05); }
 `;
 
+const marquee = keyframes`
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+`;
+
 const FooterContainer = styled.div`
   display: flex;
   justify-content: space-between;
@@ -130,6 +150,35 @@ const FooterContainer = styled.div`
   @media (max-width: 768px) {
     flex-direction: column;
     gap: 0.75rem;
+  }
+`;
+
+const NewsSlider = styled.div`
+  overflow: hidden;
+  white-space: nowrap;
+  width: 100%;
+  box-sizing: border-box;
+  background: var(--main-bg-card-color);
+  border-radius: 12px;
+  box-shadow: var(--main-shadow-art);
+  color: var(--primary-accent);
+  margin-top: 0.5rem;
+  padding: 0.9rem 1rem;
+`;
+
+const NewsTrack = styled.div`
+  display: inline-flex;
+  align-items: center;
+  animation: ${marquee} 30s linear infinite;
+  will-change: transform;
+
+  span {
+    display: inline-block;
+    flex-shrink: 0;
+    padding-right: 4rem;
+    color: var(--primary-accent);
+    font-weight: 600;
+    font-size: 0.7rem;
   }
 `;
 

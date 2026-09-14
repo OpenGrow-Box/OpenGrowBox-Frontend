@@ -224,7 +224,7 @@ const dynamicFilters = {
       },
       'NO': {
         includeKeywords: ["co2"],
-        excludeKeywords: ["max","min","target"],
+        excludeKeywords: ["max","min","target","dimm"],
         additionalTooltips: {
 
         }
@@ -319,13 +319,13 @@ const dynamicFilters = {
     activeInGroups: ['Targets'], 
     conditions: {
       'YES': {
-        includeKeywords: ["exhaust_dimm_steps"],
+        includeKeywords: [],
         excludeKeywords: [],
         additionalTooltips: {}
       },
       'NO': {
         includeKeywords: [],
-        excludeKeywords: ["exhaust_duty"],
+        excludeKeywords: ["exhaust_duty","dimm"],
         additionalTooltips: {
 
         }
@@ -458,7 +458,7 @@ const dynamicFilters = {
       },
       'Disabled': {
         includeKeywords: ["hydro"],
-        excludeKeywords: ['crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf', 'duration', 'intervall', "cycle", "Retrive","Plant",'medium','flow'],
+        excludeKeywords: ['flow_rate','crop', 'steering', 'dry', 'wet', 'shoot', 'food', 'leaf', 'duration', 'intervall', "cycle", "Retrive","Plant",'medium','flow'],
         additionalTooltips: {}
       },
       'Config': {
@@ -522,22 +522,70 @@ const dynamicFilters = {
       'P0': {
         includeKeywords: ['Phases'],
         excludeKeywords: ['p1','p2','p3'],
-        additionalTooltips: { }
+        additionalTooltips: {
+          'ogb_cropsteering_p0_shot_duration_': 'Set duration (sec) of each irrigation shot in P0 Monitor phase',
+          'ogb_cropsteering_p0_shot_intervall_': 'Set interval (min) between irrigation shots in P0 Monitor phase',
+          'ogb_cropsteering_p0_shot_sum_': 'Set total number of irrigation shots in P0 Monitor phase',
+          'ogb_cropsteering_p0_ec_target_': 'Set target EC value (µS/cm) for P0 Monitor phase',
+          'ogb_cropsteering_p0_ec_dryback_': 'Set EC dry-back threshold for P0 Monitor phase',
+          'ogb_cropsteering_p0_moisture_dryback_': 'Set moisture dry-back threshold (%) for P0 Monitor phase',
+          'ogb_cropsteering_p0_maxec_': 'Set maximum EC limit for P0 Monitor phase',
+          'ogb_cropsteering_p0_minec_': 'Set minimum EC limit for P0 Monitor phase',
+          'ogb_cropsteering_p0_vwc_target_': 'Set target VWC (%) for P0 Monitor phase',
+          'ogb_cropsteering_p0_vwc_max_': 'Set maximum VWC (%) for P0 Monitor phase',
+          'ogb_cropsteering_p0_vwc_min_': 'Set minimum VWC (%) for P0 Monitor phase',
+        }
       },
       'P1': {
         includeKeywords: ['Phases'],
         excludeKeywords: ['p0','p2','p3'],
-        additionalTooltips: { }
+        additionalTooltips: {
+          'ogb_cropsteering_p1_shot_duration_': 'Set duration (sec) of each irrigation shot in P1 Saturate phase',
+          'ogb_cropsteering_p1_shot_intervall_': 'Set interval (min) between irrigation shots in P1 Saturate phase',
+          'ogb_cropsteering_p1_shot_sum_': 'Set total number of irrigation shots in P1 Saturate phase',
+          'ogb_cropsteering_p1_ec_target_': 'Set target EC value (µS/cm) for P1 Saturate phase',
+          'ogb_cropsteering_p1_ec_dryback_': 'Set EC dry-back threshold for P1 Saturate phase',
+          'ogb_cropsteering_p1_moisture_dryback_': 'Set moisture dry-back threshold (%) for P1 Saturate phase',
+          'ogb_cropsteering_p1_maxec_': 'Set maximum EC limit for P1 Saturate phase',
+          'ogb_cropsteering_p1_minec_': 'Set minimum EC limit for P1 Saturate phase',
+          'ogb_cropsteering_p1_vwc_target_': 'Set target VWC (%) for P1 Saturate phase',
+          'ogb_cropsteering_p1_vwc_max_': 'Set maximum VWC (%) for P1 Saturate phase',
+          'ogb_cropsteering_p1_vwc_min_': 'Set minimum VWC (%) for P1 Saturate phase',
+        }
       },
       'P2': {
         includeKeywords: ['Phases'],
         excludeKeywords: ['p0','p1','p3',],
-        additionalTooltips: { }
+        additionalTooltips: {
+          'ogb_cropsteering_p2_shot_duration_': 'Set duration (sec) of each irrigation shot in P2 Maintain phase',
+          'ogb_cropsteering_p2_shot_intervall_': 'Set interval (min) between irrigation shots in P2 Maintain phase',
+          'ogb_cropsteering_p2_shot_sum_': 'Set total number of irrigation shots in P2 Maintain phase',
+          'ogb_cropsteering_p2_ec_target_': 'Set target EC value (µS/cm) for P2 Maintain phase',
+          'ogb_cropsteering_p2_ec_dryback_': 'Set EC dry-back threshold for P2 Maintain phase',
+          'ogb_cropsteering_p2_moisture_dryback_': 'Set moisture dry-back threshold (%) for P2 Maintain phase',
+          'ogb_cropsteering_p2_maxec_': 'Set maximum EC limit for P2 Maintain phase',
+          'ogb_cropsteering_p2_minec_': 'Set minimum EC limit for P2 Maintain phase',
+          'ogb_cropsteering_p2_vwc_target_': 'Set target VWC (%) for P2 Maintain phase',
+          'ogb_cropsteering_p2_vwc_max_': 'Set maximum VWC (%) for P2 Maintain phase',
+          'ogb_cropsteering_p2_vwc_min_': 'Set minimum VWC (%) for P2 Maintain phase',
+        }
       },
       'P3': {
         includeKeywords: ['Phases'],
         excludeKeywords: ['p0','p1','p2',],
-        additionalTooltips: { }
+        additionalTooltips: {
+          'ogb_cropsteering_p3_shot_duration_': 'Set duration (sec) of each irrigation shot in P3 Night phase',
+          'ogb_cropsteering_p3_shot_intervall_': 'Set interval (min) between irrigation shots in P3 Night phase',
+          'ogb_cropsteering_p3_shot_sum_': 'Set total number of irrigation shots in P3 Night phase',
+          'ogb_cropsteering_p3_ec_target_': 'Set target EC value (µS/cm) for P3 Night phase',
+          'ogb_cropsteering_p3_ec_dryback_': 'Set EC dry-back threshold for P3 Night phase',
+          'ogb_cropsteering_p3_moisture_dryback_': 'Set moisture dry-back threshold (%) for P3 Night phase',
+          'ogb_cropsteering_p3_maxec_': 'Set maximum EC limit for P3 Night phase',
+          'ogb_cropsteering_p3_minec_': 'Set minimum EC limit for P3 Night phase',
+          'ogb_cropsteering_p3_vwc_target_': 'Set target VWC (%) for P3 Night phase',
+          'ogb_cropsteering_p3_vwc_max_': 'Set maximum VWC (%) for P3 Night phase',
+          'ogb_cropsteering_p3_vwc_min_': 'Set minimum VWC (%) for P3 Night phase',
+        }
       },
     }
   },
@@ -568,7 +616,10 @@ const dynamicFilters = {
         excludeKeywords: ['plant', 'individual', 'hydro'],
         additionalTooltips: {
           'ogb_feed_ec_target_': 'EC target for tank feeding system',
-          'ogb_feed_ph_target_': 'pH target for tank feeding system'
+          'ogb_feed_ph_target_': 'pH target for tank feeding system',
+          'ogb_feed_reservoir_': 'Capacity of the feed reservoir in liters. Used to calculate nutrient concentration and dosing volumes.',
+          'ogb_feed_reservoir_min_': 'Minimum reservoir level (%). Auto-refill triggers when the level drops below this value.',
+          'ogb_feed_reservoir_max_': 'Maximum reservoir level (%). Auto-refill stops when the level reaches this value.'
         }
       },
       'Plant Feed': {
@@ -619,7 +670,7 @@ const groupMappings = {
     excludeKeywords: ['Device','nutrient'],
   },
   'Feed Settings': {
-    includeKeywords: ['pump', 'feed'],
+    includeKeywords: ['pump', 'feed','resservoir'],
     excludeKeywords: ['Device', 'water', 'hydro', 'tolerance'],
   },
   'Special Settings': {
@@ -768,6 +819,10 @@ const ControllCollection = ({ option }) => {
 
     [`ogb_feed_plan_${currentRoom?.toLowerCase()}`]: 'Select your Tank/Resevior Feed plan',
 
+    [`ogb_feed_reservoir_${currentRoom?.toLowerCase()}`]: 'Capacity of the feed reservoir in liters. Used to calculate nutrient concentration and dosing volumes.',
+    [`ogb_feed_reservoir_min_${currentRoom?.toLowerCase()}`]: 'Minimum reservoir level (%). Auto-refill triggers when the level drops below this value.',
+    [`ogb_feed_reservoir_max_${currentRoom?.toLowerCase()}`]: 'Maximum reservoir level (%). Auto-refill stops when the level reaches this value.',
+
     [`ogb_feed_ec_target_${currentRoom?.toLowerCase()}`]: 'Set your EC Target',
     [`ogb_feed_ph_target_${currentRoom?.toLowerCase()}`]: 'Set your PH Target',
     [`ogb_feed_tolerance_ec_${currentRoom?.toLowerCase()}`]: 'Set your EC Tolerance in %',
@@ -818,7 +873,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_cropsteering_mode_${currentRoom?.toLowerCase()}`]: 'Select your wokring CropSteering Mode, Use Config to Setup and Change to Manual to Activate your Config or Run Automatic',
     [`ogb_cropsteering_phases_${currentRoom?.toLowerCase()}`]: 'Switch between Phases - Automatic-Mode does it allone.',
   
-    [`ogb_mediumtype_${currentRoom?.toLowerCase()}`]: 'Set Your Medium and Summary like COCOx3', 
+    [`ogb_mediumtype_${currentRoom?.toLowerCase()}`]: 'Set Your Medium and Summary like COCOx3, SOILx1, AEROx2, ROOCKWOOLx3', 
       
     [`ogb_lightledtype_${currentRoom?.toLowerCase()}`]: 'Set Light Type for DLI/PPFD Calculations',
     [`ogb_luxtoppfdfactor_${currentRoom?.toLowerCase()}`]: 'Set your Manual Factor Works only for Led Type Manual', 

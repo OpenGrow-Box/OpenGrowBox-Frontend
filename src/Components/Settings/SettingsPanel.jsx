@@ -11,10 +11,14 @@ const MainContainer = styled.div`
   flex-direction: column;
   gap: 1rem;
   min-height: 75vh;
+  max-height: 85vh;
+  overflow-y: auto;
   padding: 1.5rem;
   border-radius: 25px;
   background: var(--main-bg-card-color);
   box-shadow: var(--main-shadow-art);
+  width: 100%;
+  max-width: 1200px;
 `;
 
 const TopRow = styled.div`
