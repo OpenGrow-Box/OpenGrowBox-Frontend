@@ -4,7 +4,7 @@ import { MdArrowBack, MdAutoAwesome } from 'react-icons/md';
 import { createPortal } from 'react-dom';
 import OGBIcon from '../../misc/OGBIcon'
 import Wizzard from '../Wizard/Wizzard';
-import { useMemo, useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 const getWizardPortalTarget = (anchorElement) => {
   const rootNode = anchorElement?.getRootNode?.();
@@ -28,13 +28,14 @@ const getWizardPortalTarget = (anchorElement) => {
 const HeaderTitle = ({firstText,secondText,thirdText}) => {
   const [showWizzard, setShowWizzard] = useState(false);
   const titleContainerRef = useRef(null);
-  const wizardPortalTarget = useMemo(() => {
-    if (typeof document === 'undefined') {
-      return null;
-    }
+  const [wizardPortalTarget, setWizardPortalTarget] = useState(null);
 
-    return getWizardPortalTarget(titleContainerRef.current);
-  }, [showWizzard]);
+  // Resolve portal target once ref is available (handles Shadow DOM)
+  useEffect(() => {
+    if (!titleContainerRef.current) return;
+    const target = getWizardPortalTarget(titleContainerRef.current);
+    if (target) setWizardPortalTarget(target);
+  }, [titleContainerRef.current]);
 
   const wizardModal = showWizzard && wizardPortalTarget
     ? createPortal(
@@ -54,7 +55,7 @@ const HeaderTitle = ({firstText,secondText,thirdText}) => {
         wizardPortalTarget
       )
     : null;
-  
+
   const handleBackToHA = () => {
     // Try to navigate back to Home Assistant main interface
     try {
@@ -85,8 +86,7 @@ const HeaderTitle = ({firstText,secondText,thirdText}) => {
           whileTap={{ scale: 0.9 }}
           title="Back to Home Assistant"
         >
-        
-        <MdArrowBack />
+          <MdArrowBack />
         </BackButton>
 
         <TitleContent>
@@ -132,9 +132,6 @@ const HeaderTitle = ({firstText,secondText,thirdText}) => {
             </motion.div>
         </TitleContent>
 
-        </TitleContainer>
-      
-      {wizardPortalTarget && createPortal(
         <WizardButton
           onClick={() => setShowWizzard(true)}
           whileHover={{ scale: 1.1 }}
@@ -142,9 +139,8 @@ const HeaderTitle = ({firstText,secondText,thirdText}) => {
           title="Open Wizard - Quick setup guide"
         >
           <MdAutoAwesome />
-        </WizardButton>,
-        wizardPortalTarget
-      )}
+        </WizardButton>
+        </TitleContainer>
 
       {wizardModal}
     </>
