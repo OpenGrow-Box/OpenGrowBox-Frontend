@@ -3,7 +3,7 @@ import styled from 'styled-components';
 import { useHomeAssistant } from '../../Context/HomeAssistantContext';
 import { useGlobalState } from '../../Context/GlobalContext';
 import HistoryChart from '../HistoryChart';
-import { classifyAndNormalize, filterSensorsByRoom } from './sensorClassifier';
+import { classifyAndNormalize, detectOrpSensors, detectWaterTempSensors, filterSensorsByRoom } from './sensorClassifier';
 import { getThemeColor } from '../../../utils/themeColors';
 import formatLabel from '../../../misc/formatLabel';
 
@@ -25,23 +25,14 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
   const [selectedSensor, setSelectedSensor] = useState(null);
 
   useEffect(() => {
-    // ORP/Oxidation sensors – broad catch for various naming patterns (_orp, _oxidation, waterorp)
-    const orpPattern = /(?:^|_)orp(?:_|$)|(?:^|_)oxidation(?:_|$)|waterorp/i;
-    const hardcodedOrpSensors = Object.entries(entities)
-      .filter(
-        ([key, entity]) =>
-          key.startsWith('sensor.') &&
-          orpPattern.test(key) &&
-          !isNaN(parseFloat(entity.state))
-      )
-      .map(([key, entity]) => ({
-        id: key,
-        value: parseFloat(entity.state),
-        unit: entity.attributes?.unit_of_measurement || 'mV',
-        friendlyName: formatLabel(entity.attributes?.friendly_name || key, currentRoom, entity.entity_id || key),
-        category: 'oxidation',
-        context: 'water',
-      }));
+    const room = (currentRoom || '').trim().toLowerCase();
+    const preferRoom = (list) => list.sort(
+      (a, b) => Number(b.id.toLowerCase().includes(room)) - Number(a.id.toLowerCase().includes(room))
+    );
+
+    // ORP/Oxidation sensors – broad catch for various naming patterns (_orp, _oxidation, waterorp).
+    // Unavailable/unknown states are skipped, so no frozen value is rendered.
+    const hardcodedOrpSensors = preferRoom(detectOrpSensors(entities, currentRoom));
 
     const normalizedSensors = classifyAndNormalize(entities)
       .filter(
@@ -59,6 +50,18 @@ const WaterCard = ({pause, resume, isPlaying, filterByRoom}) => {
 
     if (filterByRoom && currentRoom) {
       combinedSensors = filterSensorsByRoom(combinedSensors, currentRoom);
+    }
+
+    // Water temperature fallback – label based detection (e.g. sensor.water_temperature).
+    // The classifier/room filter drops probes whose HA device has no area assigned, so the
+    // unfiltered candidates are kept (room matches first) instead of disappearing.
+    if (!combinedSensors.some(s => s.category === 'temperature')) {
+      combinedSensors = [...combinedSensors, ...preferRoom(detectWaterTempSensors(entities))];
+    }
+
+    // Same for ORP, so this card and the water dashboard tab always show the same sensor
+    if (!combinedSensors.some(s => s.category === 'oxidation')) {
+      combinedSensors = [...combinedSensors, ...preferRoom(detectOrpSensors(entities, currentRoom))];
     }
 
     setWaterensors(combinedSensors);

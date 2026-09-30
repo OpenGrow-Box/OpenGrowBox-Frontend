@@ -14,7 +14,7 @@ import { useGlobalState } from '../Components/Context/GlobalContext';
 import GrowMetrics from '../Components/Dashboard/GrowMetrics';
 import { MediumProvider } from '../Components/Context/MediumContext';
 import CropSteeringOverview from '../Components/Dashboard/CropSteeringOverview';
-import { classifyAndNormalize, filterSensorsByRoom } from '../Components/Cards/SliderCards/sensorClassifier';
+import { classifyAndNormalize, detectOrpSensors, detectWaterTempSensors, filterSensorsByRoom } from '../Components/Cards/SliderCards/sensorClassifier';
 import { FaSpinner, FaLeaf } from 'react-icons/fa';
 
 
@@ -135,32 +135,62 @@ const Dashboard = () => {
       ? filterSensorsByRoom(normalized, currentRoom)
       : normalized;
 
+    // Prefer candidates that belong to the current room instead of relying on entity order
+    const room = currentRoom?.trim()?.toLowerCase() || 'default';
+    const belongsToRoom = (s) => (s.id || '').toLowerCase().includes(room);
+    const ordered = [
+      ...roomFiltered.filter(belongsToRoom),
+      ...roomFiltered.filter((s) => !belongsToRoom(s))
+    ];
+
     // Map first match per category to expected keys
-    for (const s of roomFiltered) {
-      const key = s.category === 'oxidation' ? 'orp' : s.category;
+    // Note: the classifier category is 'temperature' but every consumer expects 'temp'
+    const categoryKey = { oxidation: 'orp', temperature: 'temp' };
+    for (const s of ordered) {
+      const key = categoryKey[s.category] || s.category;
       if (!sensors[key]) {
         sensors[key] = { id: s.id };
       }
     }
 
-    // Hardcoded ORP/oxidation fallback – catches naming patterns that classifyAndNormalize might misclassify
-    const orpPattern = /(?:^|_)orp(?:_|$)|(?:^|_)oxidation(?:_|$)|waterorp/i;
-    Object.entries(entities).forEach(([key, entity]) => {
-      if (sensors.orp) return; // already found
-      if (!key.startsWith('sensor.') || typeof entity.state === 'undefined') return;
-      if (orpPattern.test(key)) {
-        sensors.orp = { id: key };
+    // Water temperature fallback – matches on the label (e.g. sensor.water_temperature).
+    // The classifier only tags a temperature sensor as "water" when the label contains a
+    // water word, and the room filter drops probes whose HA device has no area assigned.
+    if (!sensors.temp) {
+      const tempCandidates = detectWaterTempSensors(entities)
+        .sort((a, b) => Number(belongsToRoom(b)) - Number(belongsToRoom(a)));
+      if (tempCandidates.length > 0) {
+        sensors.temp = { id: tempCandidates[0].id };
       }
-    });
+    }
+
+    // Hardcoded ORP/oxidation fallback – catches naming patterns that classifyAndNormalize might misclassify.
+    // Unavailable/unknown states are skipped, and an existing but broken sensor of this room hides
+    // the card instead of falling back to another room's ORP.
+    if (!sensors.orp) {
+      const orpCandidates = detectOrpSensors(entities, room);
+      if (orpCandidates.length > 0) {
+        sensors.orp = { id: orpCandidates[0].id };
+      }
+    }
 
     // Tank/Reservoir Level - manual regex on entity_id
-    const room = currentRoom?.trim()?.toLowerCase() || 'default';
-    Object.entries(entities).forEach(([key, entity]) => {
-      const keyLower = key.toLowerCase();
-      if ((keyLower.includes('tank_level') || keyLower.includes('reservoir_level') || keyLower.includes('water_level')) && (keyLower.includes(room) || !keyLower.includes('_room'))) {
-        sensors.tankLevel = { id: key, ...entity };
+    const tankCandidates = Object.entries(entities)
+      .filter(([key, entity]) => {
+        const keyLower = key.toLowerCase();
+        if (isNaN(parseFloat(entity.state))) return false;
+        return (
+          (keyLower.includes('tank_level') || keyLower.includes('reservoir_level') || keyLower.includes('water_level')) &&
+          (keyLower.includes(room) || !keyLower.includes('_room'))
+        );
+      })
+      .map(([key, entity]) => ({ id: key, ...entity }));
+    if (!sensors.tankLevel) {
+      const tankMatch = tankCandidates.find(t => t.id.toLowerCase().includes(room)) || tankCandidates[0];
+      if (tankMatch) {
+        sensors.tankLevel = tankMatch;
       }
-    });
+    }
 
     // Only return new object if sensor IDs actually changed (prevents cascade-refetch on every HA state update)
     const prev = waterSensorsRef.current;

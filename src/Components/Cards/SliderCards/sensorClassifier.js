@@ -92,6 +92,90 @@ const convertUnit = (value, unit, category) => {
 
 const isNotNumeric = (val) => isNaN(parseFloat(val));
 
+const WATER_WORDS = /water|wasser|aqua|nähr|nahr|nutrient|lohsung|solution|tank|reservoir|hydro|bucket|behälter/i;
+const TEMP_WORDS = /temp|temperatur/i;
+const NON_WATER_TEMP_WORDS = /air|ambient|umgebung|indoor|intern|outside|outdoor|external|exterior|außen|aussen|avg|average|dew|canopy|leaf/i;
+
+/**
+ * Read the known room names from select.ogb_rooms
+ * @param {Object} entities - HA entity map
+ * @returns {Array} Lowercase room names
+ */
+const getKnownRooms = (entities) => {
+  const options = entities?.['select.ogb_rooms']?.attributes?.options;
+  if (!Array.isArray(options)) return [];
+  return options.map(r => String(r).trim().toLowerCase()).filter(Boolean);
+};
+
+/**
+ * Detect ORP/oxidation sensors by entity_id naming pattern.
+ * Candidates without a numeric state (unavailable/unknown) are skipped so no frozen value is
+ * rendered. Preference order: sensor of the current room, then a room independent sensor.
+ * A sensor of another room is never used - if the current room's ORP is unavailable, the
+ * caller gets an empty list and can hide the card instead of showing foreign values.
+ * @param {Object} entities - HA entity map
+ * @param {String} [room] - Current room name, used to scope the candidates
+ * @returns {Array} Normalized oxidation sensors with context 'water'
+ */
+export const detectOrpSensors = (entities, room = '') => {
+  const orpPattern = /(?:^|_)orp(?:_|$)|(?:^|_)oxidation(?:_|$)|waterorp/i;
+
+  const roomLower = (room || '').trim().toLowerCase();
+  const otherRooms = getKnownRooms(entities).filter(r => r !== roomLower);
+
+  const isOwnRoom = (key) => roomLower && key.toLowerCase().includes(roomLower);
+  const isOtherRoom = (key) => otherRooms.some(r => key.toLowerCase().includes(r));
+
+  const candidates = Object.entries(entities).filter(
+    ([key, entity]) =>
+      key.startsWith('sensor.') &&
+      entity &&
+      orpPattern.test(key) &&
+      !isNotNumeric(entity.state) &&
+      !shouldIgnore(key, entity)
+  );
+
+  const scoped = candidates.filter(([key]) => isOwnRoom(key));
+  const selected = scoped.length > 0 ? scoped : candidates.filter(([key]) => !isOtherRoom(key));
+
+  return selected.map(([key, entity]) => ({
+    id: key,
+    category: 'oxidation',
+    context: 'water',
+    value: parseFloat(entity.state),
+    unit: entity.attributes?.unit_of_measurement || 'mV',
+    friendlyName: formatLabel(entity.attributes?.friendly_name || key, '', entity.entity_id || key)
+  }));
+};
+
+/**
+ * Detect water/nutrient solution temperature sensors by label (order independent,
+ * e.g. sensor.water_temperature, sensor.temperature_water, "Wassertemperatur").
+ * Needed on top of classifyAndNormalize because a temperature sensor only gets the
+ * "water" context when the label literally contains a water word, and the room filter
+ * drops probes whose HA device has no area assigned to the current room.
+ * @param {Object} entities - HA entity map
+ * @returns {Array} Normalized temperature sensors with context 'water'
+ */
+export const detectWaterTempSensors = (entities) => {
+  return Object.entries(entities)
+    .filter(([key, entity]) => {
+      if (!key.startsWith("sensor.") || !entity || isNotNumeric(entity.state)) return false;
+      if (shouldIgnore(key, entity)) return false;
+
+      const label = `${key} ${entity.attributes?.friendly_name || ""}`;
+      return WATER_WORDS.test(label) && TEMP_WORDS.test(label) && !NON_WATER_TEMP_WORDS.test(label);
+    })
+    .map(([key, entity]) => ({
+      id: key,
+      category: "temperature",
+      context: "water",
+      value: parseFloat(entity.state),
+      unit: entity.attributes?.unit_of_measurement || "°C",
+      friendlyName: formatLabel(entity.attributes?.friendly_name || key, "", entity.entity_id || key)
+    }));
+};
+
 /**
  * Filter sensors by room using HA device registry or entity name fallback
  * @param {Array} sensors - Array of normalized sensors

@@ -105,19 +105,30 @@ const CombinedWaterChart = ({
     const xData = option.xAxis[0].data;
     const series = option.series;
 
+    // Resolve series by name - the series array is built dynamically, so fixed
+    // indices would map the wrong sensor to the wrong column
+    const getSeriesData = (name) => series.find(s => s.name === name)?.data || [];
+    const phData = getSeriesData('pH');
+    const ecData = getSeriesData('EC');
+    const tempData = getSeriesData('Water Temp');
+    const tankData = getSeriesData('Tank Level');
+    const hasTankLevel = tankData.length > 0;
+
     const tempUnit = getTemperatureUnit();
     const headers = ['Timestamp', 'pH', 'EC (mS/cm)', `Water Temp (${tempUnit})`];
-    if (waterSensors?.tankLevel) headers.push('Tank Level (%)');
+    if (hasTankLevel) headers.push('Tank Level (%)');
 
     const csvContent = [
       headers.join(','),
       ...xData.map((x, i) => {
-        const values = [x];
-        values.push(series[0]?.data?.[i] ?? '');
-        values.push(series[2]?.data?.[i] ?? '');
-        values.push(series[4]?.data?.[i] ?? '');
-        if (waterSensors?.tankLevel) {
-          values.push(series[6]?.data?.[i] ?? '');
+        const values = [
+          x,
+          phData[i] ?? '',
+          ecData[i] ?? '',
+          tempData[i] ?? ''
+        ];
+        if (hasTankLevel) {
+          values.push(tankData[i] ?? '');
         }
         return values.join(',');
       })
@@ -368,8 +379,11 @@ const CombinedWaterChart = ({
         const alignedTemp = alignDataToXAxis('temp');
         const alignedTankLevel = alignDataToXAxis('tankLevel');
 
-        // Build legend data
-        const legendData = ['pH', 'EC', 'Water Temp'];
+        // Build legend data - only sensors that actually have data
+        const legendData = [];
+        if (alignedPH.data.length > 0) legendData.push('pH');
+        if (alignedEC.data.length > 0) legendData.push('EC');
+        if (alignedTemp.data.length > 0) legendData.push('Water Temp');
         if (waterSensors?.tankLevel && alignedTankLevel.data.length > 0) legendData.push('Tank Level');
 
         // Build Y-axes
@@ -810,12 +824,14 @@ const CombinedWaterChart = ({
             <TrendIndicator>{getTrendIcon(stats.ec.trend)}</TrendIndicator>
             <StatAvg>Ø {stats.ec.avg}</StatAvg>
           </StatBox>
-          <StatBox>
-            <StatLabel style={{ color: sensorsConfig.temp.color }}>Water Temp</StatLabel>
-            <StatValue>{stats.temp.current}<Unit>{sensorsConfig.temp.unit}</Unit></StatValue>
-            <TrendIndicator>{getTrendIcon(stats.temp.trend)}</TrendIndicator>
-            <StatAvg>Ø {stats.temp.avg}</StatAvg>
-          </StatBox>
+          {sensorsConfig.temp.id && (
+            <StatBox>
+              <StatLabel style={{ color: sensorsConfig.temp.color }}>Water Temp</StatLabel>
+              <StatValue>{stats.temp.current}<Unit>{sensorsConfig.temp.unit}</Unit></StatValue>
+              <TrendIndicator>{getTrendIcon(stats.temp.trend)}</TrendIndicator>
+              <StatAvg>Ø {stats.temp.avg}</StatAvg>
+            </StatBox>
+          )}
           {waterSensors?.tankLevel && stats.tankLevel.current !== '--' && (
             <StatBox>
               <StatLabel style={{ color: sensorsConfig.tankLevel.color }}>Tank Level</StatLabel>
