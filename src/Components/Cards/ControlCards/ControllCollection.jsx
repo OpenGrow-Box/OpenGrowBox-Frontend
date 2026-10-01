@@ -708,7 +708,7 @@ const ControllCollection = ({ option }) => {
     [`ogb_leaftemp_offset_${currentRoom?.toLowerCase()}`]: 'Override it with a Leaf Label device if needed.',
     [`ogb_vpdtarget_${currentRoom?.toLowerCase()}`]: 'Set your target VPD. Works only in "Targeted VPD" Tent Mode Use MinMax setters for temp and Hum as PlantStage change will overwrite it.',
     [`ogb_vpdtolerance_${currentRoom?.toLowerCase()}`]: 'Adjust tolerance between Targeted VPD and Perfect VPD.',
-    [`ogb_vpddeadband_${currentRoom?.toLowerCase()}`]: 'Set the deadband around the VPD target before corrections are triggered.',
+    [`ogb_vpddeadband_${currentRoom?.toLowerCase()}`]: 'Set the deadband around the VPD target before corrections are triggered. if Set to 0.0 it will stop Using a DeadBand',
 
     [`ogb_lightcontrol_${currentRoom?.toLowerCase()}`]: 'Enable to control lights via OpenGrowBox.',
     [`ogb_vpdlightcontrol_${currentRoom?.toLowerCase()}`]: 'If enabled, light intensity will shift between min/max to help regulate VPD.',
