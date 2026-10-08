@@ -21,6 +21,10 @@ const ToastContainer = styled.div`
   max-width: 380px;
   width: calc(100vw - 40px);
   pointer-events: none;
+
+  @media (max-width: 768px) {
+    top: 76px;
+  }
 `;
 
 const ToastItem = styled.div`
@@ -95,7 +99,15 @@ const CloseButton = styled.button`
   align-items: center;
   justify-content: center;
   transition: color 0.2s;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   &:hover { color: rgba(255,255,255,0.9); }
+
+  @media (max-width: 768px) {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
+  }
 `;
 
 const ToastActions = styled.div`

@@ -562,17 +562,12 @@ const SensorChart = ({
   return (
     <ChartCard>
       <ChartHeader>
-        <HeaderTopRow>
-
-            <ChartTitle>{plantName}</ChartTitle>  
           <CurrentValue>
+            <ChartTitle>{plantName}</ChartTitle>  
             <TrendIndicator>{getTrendIcon()}</TrendIndicator>
             <ValueNumber>{stats.current}</ValueNumber>
             <ValueUnit>{unit}</ValueUnit>
           </CurrentValue>
-
-        </HeaderTopRow>
-
           <ChartTitleRow>
             <ChartTitle>{title}</ChartTitle>
             <ChartTypeSelector>
@@ -695,16 +690,6 @@ const ChartHeader = styled.div`
   margin-bottom: 0.75rem;
 `;
 
-const HeaderTopRow = styled.div`
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-
-  @media (max-width: 480px) {
-    flex-wrap: wrap;
-    gap: 0.5rem;
-  }
-`;
 
 const HeaderBottomRow = styled.div`
   display: flex;
@@ -747,17 +732,6 @@ const ChartTypeSelector = styled.div`
   flex-shrink: 0;
 `;
 
-const ChartMenuLabel = styled.span`
-  font-size: 0.7rem;
-  color: var(--placeholder-text-color);
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-`;
-
-const ChartTypeButtons = styled.div`
-  display: flex;
-  gap: 0.25rem;
-`;
 
 const ChartTypeBtn = styled.button`
   padding: 0.5rem;
@@ -935,15 +909,6 @@ const StatsBar = styled.div`
   }
 `;
 
-const TimeSelectorBottom = styled.div`
-  display: flex;
-  gap: 0.25rem;
-  background: var(--glass-bg-secondary);
-  padding: 0.25rem;
-  border-radius: 10px;
-  margin-top: 0.75rem;
-  justify-content: center;
-`;
 
 const StatBox = styled.div`
   display: flex;

@@ -315,7 +315,7 @@ const GrowDayCounter = () => {
                       {currentMedium.medium_name || `Medium ${currentMediumIndex + 1}`}
                     </MediumBadge>
                   </PlantTitleRow>
-                  <BreederSubtitle>{currentMedium.breeder_name || 'Unknown Breeder'}</BreederSubtitle>
+                  <BreederSubtitle>{currentMedium.breeder_name}</BreederSubtitle>
                 </PlantTitleWrapper>
              )}
             

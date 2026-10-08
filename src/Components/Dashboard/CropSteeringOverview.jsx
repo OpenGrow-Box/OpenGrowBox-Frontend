@@ -799,6 +799,9 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
   const calSaturation = calLearned?.max_saturation_vwc ?? calTargets?.VWCMax ?? null;
   const calMinDryback = calLearned?.min_dryback_vwc ?? calTargets?.VWCMin ?? null;
 
+
+            console.log(currentMedium)
+
   const renderCalibrationCards = () => {
     const fmt = (v, digits = 1) => (v !== null && v !== undefined && !isNaN(v) ? `${Number(v).toFixed(digits)}%` : '--');
     return (
@@ -1241,6 +1244,7 @@ const CropSteeringOverview = ({ isGlobalLiveMode, globalLiveRefreshTrigger, onLi
 
           {/* Individual Charts */}
           <IndividualCharts>
+
             {renderSensorCharts('moisture', soilSensors.moisture, currentMedium?.plant_name)}
             {renderSensorCharts('ec', soilSensors.ec, currentMedium?.plant_name)}
             {renderSensorCharts('ph', soilSensors.ph, currentMedium?.plant_name)}

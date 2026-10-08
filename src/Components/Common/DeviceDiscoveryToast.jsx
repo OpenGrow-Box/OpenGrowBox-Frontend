@@ -203,6 +203,13 @@ const ToastContainer = styled.div`
   flex-direction: column;
   gap: 10px;
   max-width: 400px;
+
+  @media (max-width: 768px) {
+    left: 20px;
+    right: 20px;
+    width: auto;
+    max-width: none;
+  }
 `;
 
 const ToastItem = styled.div`
@@ -334,9 +341,17 @@ const DismissButton = styled.button`
   cursor: pointer;
   font-size: 14px;
   padding: 4px;
+  touch-action: manipulation;
+  -webkit-tap-highlight-color: transparent;
   
   &:hover {
     color: rgba(255, 255, 255, 0.8);
+  }
+
+  @media (max-width: 768px) {
+    min-width: 44px;
+    min-height: 44px;
+    padding: 10px;
   }
 `;
 

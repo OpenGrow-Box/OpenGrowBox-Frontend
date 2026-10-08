@@ -143,7 +143,7 @@ const MediumSelector = () => {
                         <PlantCardName $isActive={isActive}>
                           {medium?.plant_name || `Plant ${index + 1}`}
                         </PlantCardName>
-                        <StrainName>{medium?.breeder_name || 'Unknown strain'}</StrainName>
+                        <StrainName>{medium?.breeder_name }</StrainName>
                         <MediumNameBadge>
                           <FaFlask size={10} />
                           {medium?.medium_name || `Medium ${index + 1}`}
